@@ -1,7 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=9';
+import * as CFG from './config.js?v=10';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=9';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=10';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -669,17 +669,37 @@ P.nouveautes = async m => {
   $('#nw').innerHTML = (data || []).map(n => `<div class="card section"><span class="small mute">${new Date(n.at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span><h2 style="margin-top:6px">${esc(n.title)}</h2><p style="white-space:pre-wrap">${esc(n.body)}</p></div>`).join('') || '<div class="empty">Pas encore de nouveautés.</div>';
 };
 
+async function shrinkImage(file, max = 1024) {
+  const url = URL.createObjectURL(file); const im = new Image(); await new Promise((ok, ko) => { im.onload = ok; im.onerror = ko; im.src = url; });
+  const k = Math.min(1, max / Math.max(im.width, im.height)); const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+  c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(url); return c.toDataURL('image/jpeg', .82);
+}
+async function kakashiCtx() {
+  try { await loadMyLR(); const own = S.mylr.cards || {}; if (Object.keys(own).length < 3) return '';
+    const L = []; const bc = bestTeam('chateau', own); if (bc) { const e = castleEval(bc.team, own); L.push(`Meilleure équipe château calculée : ${bc.team.map(c => `${c.n} ${own[c.id] || 0}★`).join(', ')} → chambre max estimée ${e.room} (${e.aya ? (e.heal ? 'boucle Aya avec soin' : 'boucle Aya sans soin') : 'sans Aya, combat simulé en attaques simples'}).`); }
+    const br = bestTeam('ranked', own); if (br) L.push(`Équipe ranked conseillée : ${br.team.map(c => `${c.n} ${own[c.id] || 0}★`).join(', ')}${br.meta ? ' (trio de la méta)' : ''}.`);
+    for (const md of ['chateau', 'ranked']) { const t = (S.mylr.teams?.[md] || []).map(id => LRS().find(c => c.id === +id)).filter(Boolean); if (t.length === 3) L.push(`Équipe ${md} actuelle du membre : ${t.map(c => c.n).join(', ')}${md === 'chateau' ? ` (chambre max ${castleEval(t, own).room})` : ''}.`); }
+    return L.join('\n'); } catch { return ''; }
+}
 P.kakashi = m => {
-  m.innerHTML = `<div class="row"><h1 style="margin:0">Kakashi Bot</h1><span class="sp"></span><span class="chip">Aussi sur Discord : /kakashi</span></div>
-    <p class="mute">Pose une question sur une carte, le château, le prestige, la salle du temps, le ranked ou les prix.</p>
+  m.innerHTML = `<div class="row"><h1 style="margin:0">Kakashi</h1><span class="sp"></span><span class="chip red">IA de la Brigade</span></div>
+    <p class="mute">Pose n'importe quelle question sur YURO : équipe, château, ranked, prix, éveils… Tu peux joindre une capture d'écran (collection, équipe, combat). Kakashi connaît tes LR.</p>
     <div class="chat" id="ch"></div>
-    <form id="kf" class="row" style="margin-top:12px"><input id="kq" placeholder="Ex. two shot Aya 3 étoiles" autocomplete="off" style="flex:1;min-width:200px"><button class="btn primary">Envoyer</button></form>
-    <div class="row" style="margin-top:10px">${['Janemba', 'two shot Aya 5 étoiles', 'chambre 650', 'prix Makima', 'jetons prestige', 'meilleure compo ranked'].map(x => `<button class="chip" data-q="${x}" style="cursor:pointer">${x}</button>`).join('')}</div>`;
-  const ch = $('#ch');
-  const say = (t, who) => { const b = document.createElement('div'); b.className = 'bubble ' + who; b.innerHTML = md(t); ch.appendChild(b); ch.scrollTop = ch.scrollHeight; };
-  say("Yo. Je connais les fiches des LR, les guides de la Brigade, les chambres du château et les prix du marché. Qu'est-ce que tu veux savoir ?", 'k');
-  const ask = q => { if (!q.trim()) return; say(q, 'me'); setTimeout(() => say(answer(q, S.kb), 'k'), 180); };
-  $('#kf').onsubmit = e => { e.preventDefault(); ask($('#kq').value); $('#kq').value = ''; };
+    <div id="kimg" class="small mute" style="margin-top:8px"></div>
+    <form id="kf" class="row" style="margin-top:8px"><label class="btn" title="Joindre une capture" style="cursor:pointer;padding:0 14px">📷<input id="kfile" type="file" accept="image/*" hidden></label><input id="kq" placeholder="Ex. quelle équipe pour passer la chambre 700 ?" autocomplete="off" style="flex:1;min-width:180px"><button class="btn primary" id="ks">Envoyer</button></form>
+    <div class="row" style="margin-top:10px">${['Quelle est ma meilleure équipe au château ?', 'Comment battre une équipe avec Janemba ?', 'Que vaut Makima au prix actuel ?', 'Quel éveil me rapporterait le plus ?'].map(x => `<button class="chip" data-q="${x}" style="cursor:pointer">${x}</button>`).join('')}</div>`;
+  const ch = $('#ch'); const hist = []; let pending = null;
+  const say = (t, who, img) => { const b = document.createElement('div'); b.className = 'bubble ' + who; b.innerHTML = (img ? `<img src="${img}" alt="" style="max-width:220px;border-radius:10px;display:block;margin-bottom:6px">` : '') + md(t); ch.appendChild(b); ch.scrollTop = ch.scrollHeight; return b; };
+  say("Yo. Je connais toutes les LR et leurs stats exactes, les formules du château, les prix réels du marché, les éveils, la méta ranked et tes propres LR. Pose ta question, ou envoie une capture.", 'k');
+  $('#kfile').onchange = async e => { const f = e.target.files[0]; if (!f) return; pending = await shrinkImage(f); $('#kimg').innerHTML = `📎 Capture jointe <button class="chip" id="kx" style="cursor:pointer">retirer</button>`; $('#kx').onclick = () => { pending = null; $('#kimg').innerHTML = ''; }; e.target.value = ''; };
+  const ask = async q => { q = q.trim(); if (!q && !pending) return; const img = pending; pending = null; $('#kimg').innerHTML = '';
+    say(q || 'Analyse cette capture.', 'me', img); hist.push({ role: 'user', content: q || 'Analyse cette capture.' });
+    const wait = say('…', 'k'); $('#ks').disabled = true;
+    try { const ctx = await kakashiCtx(); const { data, error } = await sb.functions.invoke('kakashi-ai', { body: { messages: hist.slice(-8), image: img, ctx } });
+      let txt = data?.answer; if (error || !txt) { let msg = data?.error; try { msg = msg || (await error?.context?.json?.())?.error; } catch {} txt = (msg ? msg + '\n\n' : '') + 'Réponse rapide depuis la base :\n' + answer(q, S.kb); }
+      wait.innerHTML = md(txt); hist.push({ role: 'assistant', content: txt }); } catch (e) { wait.innerHTML = md(answer(q, S.kb)); }
+    $('#ks').disabled = false; ch.scrollTop = ch.scrollHeight; };
+  $('#kf').onsubmit = e => { e.preventDefault(); const v = $('#kq').value; $('#kq').value = ''; ask(v); };
   m.querySelectorAll('[data-q]').forEach(b => b.onclick = () => ask(b.dataset.q));
 };
 
