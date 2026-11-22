@@ -1,7 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=5';
+import * as CFG from './config.js?v=6';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=5';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=6';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -488,11 +488,26 @@ P.meslr = async m => {
 
 const HEALERS = [3248, 408], AYA = 953;
 const roleOk = t => new Set(t.map(c => c.c || c.id)).size === t.length;
+// Course aux dégâts simplifiée (attaques simples, soin de 30 % tous les 3 tours) : sert pour les équipes sans Aya.
+function raceWins(team, own, room) {
+  const g = towerAt(null, room); const st = c => (c.p ? 0 : own[c.id] || 0);
+  const us = team.map(c => { const s = statsAt(c, st(c)); return { hp: s.hp, max: s.hp, atk: s.atk, heal: HEALERS.includes(c.id) }; });
+  const en = [g.hp, g.hp, g.hp];
+  for (let t = 1; t < 60; t++) {
+    for (const u of us) { if (u.hp <= 0) continue; if (u.heal && t % 3 === 0) { for (const v of us) if (v.hp > 0) v.hp = Math.min(v.max, v.hp + Math.max(1, Math.round(v.max * .3))); continue; }
+      const i = en.findIndex(x => x > 0); if (i < 0) return true; en[i] -= u.atk; }
+    if (en.every(x => x <= 0)) return true;
+    for (let k = 0; k < 3; k++) { if (en[k] <= 0) continue; const alive = us.filter(u => u.hp > 0); if (!alive.length) return false; alive.sort((a, b) => a.hp - b.hp)[0].hp -= g.atk; }
+    if (us.every(u => u.hp <= 0)) return false;
+  }
+  return false;
+}
+function raceRoom(team, own) { let lo = 1, hi = 1500; if (!raceWins(team, own, 1)) return 0; while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (raceWins(team, own, mid)) lo = mid; else hi = mid - 1; } return lo; }
 function castleEval(team, own) {
   const st = c => (c.p ? 0 : own[c.id] || 0); const heal = team.some(c => HEALERS.includes(c.id)); const aya = team.find(c => c.id === AYA);
-  if (aya) return { room: twoShotRoom(null, aya, st(aya), heal), aya: true, heal };
-  const room = Math.max(...team.map(c => twoShotRoom(null, c, st(c), heal)));
-  return { room, aya: false, heal };
+  const race = raceRoom(team, own);
+  if (aya) return { room: Math.max(twoShotRoom(null, aya, st(aya), heal), race), aya: true, heal };
+  return { room: race, aya: false, heal };
 }
 function rankedScore(team, own) {
   const st = c => (c.p ? 0 : own[c.id] || 0); let sc = 0;
@@ -508,7 +523,7 @@ function bestTeam(mode, own) {
   if (mode === 'ranked') { for (const t of META) if (t.every(id => own[id] != null)) return { team: t.map(id => C.find(c => c.id === id)), meta: true }; }
   let best = null;
   for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) for (let k = j + 1; k < C.length; k++) { const t = [C[i], C[j], C[k]]; if (!roleOk(t)) continue;
-    const v = mode === 'chateau' ? (() => { const e = castleEval(t, own); return e.room * 1000 + (e.aya ? 500 : 0) + (t.some(c => [340, 329, 499].includes(c.id)) ? 100 : 0) + rankedScore(t, own) / 10; })() : rankedScore(t, own);
+    const v = mode === 'chateau' ? (() => { if (!t.some(c => c.id === AYA) && C.some(c => c.id === AYA)) return -1; const e = castleEval(t, own); return e.room * 1000 + (e.aya ? 500 : 0) + (t.some(c => [340, 329, 499].includes(c.id)) ? 100 : 0) + rankedScore(t, own) / 10; })() : rankedScore(t, own);
     if (!best || v > best.v) best = { team: t, v }; }
   return best;
 }
@@ -553,7 +568,7 @@ P.equipe = async (m, mode = 'chateau') => {
       body = `${teamCards(bt, own)}<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre max estimée</div><div class="cd">${e.room}</div></div>${cur && !same ? `<div><div class="mute small">Gain</div><div class="cd ${e.room > cur.room ? 'up' : ''}">${e.room - cur.room >= 0 ? '+' : ''}${e.room - cur.room}</div></div>` : ''}</div>
         <h3 style="margin-top:18px">Pourquoi cette équipe</h3><ul class="list">${castleWhy(bt, own, e).map(x => `<li>${x}</li>`).join('')}</ul>
         <h3>La stratégie</h3><ol class="list">${castleStrat(e).map(x => `<li>${x}</li>`).join('')}</ol>
-        <p class="small mute">Chambre max = dernière chambre où ${e.aya ? 'Aya' : 'ta carte la plus solide'} encaisse 2 coups de gardien (formules exactes du jeu, stats exactes par étoile). Les passifs et le hasard ne sont pas comptés : vise cette chambre, pas plus.</p>`; }
+        <p class="small mute">${e.aya ? 'Chambre max = dernière chambre où Aya encaisse 2 coups de gardien (formules exactes du jeu, stats exactes par étoile).' : 'Chambre max = combat simulé en attaques simples contre 3 gardiens de la chambre (formules exactes du jeu), sans les techniques : c\'est une estimation prudente.'} Les passifs et le hasard ne sont pas comptés : vise cette chambre, pas plus.</p>`; }
     else { body = `${teamCards(bt, own)}<h3 style="margin-top:18px">Pourquoi cette équipe</h3><ul class="list">${b.meta ? '<li>C\'est un des meilleurs trios de la méta actuelle, et tu as les 3 cartes.</li>' : '<li>Meilleur équilibre entre stats (à tes étoiles), rôles et techniques parmi tes LR.</li>'}
         ${bt.some(c => HEALERS.includes(c.id)) ? '<li>Un soigneur qui rend 30 % à toute l\'équipe te fait survivre à un coup de plus à chaque cycle.</li>' : '<li>Pas de soigneur dans tes LR : Seiichi est la carte qui ferait le plus progresser ton équipe.</li>'}
         ${bt.some(c => [1070, 961].includes(c.id)) ? '<li>Janemba ou Goku MUI esquivent : l\'adversaire perd des tours à taper dans le vide.</li>' : ''}
