@@ -1,5 +1,6 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } from './config.js';
+import * as CFG from './config.js';
+const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
 import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
@@ -32,8 +33,8 @@ const SPIDER = `<svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="currentCo
 
 const ROUTES = [
   ['accueil', 'Accueil', 'home'], ['kakashi', 'Kakashi Bot', 'bot'],
-  ['sep', 'Guides'], ['guide/chateau', 'Château 500+', 'book'], ['guide/prestige', 'Prestige', 'book'], ['guide/temps', 'Salle du temps', 'book'], ['guide/ranked', 'Ranked', 'book'],
-  ['sep', 'Outils'], ['persos', 'Fiches perso', 'users'], ['calculs', 'Calculateurs', 'calc'], ['prix', 'Prix en direct', 'chart'], ['simulateur', 'Simulateur de compo', 'layers'], ['checklist', 'Checklist Prestige', 'check'],
+  ['sep', 'Guides'], ['guide/chateau', 'Château 500+', 'book'], ['guide/prestige', 'Prestige', 'book'], ['guide/temps', 'Salle du temps', 'book'], ['guide/ranked', 'Ranked', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'], ['guide/roles', 'Cartes par rôle', 'book'],
+  ['sep', 'Outils'], ['persos', 'Fiches perso', 'users'], ['calculs', 'Calculateurs', 'calc'], ['prix', 'Prix en direct', 'chart'], ['simulateur', 'Simulateur de compo', 'layers'], ['checklist', 'Collection Prestige', 'check'], ['alertes', 'Alertes prix', 'bell'],
   ['sep', 'Brigade'], ['calendrier', 'Calendrier', 'cal'], ['nouveautes', 'Nouveautés', 'bell'], ['lexique', 'Lexique', 'text'], ['discord', 'Espace Discord', 'chat']
 ];
 
@@ -46,13 +47,17 @@ function authView(mode = 'login', note = '') {
     <div class="brand" style="margin:0 0 6px">${SPIDER}<b>Brigade Fantôme</b></div>
     <h1>Le repaire de la Brigade</h1>
     <p class="mute">Guides, fiches, prix en direct et Kakashi Bot. Réservé aux membres de la Brigade sur Discord.</p>
+${CFG.DISCORD_LOGIN ? `<button class="btn discord" id="dl" style="width:100%;margin-top:14px"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20 4.6A18 18 0 0 0 15.6 3l-.6 1.2a16 16 0 0 0-6 0L8.4 3A18 18 0 0 0 4 4.6C1.2 8.8.5 12.8.8 16.8A18 18 0 0 0 6.3 19.6l1.2-1.9a11 11 0 0 1-1.8-.9l.4-.3a12.8 12.8 0 0 0 11.8 0l.4.3a11 11 0 0 1-1.8.9l1.2 1.9a18 18 0 0 0 5.5-2.8c.4-4.6-.7-8.6-3.2-12.2zM8.7 14.4c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2zm6.6 0c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2z"/></svg>Se connecter avec Discord</button>
+    <p class="small mute" style="margin:8px 0 0">On vérifie automatiquement que tu es sur le serveur de la Brigade : accès immédiat, aucun mot de passe.</p>` : ''}
+    <details class="alt"${!CFG.DISCORD_LOGIN || mode === 'signup' || note ? ' open' : ''}><summary>Connexion avec mot de passe (anciens comptes)</summary>
     <div class="tabs"><button data-m="login" class="${mode === 'login' ? 'on' : ''}">Se connecter</button><button data-m="signup" class="${mode === 'signup' ? 'on' : ''}">Demander l'accès</button></div>
     <form id="af">
       <label for="dc">Ton @ Discord</label><input id="dc" autocomplete="username" placeholder="@pseudo" required>
       <label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}" minlength="6" required>
       ${mode === 'signup' ? '<p class="small mute">Un admin vérifie que tu es bien sur le Discord de la Brigade, puis valide ton accès.</p>' : ''}
       <button class="btn primary" style="width:100%;margin-top:16px">${mode === 'login' ? 'Entrer' : 'Envoyer ma demande'}</button>
-    </form>${note ? `<div class="msg">${esc(note)}</div>` : ''}</div></div>`;
+    </form></details>${note ? `<div class="msg">${esc(note)}</div>` : ''}</div></div>`;
+  if ($('#dl')) $('#dl').onclick = () => sb.auth.signInWithOAuth({ provider: 'discord', options: { scopes: 'identify guilds', redirectTo: location.origin + location.pathname } });
   app.querySelectorAll('.tabs button').forEach(b => b.onclick = () => authView(b.dataset.m));
   $('#af').onsubmit = async e => {
     e.preventDefault(); const d = slug($('#dc').value), pw = $('#pw').value;
@@ -74,7 +79,7 @@ function pendingView(p) {
   app.innerHTML = `<div class="auth"><div class="auth-card"><div class="moon pulse"></div>
     <div class="brand" style="margin:0 0 6px">${SPIDER}<b>Brigade Fantôme</b></div>
     <h1>${p.status === 'refused' ? 'Accès refusé' : 'Demande envoyée'}</h1>
-    <p>${p.status === 'refused' ? 'Ta demande n\'a pas été acceptée. Parle à un admin sur le Discord.' : `Merci <b>${esc(p.discord)}</b>. Un admin vérifie que tu es sur le Discord de la Brigade. Cette page s'ouvrira dès que c'est validé.`}</p>
+    <p>${p.status === 'refused' ? (p.why === 'not_member' ? 'Ton compte Discord n\'est pas sur le serveur de la Brigade Fantôme. Rejoins le serveur puis reconnecte-toi.' : 'Ta demande n\'a pas été acceptée. Parle à un admin sur le Discord.') : `Merci <b>${esc(p.discord)}</b>. Un admin vérifie que tu es sur le Discord de la Brigade. Cette page s'ouvrira dès que c'est validé.`}</p>
     <div class="row"><button class="btn" id="rf">Vérifier</button><button class="btn ghost" id="lo">Changer de compte</button></div></div></div>`;
   $('#rf').onclick = boot; $('#lo').onclick = async () => { await sb.auth.signOut(); authView(); };
   if (p.status === 'pending') S.timers.push(setTimeout(boot, 30000));
@@ -107,7 +112,7 @@ function shell(route) {
   app.innerHTML = `<div class="top"><button class="btn" id="mn" aria-label="Menu">☰</button><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div></div>
   <div class="shell"><aside class="side" id="side"><div class="brand">${SPIDER}<b>Brigade Fantôme</b></div><nav class="nav">${links}</nav>
   <div class="me"><div class="mute small">Connecté</div><b>${esc(S.profile.discord)}</b><div><button class="btn ghost" id="lo" style="margin-top:8px;min-height:36px">Se déconnecter</button></div></div></aside>
-  <main id="main"></main></div>`;
+  <main id="mainw"><div id="alertbar"></div><div id="main"></div></main></div>`;
   $('#lo').onclick = async () => { if (confirmBox('Te déconnecter ? Il faudra retaper ton mot de passe.')) { await sb.auth.signOut(); authView(); } };
   const side = $('#side');
   $('#mn').onclick = () => { side.classList.add('open'); const sc = document.createElement('div'); sc.className = 'scrim'; sc.onclick = () => { side.classList.remove('open'); sc.remove(); }; document.body.appendChild(sc); };
@@ -142,6 +147,7 @@ function trend(p) {
 }
 
 P.guide = (m, key) => {
+  if (key === 'eveil') return evoGuide(m); if (key === 'raids') return raidGuide(m); if (key === 'roles') return rolesGuide(m);
   const g = S.kb.guides?.[key]; if (!g) { m.innerHTML = '<div class="empty">Guide introuvable.</div>'; return; }
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guide</span><h1 style="margin-top:12px">${esc(g.title)}</h1></section>
     ${key === 'chateau' ? castleWidget() : ''}
@@ -167,7 +173,8 @@ P.persos = m => {
     const q = $('#q').value.toLowerCase(), rf = $('#rf').value, st = +$('#st').value;
     $('#cl').innerHTML = cards.filter(c => (!q || (c.n + ' ' + c.a).toLowerCase().includes(q)) && (!rf || c.c === rf)).map(c => {
       const s = statsAt(c, st); const p = S.prices.find(x => x.card === c.n);
-      return `<div class="card"><div class="row"><span class="chip ${c.r === 'Transcendant' ? 'warn' : 'red'}">${c.r || 'LR'}</span>${c.c ? `<span class="chip">${ROLE[c.c] || c.c}</span>` : ''}${c.p ? '<span class="chip">Prestige</span>' : ''}</div>
+      const ih = S.kb.card_images?.byName?.[c.n];
+      return `<div class="card pcard">${ih ? `<div class="pimg"><img loading="lazy" src="${S.kb.card_images.base}${ih}.webp" alt="${esc(c.n)}"></div>` : ''}<div class="row"><span class="chip ${c.r === 'Transcendant' ? 'warn' : 'red'}">${c.r || 'LR'}</span>${c.c ? `<span class="chip">${ROLE[c.c] || c.c}</span>` : ''}${c.p ? '<span class="chip">Prestige</span>' : ''}</div>
       <h3 style="margin-top:10px">${esc(c.n)}</h3><div class="mute small">${esc(c.a)}</div>
       <div class="row" style="margin:10px 0"><span><b>${fmt(s.hp)}</b> <span class="mute small">PV</span></span><span><b>${fmt(s.atk)}</b> <span class="mute small">ATQ</span></span>${p ? `<span class="sp"></span><span class="small bone">${fmt(p.median)} KI</span>` : ''}</div>
       ${(c.t || []).map(t => `<div class="tech"><b>${esc(t[0])}</b><div class="small mute">${esc(t[1])}</div></div>`).join('') || '<div class="small mute">Pas de technique spéciale.</div>'}</div>`;
@@ -320,26 +327,168 @@ P.calendrier = async m => {
   const ev = await loadEvents(); $('#ev').innerHTML = ev.map(eventCard).join('') || '<div class="empty">Aucune échéance pour l\'instant.</div>'; tickCountdowns();
 };
 
-P.checklist = async m => {
-  const U = S.kb.universes || [];
-  const { data } = await sb.from('checklist').select('*'); const st = {}; for (const r of data || []) st[r.universe] = r;
-  const draw = () => {
-    const done = U.filter(u => st[u[0]]?.done).length;
-    m.innerHTML = `<h1>Checklist Prestige</h1><p class="mute">Coche les univers que tu as complétés (3 jetons chacun) et note les cartes qui te manquent. Sauvegardé sur ton compte.</p>
-    <div class="card section"><div class="row"><b>${done} / ${U.length} univers</b><span class="sp"></span><span class="bone">${done * 3} jetons gagnés</span></div><div class="bar" style="margin-top:10px"><i style="width:${U.length ? done / U.length * 100 : 0}%"></i></div></div>
-    <div class="row"><input id="q" placeholder="Rechercher un univers" style="flex:1;min-width:200px"><select id="fl" style="width:auto"><option value="">Tous</option><option value="todo">À compléter</option><option value="done">Complétés</option></select></div>
-    <div id="ul" style="display:grid;gap:8px;margin-top:14px"></div>`;
-    const list = () => {
-      const q = $('#q').value.toLowerCase(), fl = $('#fl').value;
-      $('#ul').innerHTML = U.filter(u => (!q || u[0].toLowerCase().includes(q)) && (!fl || (fl === 'done') === !!st[u[0]]?.done)).map(u => { const r = st[u[0]] || {}; return `<div class="check ${r.done ? 'done' : ''}"><input type="checkbox" data-u="${esc(u[0])}" ${r.done ? 'checked' : ''} aria-label="${esc(u[0])} complété"><div style="flex:1"><b>${esc(u[0])}</b> <span class="small mute">${u[1]} cartes</span><input class="miss" data-u="${esc(u[0])}" placeholder="Cartes manquantes…" value="${esc(r.missing || '')}" style="min-height:36px;margin-top:6px;font-size:14px"></div></div>`; }).join('');
-      $('#ul').querySelectorAll('input[type=checkbox]').forEach(cb => cb.onchange = async () => { const u = cb.dataset.u; st[u] = { ...(st[u] || {}), universe: u, done: cb.checked }; await save(u); draw(); });
-      $('#ul').querySelectorAll('.miss').forEach(inp => inp.onchange = async () => { const u = inp.dataset.u; st[u] = { ...(st[u] || {}), universe: u, missing: inp.value }; await save(u); toast('Enregistré'); });
-    };
-    $('#q').oninput = list; $('#fl').oninput = list; list();
-  };
-  const save = u => sb.from('checklist').upsert({ user_id: S.user.id, universe: u, done: !!st[u].done, missing: st[u].missing || '' });
-  draw();
+/* ---------- Collection Prestige : ma collection, membres, échanges ---------- */
+const RN = { S: 'LR', M: 'Mythique', L: 'SSR', E: 'Épique', R: 'Rare', C: 'Commune', T: 'Transcendante' };
+const img = h => h ? `${S.kb.prestige_series?.base || 'https://yurocollection.fr/card-art/'}${h}.webp` : '';
+async function loadCollections() {
+  const [{ data: rows }, { data: profs }] = await Promise.all([sb.from('checklist').select('user_id,universe,owned,dupes'), sb.from('profiles').select('id,discord,share,status').eq('status', 'approved')]);
+  const C = {}; for (const r of rows || []) { const u = (C[r.user_id] = C[r.user_id] || {}); u[r.universe] = { owned: new Set(r.owned || []), dupes: new Set(r.dupes || []) }; }
+  S.coll = C; S.members = profs || []; return C;
+}
+const myColl = () => (S.coll[S.user.id] = S.coll[S.user.id] || {});
+const uget = (coll, u) => coll[u] || (coll[u] = { owned: new Set(), dupes: new Set() });
+const ownN = (coll, u) => { const r = coll[u.s]; return r ? u.c.filter(c => r.owned.has(c[0])).length : 0; };
+
+P.checklist = async (m, tab = 'moi') => {
+  const PS = S.kb.prestige_series; const U = PS?.series || [];
+  if (!U.length) { m.innerHTML = '<h1>Collection Prestige</h1><div class="empty">La liste des univers arrive bientôt.</div>'; return; }
+  await loadCollections();
+  m.innerHTML = `<h1>Collection Prestige</h1>
+    <div class="tabs" id="ct" style="max-width:560px"><button data-t="moi">Ma collection</button><button data-t="membres">Membres</button><button data-t="echanges">Échanges</button></div><div id="cv" style="margin-top:16px"></div>`;
+  const go = t => { $('#ct').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); history.replaceState(null, '', '#checklist/' + t); ({ moi: viewMine, membres: viewMembers, echanges: viewTrades })[t]?.($('#cv'), U, PS); };
+  $('#ct').querySelectorAll('button').forEach(b => b.onclick = () => go(b.dataset.t));
+  go(['moi', 'membres', 'echanges'].includes(tab) ? tab : tab?.startsWith('m:') ? 'membres' : 'moi');
+  if (tab?.startsWith('m:')) viewProfile($('#cv'), U, tab.slice(2));
 };
+
+function viewMine(el, U, PS) {
+  const coll = myColl(); const open = new Set(); let mode = 'own';
+  const save = u => { const r = uget(coll, u.s); return sb.from('checklist').upsert({ user_id: S.user.id, universe: u.s, done: ownN(coll, u) === u.c.length, owned: [...r.owned], dupes: [...r.dupes], missing: '' }); };
+  el.innerHTML = `<p class="mute">Les ${U.length} univers qui comptent pour le Prestige (au moins ${PS.min} cartes, hors Exclusives et Transcendantes). Touche les cartes que tu as : un univers complet rapporte <b>${PS.tokens || 3} jetons</b> avec « Récupérer +3 » dans l'onglet Prestige du jeu.</p>
+    <div class="card section" id="sum"></div>
+    <div class="card section"><div class="row"><div style="flex:1;min-width:220px"><b>Partager ma collection avec la Brigade</b><div class="small mute">Les membres voient tes cartes manquantes et tes doublons pour te proposer des échanges. Tu peux l'enlever quand tu veux.</div></div><label class="switch"><input type="checkbox" id="sh" ${S.profile.share ? 'checked' : ''}><span></span></label></div></div>
+    <div class="row"><div class="tabs" id="md" style="margin:0"><button data-m="own" class="on">Je l'ai</button><button data-m="dupe">Doublon à échanger</button></div><input id="q" placeholder="Rechercher un univers ou une carte" style="flex:1;min-width:200px"><select id="fl" style="width:auto"><option value="">Tous</option><option value="near">Presque complets (≤ 3 manquantes)</option><option value="todo">À compléter</option><option value="done">Complétés</option></select></div>
+    <p class="small mute" id="mh" style="margin-top:8px"></p><div id="ul" style="display:grid;gap:10px;margin-top:6px"></div>`;
+  $('#sh').onchange = async e => { const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; toast(e.target.checked ? 'Collection partagée avec la Brigade' : 'Collection privée'); };
+  const mh = () => $('#mh').textContent = mode === 'own' ? 'Touche une carte pour dire que tu l\'as. En gris : celles qui te manquent.' : 'Touche une carte que tu as en double : elle apparaîtra dans les échanges de la Brigade.';
+  $('#md').querySelectorAll('button').forEach(b => b.onclick = () => { mode = b.dataset.m; $('#md').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); mh(); list(); }); mh();
+  const sum = () => { const done = U.filter(u => ownN(coll, u) === u.c.length).length, cards = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + ownN(coll, u), 0), du = U.reduce((a, u) => a + (coll[u.s]?.dupes.size || 0), 0);
+    $('#sum').innerHTML = `<div class="row"><b>${done} / ${U.length} univers complétés</b><span class="sp"></span><span class="bone">${done * (PS.tokens || 3)} jetons</span></div><div class="bar" style="margin-top:10px"><i style="width:${done / U.length * 100}%"></i></div><div class="small mute" style="margin-top:8px">${fmt(got)} / ${fmt(cards)} cartes · ${du} doublon${du > 1 ? 's' : ''} à échanger</div>`; };
+  const list = () => {
+    const q = $('#q').value.toLowerCase().trim(), fl = $('#fl').value;
+    const rows = U.filter(u => { const miss = u.c.length - ownN(coll, u);
+      if (fl === 'done' && miss) return false; if (fl === 'todo' && !miss) return false; if (fl === 'near' && (miss === 0 || miss > 3)) return false;
+      return !q || u.s.toLowerCase().includes(q) || u.c.some(c => c[0].toLowerCase().includes(q)); });
+    if (fl === 'near') rows.sort((a, b) => (a.c.length - ownN(coll, a)) - (b.c.length - ownN(coll, b)));
+    $('#ul').innerHTML = rows.map(u => { const o = ownN(coll, u), miss = u.c.length - o, r = uget(coll, u.s), byQ = q && !u.s.toLowerCase().includes(q), isO = open.has(u.s) || byQ;
+      return `<div class="check uni ${miss ? '' : 'done'}" data-u="${esc(u.s)}"><button class="uhead" data-t="${esc(u.s)}" aria-expanded="${isO}"><div style="flex:1;text-align:left"><b>${esc(u.s)}</b><div class="small mute">${miss ? `${miss} manquante${miss > 1 ? 's' : ''}` : 'Complet ✓'} · ${o}/${u.c.length}${r.dupes.size ? ` · ${r.dupes.size} doublon${r.dupes.size > 1 ? 's' : ''}` : ''}</div></div><div class="ring" style="--p:${o / u.c.length * 100}"><span>${Math.round(o / u.c.length * 100)}%</span></div></button>
+      ${isO ? `<div class="tiles">${u.c.filter(c => !byQ || c[0].toLowerCase().includes(q)).map(c => tile(c, r.owned.has(c[0]), r.dupes.has(c[0]))).join('')}</div>
+      <div class="row" style="margin-top:10px"><button class="btn ghost" data-all="1" style="min-height:36px">Tout cocher</button><button class="btn ghost" data-all="0" style="min-height:36px">Tout décocher</button></div>` : ''}</div>`; }).join('') || '<div class="empty">Aucun univers.</div>';
+    $('#ul').querySelectorAll('.uhead').forEach(b => b.onclick = () => { const u = b.dataset.t; open.has(u) ? open.delete(u) : open.add(u); list(); });
+    $('#ul').querySelectorAll('.uni').forEach(box => { const u = U.find(x => x.s === box.dataset.u); if (!u) return;
+      box.querySelectorAll('.tile').forEach(b => b.onclick = async () => { const r = uget(coll, u.s), n = b.dataset.c;
+        if (mode === 'own') { if (r.owned.has(n)) { r.owned.delete(n); r.dupes.delete(n); } else r.owned.add(n); }
+        else { if (r.dupes.has(n)) r.dupes.delete(n); else { r.dupes.add(n); r.owned.add(n); } }
+        open.add(u.s); await save(u); sum(); list(); });
+      box.querySelectorAll('[data-all]').forEach(b => b.onclick = async () => { const r = uget(coll, u.s); r.owned = new Set(b.dataset.all === '1' ? u.c.map(c => c[0]) : []); if (b.dataset.all !== '1') r.dupes = new Set(); await save(u); sum(); list(); }); });
+  };
+  $('#q').oninput = list; $('#fl').oninput = list; sum(); list();
+}
+const tile = (c, own, dupe, extra = '') => `<button class="tile r${c[1]} ${own ? 'on' : ''}" data-c="${esc(c[0])}" title="${esc(c[0])} · ${RN[c[1]] || ''}">${c[2] ? `<img loading="lazy" decoding="async" src="${img(c[2])}" alt="">` : '<div class="noimg"></div>'}${dupe ? '<b class="dup">×2</b>' : ''}<span>${esc(c[0])}</span>${extra}</button>`;
+
+function memberStats(id, U) { const coll = S.coll[id] || {}; const done = U.filter(u => ownN(coll, u) === u.c.length).length; const got = U.reduce((a, u) => a + ownN(coll, u), 0); const du = U.reduce((a, u) => a + (coll[u.s]?.dupes.size || 0), 0); return { done, got, du }; }
+function viewMembers(el, U) {
+  const sharing = S.members.filter(p => p.share && p.id !== S.user.id);
+  el.innerHTML = `<p class="mute">Les membres qui partagent leur collection. Touche un profil pour voir ses cartes manquantes et ses doublons.</p>
+    <div class="card section"><h2>Qui cherche quoi</h2><input id="wq" placeholder="Tape une carte : qui la cherche, qui l'a en double ?"><div id="wr" style="margin-top:10px"></div></div>
+    <div class="grid" id="ml">${sharing.map(p => { const s = memberStats(p.id, U); return `<a class="card" href="#checklist/m:${p.id}"><h3>${esc(p.discord)}</h3><div class="small mute">${s.done} univers complets · ${fmt(s.got)} cartes · ${s.du} doublon${s.du > 1 ? 's' : ''}</div></a>`; }).join('') || '<div class="empty">Personne ne partage encore sa collection. Active le partage dans « Ma collection » pour lancer le mouvement.</div>'}</div>`;
+  $('#wq').oninput = () => { const q = $('#wq').value.toLowerCase().trim(); if (q.length < 2) { $('#wr').innerHTML = ''; return; }
+    const hits = []; for (const u of U) for (const c of u.c) if (c[0].toLowerCase().includes(q)) hits.push([u, c]);
+    $('#wr').innerHTML = hits.slice(0, 12).map(([u, c]) => { const need = [], has = [];
+      for (const p of S.members) { if (!p.share && p.id !== S.user.id) continue; const r = S.coll[p.id]?.[u.s]; if (!r?.owned.has(c[0])) need.push(p.discord); if (r?.dupes.has(c[0])) has.push(p.discord); }
+      return `<div class="whorow">${c[2] ? `<img src="${img(c[2])}" alt="" loading="lazy">` : ''}<div><b>${esc(c[0])}</b> <span class="small mute">${esc(u.s)} · ${RN[c[1]]}</span><div class="small"><span class="up">En double chez :</span> ${has.map(esc).join(', ') || '<span class="mute">personne</span>'}</div><div class="small"><span class="red">Cherchée par :</span> ${need.map(esc).join(', ') || '<span class="mute">personne</span>'}</div></div></div>`; }).join('') || '<div class="mute small">Aucune carte trouvée.</div>'; };
+}
+function viewProfile(el, U, id) {
+  const p = S.members.find(x => x.id === id); if (!p || (!p.share && id !== S.user.id)) { el.innerHTML = '<div class="empty">Ce membre ne partage pas sa collection.</div>'; return; }
+  const coll = S.coll[id] || {}, mine = myColl(), s = memberStats(id, U);
+  const inc = U.map(u => ({ u, miss: u.c.filter(c => !coll[u.s]?.owned.has(c[0])) })).filter(x => x.miss.length && x.miss.length < x.u.c.length).sort((a, b) => a.miss.length - b.miss.length);
+  const dupes = U.flatMap(u => u.c.filter(c => coll[u.s]?.dupes.has(c[0])).map(c => [u, c]));
+  el.innerHTML = `<a href="#checklist/membres" class="btn ghost" style="min-height:36px">← Membres</a>
+    <section class="hero" style="margin-top:12px"><div class="moon"></div><span class="chip red">Profil</span><h1 style="margin-top:12px">${esc(p.discord)}</h1><p class="mute">${s.done} univers complets · ${fmt(s.got)} cartes · ${s.du} doublons</p></section>
+    <div class="section"><h2>Ses doublons</h2><p class="small mute">En vert : ceux qui te manquent.</p><div class="tiles">${dupes.map(([u, c]) => tile(c, !mine[u.s]?.owned.has(c[0]), false)).join('') || '<div class="mute">Aucun doublon déclaré.</div>'}</div></div>
+    <div class="section"><h2>Ses cartes manquantes</h2><p class="small mute">Univers commencés, du plus proche de la fin au plus lointain. En vert : celles que tu as en double.</p>
+    ${inc.map(x => `<div class="card" style="margin:10px 0"><div class="row"><b>${esc(x.u.s)}</b><span class="sp"></span><span class="small mute">${x.miss.length} manquante${x.miss.length > 1 ? 's' : ''}</span></div><div class="tiles" style="margin-top:10px">${x.miss.map(c => tile(c, !!mine[x.u.s]?.dupes.has(c[0]), false)).join('')}</div></div>`).join('') || '<div class="mute">Rien à afficher.</div>'}</div>`;
+}
+function viewTrades(el, U) {
+  const mine = myColl(); const out = [];
+  for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; const give = [], get = [];
+    for (const u of U) for (const c of u.c) { if (th[u.s]?.dupes.has(c[0]) && !mine[u.s]?.owned.has(c[0])) get.push(c); if (mine[u.s]?.dupes.has(c[0]) && !th[u.s]?.owned.has(c[0])) give.push(c); }
+    if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
+  out.sort((a, b) => b.score - a.score);
+  el.innerHTML = `<p class="mute">Les échanges possibles avec les membres qui partagent leur collection : ce qu'ils ont en double et qui te manque, et ce que tu as en double et qui leur manque. Pense à déclarer tes doublons dans « Ma collection ».</p>
+    ${S.profile.share ? '' : '<div class="msg">Ta collection n\'est pas partagée : les autres ne te voient pas dans leurs échanges.</div>'}
+    ${out.map(o => `<div class="card section"><div class="row"><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="#checklist/m:${o.p.id}" style="min-height:36px">Profil</a></div>
+      <div class="small mute" style="margin-top:10px">Il peut te donner (${o.get.length})</div><div class="tiles">${o.get.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div>
+      <div class="small mute" style="margin-top:10px">Tu peux lui donner (${o.give.length})</div><div class="tiles">${o.give.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div></div>`).join('') || '<div class="empty">Pas encore d\'échange possible. Plus il y a de membres qui partagent et déclarent leurs doublons, plus il y en aura.</div>'}`;
+}
+
+/* ---------- Alertes prix ---------- */
+async function loadWatch() { const { data } = await sb.from('content').select('data').eq('key', 'market_watch').maybeSingle(); S.watch = data?.data || { cards: {} }; return S.watch; }
+async function loadAlerts() { const { data } = await sb.from('alerts').select('*'); S.alerts = data || []; return S.alerts; }
+const alertLimit = a => a.max_price || S.prices.find(p => p.card === a.card)?.good || null;
+function firedAlerts() { const W = S.watch?.cards || {}; return (S.alerts || []).filter(a => { const w = W[a.card], lim = alertLimit(a); return w && w.min != null && lim && w.min <= lim; }).map(a => ({ ...a, now: W[a.card].min, lim: alertLimit(a) })); }
+
+P.alertes = async m => {
+  await Promise.all([loadWatch(), loadAlerts()]);
+  const lr = S.kb.cards.filter(c => !c.r && !c.p).map(c => c.n).sort((a, b) => a.localeCompare(b));
+  m.innerHTML = `<h1>Alertes prix</h1><p class="mute">Choisis les LR que tu veux acheter. Dès qu'une annonce passe sous ton prix (par défaut le « bon prix » du guide), elle s'allume ici et sur l'accueil. Les annonces du marché sont relevées toutes les 5 minutes.</p>
+    <div class="card section"><h2>Nouvelle alerte</h2><div class="row"><div style="flex:2;min-width:200px"><label for="ac">Carte</label><select id="ac">${lr.map(n => `<option>${esc(n)}</option>`).join('')}</select></div><div style="flex:1;min-width:150px"><label for="ap">Prix max (KI)</label><input id="ap" type="number" min="1" placeholder="Bon prix"></div><div style="align-self:flex-end"><button class="btn primary" id="aa">Ajouter</button></div></div><p class="small mute" id="ah"></p>
+    <div class="row" style="margin-top:6px"><button class="btn ghost" id="an" style="min-height:36px">${ico('bell')} Notifications de ce navigateur</button><span class="small mute" id="ans"></span></div></div>
+    <div id="al"></div><div class="section"><h2>Moins chères en vente en ce moment</h2><p class="small mute" id="wat"></p><div class="tablewrap"><table><thead><tr><th>Carte</th><th class="n">En vente</th><th class="n">Moins chère</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="wt"></tbody></table></div></div>`;
+  const hint = () => { const p = S.prices.find(x => x.card === $('#ac').value); $('#ah').textContent = p ? `Bon prix ${fmt(p.good)} KI · prix médian ${fmt(p.median)} KI · max conseillé ${fmt(p.max)} KI (ventes des 7 derniers jours)` : 'Pas assez de ventes récentes pour un bon prix : indique ton prix max.'; };
+  const draw = () => { const W = S.watch.cards || {}, fired = new Set(firedAlerts().map(a => a.card));
+    $('#al').innerHTML = S.alerts.length ? `<div class="grid">${S.alerts.map(a => { const w = W[a.card], lim = alertLimit(a), on = fired.has(a.card);
+      return `<div class="card ${on ? 'fire' : ''}"><div class="row"><span class="chip ${on ? 'ok' : ''}">${on ? '🔔 Sous ton prix' : 'En veille'}</span><span class="sp"></span><button class="btn ghost" data-d="${esc(a.card)}" style="min-height:32px;padding:0 10px" aria-label="Supprimer">✕</button></div><h3 style="margin-top:10px">${esc(a.card)}</h3>
+      <div class="row small"><span>Ton prix : <b>${lim ? fmt(lim) + ' KI' : '—'}</b>${a.max_price ? '' : ' <span class="mute">(bon prix)</span>'}</span><span class="sp"></span><span>${w ? `Moins chère : <b class="${on ? 'up' : ''}">${fmt(w.min)} KI</b>` : '<span class="mute">Aucune en vente</span>'}</span></div></div>`; }).join('')}</div>` : '<div class="empty">Aucune alerte pour l\'instant.</div>';
+    $('#al').querySelectorAll('[data-d]').forEach(b => b.onclick = async () => { await sb.from('alerts').delete().eq('user_id', S.user.id).eq('card', b.dataset.d); await loadAlerts(); draw(); });
+    const rows = Object.entries(W).map(([n, w]) => { const p = S.prices.find(x => x.card === n); return { n, ...w, good: p?.good, gap: p?.good ? (w.min - p.good) / p.good * 100 : null }; }).sort((a, b) => (a.gap ?? 999) - (b.gap ?? 999));
+    $('#wt').innerHTML = rows.map(r => `<tr><td><b>${esc(r.n)}</b></td><td class="n">${r.n}</td><td class="n">${fmt(r.min)}</td><td class="n">${fmt(r.good)}</td><td class="n ${r.gap != null && r.gap <= 0 ? 'up' : ''}">${r.gap == null ? '—' : (r.gap > 0 ? '+' : '') + r.gap.toFixed(0) + ' %'}</td></tr>`).join('') || '<tr><td colspan="5" class="mute">Aucune LR en vente.</td></tr>';
+    $('#wat').textContent = S.watch.at ? `Relevé ${new Date(S.watch.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''; };
+  $('#ac').oninput = hint; hint();
+  $('#aa').onclick = async () => { const card = $('#ac').value, v = +$('#ap').value || null; const { error } = await sb.from('alerts').upsert({ user_id: S.user.id, card, max_price: v }); if (error) return toast(error.message); toast('Alerte ajoutée'); $('#ap').value = ''; await loadAlerts(); draw(); };
+  const ns = () => { $('#ans').textContent = !('Notification' in window) ? 'Non disponible sur ce navigateur.' : Notification.permission === 'granted' ? 'Activées : tu es prévenu tant que le site est ouvert.' : Notification.permission === 'denied' ? 'Bloquées dans les réglages du navigateur.' : ''; };
+  $('#an').onclick = async () => { if ('Notification' in window) { await Notification.requestPermission(); ns(); } }; ns();
+  draw();
+  S.timers.push(setInterval(async () => { if (!$('#al')) return; await loadWatch(); draw(); }, 60000));
+};
+
+// Surveillance en arrière-plan : bandeau + notification du navigateur quand une alerte s'allume.
+async function alertLoop() {
+  try { await Promise.all([loadWatch(), loadAlerts()]); } catch { return; }
+  const fired = firedAlerts(); let seen = {}; try { seen = JSON.parse(localStorage.getItem('bf-alert-seen') || '{}'); } catch {}
+  for (const a of fired) { const k = a.card + ':' + a.now; if (seen[k]) continue; seen[k] = Date.now();
+    if ('Notification' in window && Notification.permission === 'granted') { try { new Notification('Brigade Fantôme · alerte prix', { body: `${a.card} à ${fmt(a.now)} KI (ton prix ${fmt(a.lim)} KI)` }); } catch {} } }
+  try { localStorage.setItem('bf-alert-seen', JSON.stringify(seen)); } catch {}
+  const el = $('#alertbar'); if (el) el.innerHTML = fired.length ? `<a class="alertbar" href="#alertes">🔔 ${fired.map(a => `<b>${esc(a.card)}</b> ${fmt(a.now)} KI`).join(' · ')}</a>` : '';
+}
+
+/* ---------- Guides générés depuis les données du jeu ---------- */
+function evoGuide(m) {
+  const E = S.kb.evolutions?.list || [];
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guide</span><h1 style="margin-top:12px">Éveil des cartes</h1><p class="mute">Les ${E.length} éveils du jeu : la carte de départ, la version éveillée, et tout ce qu'il faut réunir. Les objets et leurs taux sont ceux affichés dans l'écran Évolution du jeu.</p></section>
+    <div class="card section"><h2>À savoir avant d'éveiller</h2><ul class="list"><li>L'éveil est définitif : la carte de départ est consommée et remplacée par la version éveillée.</li><li>Une version éveillée (prestige) a des stats fixes : <b>elle ne monte pas en étoiles</b>. Monte d'abord tes étoiles ailleurs si tu en as besoin, et ne paie jamais une version éveillée au prix d'une LR qui progresse.</li><li>Les objets à 0,5 % demandent en moyenne environ 200 victoires chacun : calcule le temps de farm avant de te lancer.</li><li>Garde l'œil sur le marché : la carte de départ coûte parfois moins cher que le farm.</li></ul></div>
+    <div class="row"><input id="q" placeholder="Rechercher une carte, un objet, un lieu" style="flex:1;min-width:200px"></div><div class="grid" id="el" style="margin-top:14px"></div>`;
+  const draw = () => { const q = $('#q').value.toLowerCase();
+    $('#el').innerHTML = E.filter(e => !q || JSON.stringify(e).toLowerCase().includes(q)).map(e => `<div class="card"><div class="row"><span class="chip">${esc(e.from.r)}</span>→<span class="chip red">${esc(e.to.r)}</span></div>
+      <h3 style="margin-top:10px">${esc(e.to.n)}</h3><div class="small mute">depuis ${esc(e.from.n)} · ${esc(e.to.s)}</div>
+      <ul class="list small">${e.ki ? `<li><b>${fmt(e.ki)}</b> KI</li>` : ''}${(e.cards || []).map(c => `<li>${c.q} × <b>${esc(c.n)}</b> <span class="mute">(${esc(c.r)})</span></li>`).join('')}${e.items.map(i => `<li>${i.q} × <b>${esc(i.n)}</b> <span class="mute">(${esc(i.r)})</span><div class="mute">${i.src.length ? i.src.map(esc).join(' / ') : 'Introuvable pour le moment'}</div></li>`).join('')}</ul></div>`).join('') || '<div class="empty">Aucun résultat.</div>'; };
+  $('#q').oninput = draw; draw();
+}
+function raidGuide(m) {
+  const E = S.kb.evolutions?.list || []; const by = {};
+  for (const e of E) for (const i of e.items) for (const s of i.src) { const [place, act, ch] = s.split(' · '); const k = place + ' · ' + act; (by[k] = by[k] || { place, act, items: new Map() }).items.set(i.n, { n: i.n, r: i.r, ch, for: [...((by[k].items.get(i.n) || {}).for || []), e.to.n] }); }
+  const L = Object.values(by).sort((a, b) => a.place.localeCompare(b.place) || a.act.localeCompare(b.act));
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guide</span><h1 style="margin-top:12px">Raids et lieux de farm</h1><p class="mute">Où tombe chaque objet d'éveil, avec le taux affiché par le jeu, et à quoi il sert.</p></section>
+    <div class="card section"><h2>Bien farmer</h2><ul class="list"><li>Choisis le niveau qui donne l'objet qui te manque, pas le plus difficile : le taux ne dépend que du niveau.</li><li>Ton équipe doit gagner vite et sans risque : 3 gardiens qui tombent en quelques tours valent mieux qu'un combat serré.</li><li>Les objets Communs (30 %) viennent vite. Les objets Secret (0,5 %) sont une affaire de patience : environ 200 victoires en moyenne, sans garantie.</li><li>Vérifie avant de farmer que l'éveil t'est vraiment utile : une version éveillée ne monte pas en étoiles.</li></ul></div>
+    <div class="grid">${L.map(l => `<div class="card"><span class="chip">${esc(l.act)}</span><h3 style="margin-top:10px">${esc(l.place)}</h3><ul class="list small">${[...l.items.values()].map(i => `<li><b>${esc(i.n)}</b> <span class="mute">(${esc(i.r)})</span> · <span class="bone">${esc(i.ch)}</span><div class="mute">pour ${[...new Set(i.for)].map(esc).join(', ')}</div></li>`).join('')}</ul></div>`).join('') || '<div class="empty">Données à venir.</div>'}</div>`;
+}
+function rolesGuide(m) {
+  const C = S.kb.cards.filter(c => !c.r); const roles = Object.keys(ROLE);
+  const best = r => C.filter(c => c.c === r).map(c => ({ c, s: statsAt(c, c.p ? 0 : 5) })).sort((a, b) => (b.s.hp / 1000 + b.s.atk / 100) - (a.s.hp / 1000 + a.s.atk / 100));
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guide</span><h1 style="margin-top:12px">Les meilleures cartes par rôle</h1><p class="mute">Le jeu n'accepte qu'une carte par rôle dans une équipe. Voici les LR de chaque rôle, avec leurs stats à 5★ (les versions prestige ont des stats fixes) et ce qu'elles apportent.</p></section>
+    <div class="card section"><h2>Construire son trio</h2><ul class="list"><li>Un trio gagnant combine en général des dégâts qui ignorent les protections, un soin ou une résurrection, et une carte qui contrôle ou encaisse.</li><li>En ranked, les esquives (Janemba, Goku MUI) et les boucliers font perdre des tours à l'adversaire : vise d'abord ce qui n'est pas protégé.</li><li>Un soigneur qui rend 30 % des PV à toute l'équipe (Seiichi) change la donne au château comme en ranked : il permet de survivre à un coup de plus.</li><li>Les étoiles comptent beaucoup : +8 % de PV et d'attaque par étoile. Une LR 5★ d'un rôle moyen bat souvent une LR 0★ d'un rôle fort.</li></ul></div>
+    ${roles.map(r => `<div class="section"><h2>${ROLE[r]}</h2><div class="grid">${best(r).map(({ c, s }, i) => `<div class="card"><div class="row"><span class="chip ${i < 3 ? 'red' : ''}">${i < 3 ? 'Top ' + (i + 1) : ROLE[r]}</span>${c.p ? '<span class="chip">Prestige</span>' : ''}</div><h3 style="margin-top:10px">${esc(c.n)}</h3><div class="small mute">${esc(c.a)} · <b>${fmt(s.hp)}</b> PV · <b>${fmt(s.atk)}</b> ATQ</div>${(c.t || []).slice(0, 2).map(t => `<div class="tech"><b>${esc(t[0])}</b><div class="small mute">${esc(t[1])}</div></div>`).join('')}</div>`).join('')}</div></div>`).join('')}`;
+}
 
 P.lexique = m => {
   const L = S.kb.lexique || [];
@@ -406,11 +555,14 @@ P.admin = async m => {
 async function render() {
   S.timers.forEach(t => { clearInterval(t); clearTimeout(t); }); S.timers = [];
   const h = (location.hash || '#accueil').slice(1);
-  const [base, arg] = h.split('/');
+  const [base, ...rest] = h.split('/'); const arg = rest.join('/');
   const route = base === 'guide' ? h : base;
-  const m = shell(route);
+  let m = $('#main');
+  if (!m || !$('#side')) m = shell(route);
+  else { $('#side').querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + route)); m.innerHTML = ''; }
   try { await (P[base] || P.accueil)(m, arg); } catch (e) { m.innerHTML = `<div class="empty">Erreur de chargement : ${esc(e.message)}</div>`; }
   window.scrollTo(0, 0);
+  alertLoop();
 }
 
 async function boot() {
@@ -422,9 +574,15 @@ async function boot() {
   const { data: p } = await sb.from('profiles').select('*').eq('id', S.user.id).single();
   if (!p) return authView('login', 'Profil introuvable.');
   S.profile = p;
-  if (p.status !== 'approved') return pendingView(p);
+  if (p.status !== 'approved' && session.provider_token) {
+    app.innerHTML = '<div class="auth"><div class="auth-card"><div class="moon pulse"></div><h1>Vérification…</h1><p class="mute">On regarde si tu es sur le serveur Discord de la Brigade.</p></div></div>';
+    const { data: v, error } = await sb.functions.invoke('verify-guild', { body: { provider_token: session.provider_token } });
+    if (!error && v?.ok) { const r = await sb.from('profiles').select('*').eq('id', S.user.id).single(); if (r.data) S.profile = r.data; }
+    else if (!error && v && !v.ok) return pendingView({ ...p, status: 'refused', why: v.reason });
+  }
+  if (S.profile.status !== 'approved') return pendingView(S.profile);
   try { await loadKB(); } catch (e) { app.innerHTML = `<div class="auth"><div class="auth-card"><h1>Oups</h1><p>${esc(e.message)}</p></div></div>`; return; }
-  window.onhashchange = render; render();
+  window.onhashchange = render; render(); setInterval(alertLoop, 5 * 60000);
 }
 sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') authView(); });
 boot();
