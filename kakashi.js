@@ -18,7 +18,6 @@ export function setTwoShot(t) { TS = {}; for (const r of t || []) TS[r.id] = r.s
 // Stats exactes par étoile (relevées dans le jeu) ; repli : +8 % par étoile
 export function statsAt(card, stars) {
   const s = Math.max(0, Math.min(5, stars || 0));
-  if (card.p) return { hp: card.hp, atk: card.atk };
   const r = TS && TS[card.id]; if (r) return { hp: r[s][0], atk: r[s][1] };
   const k = 1 + 0.08 * s; return { hp: Math.round(card.hp * k), atk: Math.round(card.atk * k) };
 }
@@ -60,7 +59,7 @@ function findCard(cards, q) {
 
 function cardAnswer(c, prices, stars) {
   const s = statsAt(c, stars || 0);
-  const lines = [`**${c.n}** · ${c.a}${c.r ? ' · ' + c.r : ' · LR'}${c.c ? ' · ' + (ROLE[c.c] || c.c) : ''}${c.p ? ' · version prestige (stats fixes)' : ''}`,
+  const lines = [`**${c.n}** · ${c.a}${c.r ? ' · ' + c.r : ' · LR'}${c.c ? ' · ' + (ROLE[c.c] || c.c) : ''}${c.p ? ' · version éveillée' : ''}`,
     `PV ${fmt(s.hp)} · ATQ ${fmt(s.atk)}${stars ? ` (à ${stars}★)` : ' (à 0★)'}`];
   for (const t of c.t || []) lines.push(`• **${t[0]}** : ${t[1]}`);
   const p = (prices || []).find(x => norm(x.card) === norm(c.n));
