@@ -134,3 +134,20 @@ tr:hover td{background:#100d11}
 .btn.discord{background:#5865f2;border-color:#5865f2;color:#fff;box-shadow:0 6px 24px rgba(88,101,242,.35)}
 details.alt{margin-top:18px;border-top:1px solid var(--line);padding-top:12px}
 details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:600}
+.lrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+.lr{border:2px solid #2a2227;border-radius:14px;overflow:hidden;background:#0b090c}
+.lr.on{border-color:#d4a24a}
+.lrimg{display:block;width:100%;padding:0;border:0;background:none;color:inherit;cursor:pointer;text-align:left}
+.lrimg img{width:100%;aspect-ratio:3/3.6;object-fit:cover;display:block}
+.lr:not(.on) .lrimg img{filter:grayscale(1);opacity:.4}
+.lrimg span{display:block;font-size:12px;font-weight:700;padding:6px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stars{display:flex;gap:2px;padding:0 6px 8px}
+.stars button{flex:1;min-height:30px;padding:0;border:1px solid var(--line);border-radius:7px;background:#100d11;color:var(--mute);font-size:11px;font-weight:800;cursor:pointer}
+.stars button.on{background:#d4a24a;border-color:#d4a24a;color:#120c05}
+.picks select{flex:1;min-width:180px}
+.teamrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tm{display:flex;flex-direction:column;gap:2px;background:#0d0b0e;border:1px solid var(--line);border-radius:12px;padding:8px}
+.tm img{width:100%;aspect-ratio:1;object-fit:cover;object-position:center 20%;border-radius:8px;margin-bottom:6px}
+.tm b{font-size:14px;line-height:1.2}
+.reco{border-color:#5a1d27;background:linear-gradient(180deg,#1a0d11,#110e12)}
+@media(max-width:520px){.teamrow{gap:6px}.tm b{font-size:12px}}
