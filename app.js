@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=28';
+import * as CFG from './config.js?v=29';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=28';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=28';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=29';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=29';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=28';
-import * as SCAN from './scan.js?v=28';
+import { duelRate } from './ranked.js?v=29';
+import * as SCAN from './scan.js?v=29';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='28';
+const APP_V='29';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -1081,12 +1081,80 @@ const T_FIXED = ['Les compos restent secrètes : chaque joueur envoie son équip
 const T_POINTS = [['LR rang S', 5], ['LR rang A', 4], ['LR rang B', 3], ['LR rang C', 2], ['LR rang D ou non classée', 2], ['Mythique', 1], ['Légendaire et moins', 0]];
 const T_PAY = n => n <= 8 ? [65, 35] : n <= 16 ? [50, 30, 20] : n <= 32 ? [40, 25, 15, 10, 5, 5] : [30, 20, 14, 10, 8, 6, 4, 4, 2, 2];
 const T_BRACKETS = [[8, 'Jusqu\'à 8 joueurs'], [16, 'De 9 à 16 joueurs'], [32, 'De 17 à 32 joueurs'], [999, 'Plus de 32 joueurs']];
+/* ---------- Tournoi : tableau (bracket) avec tirage au sort ---------- */
+const BR_KEY = 'tournoi_bracket';
+const brRoundName = (k, total) => { const fromEnd = total - 1 - k; return ['Finale', 'Demi-finales', 'Quarts de finale', '8es de finale', '16es de finale', '32es de finale'][fromEnd] || `Tour ${k + 1}`; };
+function brBuild(players) {
+  const n = players.length; let size = 4; while (size < n) size *= 2;
+  // Ordre classique des têtes de série : les exempts tombent sur des matchs différents, répartis des deux côtés.
+  let order = [1, 2]; while (order.length < size) { const m = order.length * 2 + 1; order = order.flatMap(s => [s, m - s]); }
+  const sh = players.slice().sort(() => Math.random() - .5);
+  const slot = order.map(seed => seed <= n ? seed - 1 : null);
+  const rounds = []; let cur = []; for (let i = 0; i < size; i += 2) cur.push({ a: slot[i], b: slot[i + 1], w: null }); rounds.push(cur);
+  while (cur.length > 1) { const nx = []; for (let i = 0; i < cur.length; i += 2) nx.push({ a: null, b: null, w: null }); rounds.push(nx); cur = nx; }
+  const t = { at: Date.now(), n, size, players: sh, rounds }; brPropagate(t); return t;
+}
+function brPropagate(t) {
+  for (let k = 0; k < t.rounds.length; k++) t.rounds[k].forEach((m, i) => {
+    if (k > 0) { const p = t.rounds[k - 1]; m.a = p[2 * i].w; m.b = p[2 * i + 1].w; if (m.w != null && m.w !== m.a && m.w !== m.b) m.w = null; }
+    const firstRound = k === 0; if (m.w == null && firstRound && (m.a == null) !== (m.b == null)) m.w = m.a ?? m.b; // exempt : passe direct
+  });
+}
+const brAv = p => p?.avatar ? `<img class="bav" src="${esc(p.avatar)}" alt="" loading="lazy">` : `<span class="bav bav0">${esc((p?.name || '?').replace('@', '').charAt(0).toUpperCase())}</span>`;
+function brSlot(t, idx, m, k, i, side, admin) {
+  if (idx == null) return `<div class="bslot empty">${k === 0 ? 'Exempt' : '—'}</div>`;
+  const p = t.players[idx], win = m.w === idx, lose = m.w != null && m.w !== idx;
+  return `<div class="bslot${win ? ' win' : ''}${lose ? ' lose' : ''}"${admin && m.a != null && m.b != null ? ` data-bw="${k}:${i}:${idx}" role="button" tabindex="0"` : ''}>${brAv(p)}<span class="bn">${esc(p.name)}</span></div>`;
+}
+function brHTML(t, admin) {
+  const R = t.rounds, L = R.length;
+  const col = (k, from, to, side) => `<div class="bcol"><div class="bround">${brRoundName(k, L)}</div><div class="bms">${R[k].slice(from, to).map((m, j) => { const i = from + j; return `<div class="bm ${side}">${brSlot(t, m.a, m, k, i, side, admin)}${brSlot(t, m.b, m, k, i, side, admin)}</div>`; }).join('')}</div></div>`;
+  const left = [], right = [];
+  for (let k = 0; k < L - 1; k++) { const h = R[k].length / 2; left.push(col(k, 0, h, 'l')); right.unshift(col(k, h, R[k].length, 'r')); }
+  const f = R[L - 1][0], champ = f.w != null ? t.players[f.w] : null;
+  return `<div class="bracket"><div class="bside">${left.join('')}</div>
+    <div class="bcenter"><div class="btitle">Tournoi<br><b>de la Brigade</b></div><div class="bround">Finale</div><div class="bm final">${brSlot(t, f.a, f, L - 1, 0, 'c', admin)}${brSlot(t, f.b, f, L - 1, 0, 'c', admin)}</div>
+      <div class="bchamp"><div class="bround">Champion</div>${champ ? `<div class="bslot win big">${brAv(champ)}<span class="bn">${esc(champ.name)}</span></div>` : '<div class="bslot empty big">À venir</div>'}</div></div>
+    <div class="bside">${right.join('')}</div></div>`;
+}
+async function brSection(el) {
+  const admin = S.profile.role === 'admin';
+  const [{ data: row }, { data: mem }] = await Promise.all([sb.from('content').select('data').eq('key', BR_KEY).maybeSingle(), sb.from('profiles').select('id,discord,avatar').eq('status', 'approved')]);
+  let t = row?.data?.rounds ? row.data : null; const members = (mem || []).filter(p => p.discord).sort((a, b) => a.discord.localeCompare(b.discord));
+  const save = async () => { const { error } = await sb.from('content').upsert({ key: BR_KEY, data: t }); if (error) toast('Enregistrement refusé : ' + error.message); };
+  const draw = () => {
+    el.innerHTML = `<div class="card section"><div class="row"><h2 style="margin:0">Le tableau</h2><span class="sp"></span>${t ? `<span class="chip">${t.n} joueurs · tableau de ${t.size}</span>` : ''}</div>
+      ${t ? `<div class="bwrap">${brHTML(t, admin)}</div><p class="small mute">${admin ? 'Touche le joueur qui a gagné son duel pour le faire avancer (touche à nouveau pour corriger). ' : ''}Les exempts passent directement au tour suivant. BO3 à partir des demi-finales.</p>` : '<p class="mute">Le tableau n\'a pas encore été tiré au sort.</p>'}
+      ${admin ? `<details${t ? '' : ' open'} style="margin-top:12px"><summary><b>${t ? 'Nouveau tirage' : 'Lancer le tournoi'}</b></summary>
+        <p class="small mute">Coche les participants (membres connectés au site, avec leur photo Discord) et ajoute ceux qui n'ont pas de compte. De 4 à 50 joueurs : tableau de 8, 16, 32 ou 64 places, les places vides donnent un exempt. Idéal sans exempt : 8, 16 ou 32 joueurs.</p>
+        <div class="row" style="margin:8px 0"><button class="btn ghost" id="ball" style="min-height:36px">Tout cocher</button><button class="btn ghost" id="bnone" style="min-height:36px">Tout décocher</button><span class="sp"></span><b id="bcount"></b></div>
+        <div class="bpick">${members.map(p => `<label class="bpk"><input type="checkbox" value="${p.id}">${brAv({ name: p.discord, avatar: p.avatar })}<span>${esc(p.discord)}</span></label>`).join('')}</div>
+        <label class="small" style="display:block;margin-top:10px">Autres joueurs (un @ Discord par ligne)<br><textarea id="bextra" rows="3" style="width:100%"></textarea></label>
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="bgo">🎲 Tirer au sort le tableau</button>${t ? '<button class="btn ghost" id="bdel">Effacer le tableau</button>' : ''}</div></details>` : ''}</div>`;
+    if (t && admin) el.querySelectorAll('[data-bw]').forEach(b => b.onclick = async () => { const [k, i, idx] = b.dataset.bw.split(':').map(Number); const m = t.rounds[k][i]; m.w = m.w === idx ? null : idx; brPropagate(t); draw(); await save(); });
+    if (!admin) return;
+    const boxes = () => [...el.querySelectorAll('.bpick input')], extra = () => ($('#bextra').value || '').split('\n').map(s => s.trim()).filter(Boolean);
+    const cnt = () => { const n = boxes().filter(b => b.checked).length + extra().length; let sz = 4; while (sz < n) sz *= 2; $('#bcount').textContent = n < 4 ? `${n} joueur${n > 1 ? 's' : ''} (minimum 4)` : n > 50 ? `${n} joueurs (maximum 50)` : `${n} joueurs · tableau de ${sz}${sz - n ? ` · ${sz - n} exempt${sz - n > 1 ? 's' : ''}` : ''}`; };
+    boxes().forEach(b => b.onchange = cnt); $('#bextra').oninput = cnt; $('#ball').onclick = () => { boxes().forEach(b => b.checked = true); cnt(); }; $('#bnone').onclick = () => { boxes().forEach(b => b.checked = false); cnt(); }; cnt();
+    if ($('#bdel')) $('#bdel').onclick = async () => { if (!confirm('Effacer le tableau en cours ?')) return; await sb.from('content').delete().eq('key', BR_KEY); t = null; draw(); };
+    $('#bgo').onclick = async () => {
+      const ps = boxes().filter(b => b.checked).map(b => { const p = members.find(x => x.id === b.value); return { name: p.discord, avatar: p.avatar || null }; });
+      extra().forEach(s => ps.push({ name: s.startsWith('@') ? s : '@' + s, avatar: null }));
+      if (ps.length < 4 || ps.length > 50) { toast('Il faut entre 4 et 50 joueurs.'); return; }
+      if (t && !confirm('Remplacer le tableau en cours par un nouveau tirage ?')) return;
+      t = brBuild(ps); draw(); await save(); toast('Tableau tiré au sort');
+    };
+  };
+  draw();
+}
+
 P.tournoi = async m => {
   const pool = T_RULES;
   const { data: rm } = await sb.from('content').select('data').eq('key', 'ranked_meta').maybeSingle();
   const tiers = rm?.data?.tiers || []; const byT = {}; tiers.forEach(([id, , t]) => { const c = LRS().find(x => x.id === id); if (c) (byT[t] = byT[t] || []).push(c.n); });
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Tournoi</span><h1 style="margin-top:12px">Tournoi de duels entre clans</h1>
     <p class="mute">Mise de 5 000 à 10 000 KI par joueur, cagnotte redistribuée comme au poker, et des règles tirées au sort pour que tout le monde puisse jouer avec sa collection.</p></section>
+    <div id="brk"></div>
     <div class="card section"><h2>Calculer la cagnotte</h2>
       <div class="row" style="flex-wrap:wrap;gap:10px">
         <label class="small">Participants<br><input id="tn" type="number" min="2" value="16" style="width:110px"></label>
@@ -1113,6 +1181,7 @@ P.tournoi = async m => {
       <p class="small mute">Paliers : ${T_BRACKETS.map(([k, l]) => `${l} : ${T_PAY(k).join(' / ')} %`).join(' · ')}.</p></details>`;
   };
   ['#tn', '#tm', '#td'].forEach(k => $(k).oninput = calc); calc();
+  brSection($('#brk'));
   $('#tdraw').onclick = () => {
     const k = +$('#tk').value, out = [], cats = new Set();
     for (const i of pool.map((_, i) => i).sort(() => Math.random() - .5)) { if (out.length >= k) break; if (cats.has(pool[i][0])) continue; cats.add(pool[i][0]); out.push(pool[i]); }
@@ -1145,6 +1214,7 @@ async function boot() {
   const { data: p } = await sb.from('profiles').select('*').eq('id', S.user.id).single();
   if (!p) return authView('login', 'Profil introuvable.');
   S.profile = p;
+  try { const av = S.user.user_metadata?.avatar_url; if (av && av !== p.avatar) sb.rpc('set_my_avatar', { url: av }); } catch (e) {}
   if (p.status !== 'approved' && session.provider_token) {
     app.innerHTML = '<div class="auth"><div class="auth-card"><div class="moon pulse"></div><h1>Vérification…</h1><p class="mute">On regarde si tu es sur le serveur Discord de la Brigade.</p></div></div>';
     const { data: v, error } = await sb.functions.invoke('verify-guild', { body: { provider_token: session.provider_token } });
