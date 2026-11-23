@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=27';
+import * as CFG from './config.js?v=28';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=27';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=27';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=28';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=28';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=27';
-import * as SCAN from './scan.js?v=27';
+import { duelRate } from './ranked.js?v=28';
+import * as SCAN from './scan.js?v=28';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='27';
+const APP_V='28';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -810,16 +810,24 @@ function loopSVG(heal) {
     return `<g><circle cx="${x}" cy="${y}" r="${r}" fill="#0c0a0d" stroke="${col}" stroke-width="3"/><text x="${x}" y="${y - (sub.length > 1 ? 10 : 4)}" text-anchor="middle" font-size="13" font-weight="800" fill="${col}">${n[0]}</text>${sub.map((t, k) => `<text x="${x}" y="${y + 12 + k * 14 - (sub.length > 1 ? 6 : 0)}" text-anchor="middle" font-size="11" fill="#b9aea7">${t}</text>`).join('')}</g>`; }).join('');
   return `<figure class="loopfig"><figcaption>${heal ? 'Avec soigneur (quand Aya meurt en 2 coups)' : 'Sans soigneur'}</figcaption><svg viewBox="0 0 ${W} ${W}" role="img" aria-label="Boucle Aya ${heal ? 'avec' : 'sans'} soigneur"><defs><marker id="ah${heal ? 1 : 0}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5a4d55"/></marker></defs>${arrows}${nodes}<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-family="Cormorant Garamond,serif" font-size="26" font-weight="700" fill="#efe6dc">Boucle</text><text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="12" fill="#9a8f88">à faire 2 fois</text></svg></figure>`;
 }
-function simBlock(r, team) {
-  const approx = team.filter(c => APPROX.has(c.id));
-  return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre sûre (9 fois sur 10)</div><div class="cd">${r.sure}</div></div><div><div class="mute small">Chambre jouable (1 fois sur 2)</div><div class="cd">${r.play}</div></div><div><div class="mute small">Chambre max (1 fois sur 5)</div><div class="cd">${r.max}</div></div></div>
+// Plafond de la boucle Aya : dernière chambre où Aya survit à 2 coups (avec un soin de 30 % si l'équipe a un soigneur). Suit les étoiles d'Aya.
+function ayaCeiling(team, own) {
+  const aya = team.find(c => c.id === 953); if (!aya) return null;
+  const H = statsAt(aya, own?.[953] || 0).hp, heal = team.some(c => HEALERS.includes(c.id)), A = r => towerAt(null, r).atk;
+  const lim = heal ? H + Math.round(H * .3) : H; let r = 1; while (r < 5000 && A(r) * 2 < lim) r++;
+  let s1 = 1; while (s1 < 5000 && A(s1) * 2 < H) s1++;
+  return { last: r - 1, stop: r, heal, seuil1: s1, stars: own?.[953] || 0 };
+}
+function simBlock(r, team, own) {
+  const approx = team.filter(c => APPROX.has(c.id)); const ce = ayaCeiling(team, own);
+  return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre sûre (9 fois sur 10)</div><div class="cd">${r.sure}</div></div><div><div class="mute small">Chambre jouable (1 fois sur 2)</div><div class="cd">${r.play}</div></div><div><div class="mute small">Chambre max (1 fois sur 5)</div><div class="cd">${r.max}</div></div>${ce ? `<div><div class="mute small">Plafond réel${ce.heal ? ' (avec soin)' : ''}</div><div class="cd">${ce.last}</div></div>` : ''}</div>${ce ? `<p class="small" style="margin-top:8px"><b>Plafond pour Aya ${ce.stars}★ :</b> la boucle reste gagnable jusqu'à la chambre ${ce.last} (au-delà de la chambre ${ce.seuil1 - 1}, ça se joue à la chance : quelques % de victoires par essai) et devient impossible dès la chambre ${ce.stop}${ce.heal ? ', car 2 coups de gardien dépassent ses PV même avec un soin de 30 %' : ', car elle meurt en 2 coups sans soin'}.</p>` : ''}
   <p class="small mute" style="margin-top:8px">150 combats simulés par chambre, avec les stats exactes de tes cartes et la boucle de la Brigade.${approx.length ? ` Technique approchée pour : ${approx.map(c => esc(c.n)).join(', ')}.` : ''}</p>`;
 }
 function renderCastleReco(best, team, ok, own, mode, use) {
   const bt = best.team, r = best.r; const same = ok && bt.every(c => team.some(x => x.id === c.id)); const e = castleEval(bt, own);
   const cur = ok ? simCastle(team, own) : null;
   $('#rec').innerHTML = `<div class="card section reco"><span class="chip ${same ? 'ok' : 'red'}">${same ? '✓ Ton équipe est déjà la meilleure' : 'Recommandation'}</span><h2 style="margin-top:10px">${same ? 'Garde cette équipe' : 'Équipe conseillée'}</h2>
-    ${teamCards(bt, own)}${simBlock(r, bt)}${cur && !same ? `<p><b>Gain par rapport à ton équipe :</b> chambre jouable ${r.play - cur.play >= 0 ? '+' : ''}${r.play - cur.play}, chambre sûre ${r.sure - cur.sure >= 0 ? '+' : ''}${r.sure - cur.sure}.</p>` : ''}
+    ${teamCards(bt, own)}${simBlock(r, bt, own)}${cur && !same ? `<p><b>Gain par rapport à ton équipe :</b> chambre jouable ${r.play - cur.play >= 0 ? '+' : ''}${r.play - cur.play}, chambre sûre ${r.sure - cur.sure >= 0 ? '+' : ''}${r.sure - cur.sure}.</p>` : ''}
     <h3 style="margin-top:18px">Pourquoi cette équipe</h3><ul class="list">${castleWhy(bt, own, e).map(x => `<li>${x}</li>`).join('')}</ul>
     <h3>La stratégie</h3>${e.aya ? loopSVG(e.heal) : ''}<ol class="list">${castleStrat(e).map(x => `<li>${x}</li>`).join('')}</ol>
     ${same ? '' : '<button class="btn primary" id="use" style="margin-top:12px">Utiliser cette équipe</button>'}</div>`;
@@ -871,7 +879,7 @@ P.equipe = async (m, mode = 'chateau') => {
   const show = () => {
     const ok = team.length === 3 && roleOk(team);
     if (!ok) { $('#cur').innerHTML = team.length === 3 ? '<div class="msg">Deux cartes ont le même rôle : le jeu ne l\'accepte pas.</div>' : '<p class="mute small">Choisis 3 cartes.</p>'; }
-    else if (mode === 'chateau') { const r = simCastle(team, own); $('#cur').innerHTML = `${teamCards(team, own)}${simBlock(r, team)}`; }
+    else if (mode === 'chateau') { const r = simCastle(team, own); $('#cur').innerHTML = `${teamCards(team, own)}${simBlock(r, team, own)}`; }
     else { $('#cur').innerHTML = `${teamCards(team, own)}<p class="mute small">Calcul…</p>`; loadRMeta().then(() => { $('#cur').innerHTML = `${teamCards(team, own)}${forceTxt(rankedSim(team, own, 40))}`; }); }
     if (mode === 'chateau') { $('#rec').innerHTML = '<div class="card section"><div class="row"><span class="chip red">Simulation</span><span class="mute small" id="simp">Combats simulés en cours…</span></div><div class="bar" style="margin-top:10px"><i id="simbar" style="width:0%"></i></div></div>'; const tok = (S.simTok = (S.simTok || 0) + 1);
       bestCastleSim(own, (i, n) => { if (S.simTok !== tok) return; const b = $('#simbar'); if (b) b.style.width = (i / n * 100) + '%'; const t = $('#simp'); if (t) t.textContent = `Combats simulés : ${Math.round(i / n * 100)} %…`; }, ok ? team : null).then(best => { if (S.simTok !== tok || !best) return; renderCastleReco(best, team, ok, own, mode, use); });
