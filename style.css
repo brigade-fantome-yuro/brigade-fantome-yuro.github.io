@@ -158,3 +158,7 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .fitem img{width:40px;height:54px;object-fit:cover;border-radius:6px}
 .fitem span{flex:1;display:flex;flex-direction:column}
 .fitem input{width:22px;height:22px;min-height:0;accent-color:var(--blood)}
+.loops{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+.loopfig{margin:8px auto;max-width:380px;width:100%}
+.loopfig svg{width:100%;height:auto;display:block}
+.loopfig figcaption{text-align:center;color:var(--mute);font-size:13px;font-weight:700;margin-top:4px}
