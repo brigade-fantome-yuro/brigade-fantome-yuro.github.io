@@ -2210,11 +2210,11 @@ renderInfinity=function(){if(__mode!=='duel')return __cRender();if(!__R||!__R.ho
   var D=__D,v=duelView(),pb=v.pb,n=__opts.names||['Toi','Adversaire'];infinityUI.data.me.battle=pb;
   if(!v.anim&&!duelReady(pb.players[infinityPlayback.active])){var k=pb.players.findIndex(duelReady);infinityPlayback.active=k<0?0:k;}
   if(!pb.enemies[infinityPlayback.target]||pb.enemies[infinityPlayback.target].hp<=0){var t=pb.enemies.findIndex(function(u){return u.hp>0;});infinityPlayback.target=t<0?0:t;}
-  var title=v.anim?n[v.side]+' passe à l’action':n[0]+' VS '+n[1];
+  var title=v.anim?(v.side===0?'Tu passes à l’action':n[v.side]+' passe à l’action'):n[0]+' VS '+n[1];
   var html=infinityBattleHTML(pb).replace(/Chambre 1(?!\d)/g,escapeHTML(title)).replace(/CHAMBRE 1(?!\d)/g,'RANKED · SIMULATION').replace(/Château de l’infini/g,'Combat Ranked');
   __R.getElementById('bfStage').innerHTML='<section class="combat-page infinity-page"><div class="infinity-layout is-fighting">'+html+'</div></section>';
   var ar=__R.querySelector('.story-arena');if(ar){ar.setAttribute('data-ranked-arena','true');ar.style.setProperty('--ranked-arena-bg','url("https://yurocollection.fr/card-art/39bf0ebd97948441.webp")');}
-  var pl=__R.querySelector('.story-playback>span');if(pl)pl.textContent=D.winner!=null?'MATCH TERMINÉ':v.anim?'ACTION DE '+n[v.side].toUpperCase():'AU TOUR DE '+n[D.s].toUpperCase();
+  var pl=__R.querySelector('.story-playback>span');if(pl)pl.textContent=D.winner!=null?'MATCH TERMINÉ':v.anim?(v.side===0?'TON ACTION':'ACTION DE '+n[v.side].toUpperCase()):(D.s===0?'À TOI DE JOUER':'AU TOUR DE '+n[D.s].toUpperCase());
   try{positionStoryEffects();}catch(e){}try{infinityRefreshControls();}catch(e){}
   var ai=!v.anim&&D.winner==null&&__opts.ai&&__opts.ai[D.s];var me=pb.players[infinityPlayback.active];
   __R.querySelectorAll('[data-infinity-active]').forEach(function(b){var u=pb.players[+b.dataset.infinityActive];if(ai||!duelReady(u))b.disabled=true;});
