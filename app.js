@@ -1,10 +1,10 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=21';
+import * as CFG from './config.js?v=22';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=21';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=21';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=22';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=22';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=21';
+import { duelRate } from './ranked.js?v=22';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -47,7 +47,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '21';
+const APP_V = '22';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -742,7 +742,7 @@ function renderCastleReco(best, team, ok, own, mode, use) {
   const u = $('#use'); if (u) u.onclick = () => use(bt);
 }
 function renderTop5(el, M) {
-  let lvl = '0';
+  let lvl = '0', tl = 'bf';
   const draw = () => { const L = M.top?.[lvl] || []; const byId = id => LRS().find(c => c.id === id);
     el.innerHTML = !L.length ? '' : `<div class="card section"><span class="chip red">Analyse approfondie</span><h2 style="margin-top:10px">Top 5 des compos ranked</h2>
       <p class="mute small">Les ${fmt(M.n)} trios autorisés par le jeu, testés avec le moteur de combat du jeu, chacun avec son meilleur placement, chaque camp commençant à tour de rôle. La méta est définie par simulation : on part des ${M.observed || 8} équipes les plus jouées en ranked (${fmt(M.matches)} matchs relevés), on ajoute les meilleures équipes trouvées, et on recommence jusqu'à ce que le classement ne bouge plus. Les deux camps au même niveau d'étoiles. Placement : de gauche à droite comme dans le jeu.</p>
@@ -751,8 +751,13 @@ function renderTop5(el, M) {
       ${L.map((t, i) => { const T = t.ids.map(byId).filter(Boolean); return `<div class="topc"><div class="row"><span class="rk">${i + 1}</span><h3 style="margin:0">${T.map(c => esc(c.n.replace(/\s*\(.*$/, ''))).join(' · ')}</h3><span class="sp"></span>${t.w != null ? `<span class="cd" style="font-size:22px">${Math.round(t.w * 100)}<span class="small mute">/100</span></span>` : ''}</div>
         <div class="teamrow mini">${T.map(c => `<div class="tm">${lrImg(c) ? `<img src="${lrImg(c)}" alt="">` : ''}<b>${esc(c.n)}</b><span class="small mute">${ROLE[c.c] || ''}</span></div>`).join('')}</div>
         ${t.build ? `<p><b>Le build :</b> ${esc(t.build)}</p>` : ''}${t.combo ? `<p><b>Les combinaisons :</b> ${esc(t.combo)}</p>` : ''}${t.strat ? `<p><b>Stratégie de jeu :</b> ${esc(t.strat)}</p>` : ''}${t.weak ? `<p class="small mute"><b>Point faible :</b> ${esc(t.weak)}</p>` : ''}</div>`; }).join('')}</div>`;
-    if (M.tiers) { const byT = {}; for (const [id, v, t] of M.tiers) { const c = byId(id); if (c) (byT[t] = byT[t] || []).push(c); }
-      el.insertAdjacentHTML('beforeend', `<div class="card section"><span class="chip red">Tier list</span><h2 style="margin-top:10px">Tier list des LR en ranked</h2><p class="mute small">La tier list de la Brigade : l'avis des joueurs, confronté aux matchs ranked.</p>${['S', 'A', 'B', 'C', 'D'].filter(t => byT[t]).map(t => `<div class="tierrow"><span class="tier t${t}" title="${esc(M.tierLabels?.[t] || t)}">${esc(M.tierLabels?.[t] || t)}</span><div class="tierc">${byT[t].map(c => `<span class="tchip">${lrImg(c) ? `<img src="${lrImg(c)}" alt="">` : ''}${esc(c.n.replace(/\s*\(.*$/, ''))}</span>`).join('')}</div></div>`).join('')}</div>`); }
+    if (M.tiers || M.tiers2) { const src = tl === 'off' && M.tiers2 ? { list: M.tiers2.list, order: M.tiers2.order, labels: {} } : { list: M.tiers, order: ['S', 'A', 'B', 'C', 'D'], labels: M.tierLabels || {} };
+      const byT = {}; for (const [id, v, t] of src.list || []) { const c = byId(id); if (c) (byT[t] = byT[t] || []).push(c); }
+      el.insertAdjacentHTML('beforeend', `<div class="card section"><span class="chip red">Tier list</span><h2 style="margin-top:10px">Tier list des LR en ranked</h2>
+        ${M.tiers2 ? `<div class="tabs" id="tt" style="max-width:520px"><button data-t="bf" class="${tl === 'bf' ? 'on' : ''}">Brigade Fantôme</button><button data-t="off" class="${tl === 'off' ? 'on' : ''}">Équipe d'équilibrage YURO</button></div>` : ''}
+        <p class="mute small" style="margin-top:8px">${tl === 'off' ? `Tier list de l'équipe d'équilibrage du jeu (mise à jour ${esc(M.tiers2.date || '')}). Selon l'équipe elle-même, c'est son avis et pas forcément la meilleure ; elle sert aussi de repère pour éviter les arnaques au trade.` : 'La tier list de la Brigade : l\'avis des joueurs, confronté aux matchs ranked.'}</p>
+        ${src.order.filter(t => byT[t]).map(t => `<div class="tierrow"><span class="tier t${t}">${esc(src.labels[t] || t)}</span><div class="tierc">${byT[t].map(c => `<span class="tchip">${lrImg(c) ? `<img src="${lrImg(c)}" alt="">` : ''}${esc(c.n.replace(/\s*\(.*$/, ''))}</span>`).join('')}</div></div>`).join('')}</div>`);
+      el.querySelectorAll('#tt button').forEach(b => b.onclick = () => { tl = b.dataset.t; draw(); }); }
     el.querySelectorAll('#tl button').forEach(b => b.onclick = () => { lvl = b.dataset.l; draw(); }); };
   draw();
 }
