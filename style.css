@@ -162,3 +162,22 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .loopfig{margin:8px auto;max-width:380px;width:100%}
 .loopfig svg{width:100%;height:auto;display:block}
 .loopfig figcaption{text-align:center;color:var(--mute);font-size:13px;font-weight:700;margin-top:4px}
+.pimg{position:relative}
+.rank{position:absolute;top:10px;left:10px;z-index:2;min-width:34px;height:34px;padding:0 8px;border-radius:99px;display:grid;place-items:center;background:var(--blood);color:#fff;font-weight:800;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.evolist{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:14px}
+.evhead{display:flex;align-items:center;gap:10px}
+.evarrow{font-size:26px;color:var(--blood2);font-weight:800}
+.evc{position:relative;flex:1;border:2px solid #2a2227;border-radius:12px;overflow:hidden;background:#0b090c;min-width:0}
+.evc img,.evc .noimg{width:100%;aspect-ratio:3/3.6;object-fit:cover;display:block;background:#151116}
+.evc span{display:block;font-size:12px;font-weight:700;padding:5px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.evc .qty,.evi .qty{position:absolute;top:6px;right:6px;background:#000c;color:#fff;font-size:12px;padding:2px 7px;border-radius:99px}
+.evtag{position:absolute;top:6px;left:6px;font-style:normal;font-size:10px;font-weight:800;background:var(--blood);color:#fff;padding:2px 7px;border-radius:99px}
+.evc.rS,.evi.rS{border-color:#d4a24a}.evc.rM,.evi.rM{border-color:#c0306f}.evc.rL,.evi.rL{border-color:#e07a2a}.evc.rE,.evi.rE{border-color:#8a52d6}.evc.rR,.evi.rR{border-color:#3a7bd5}
+.evreq{margin-top:12px}
+.evki{font-size:15px;margin-bottom:8px}.evki b{color:var(--bone)}
+.evcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px;margin-bottom:8px}
+.evi{position:relative;display:flex;gap:10px;align-items:center;border:2px solid #2a2227;border-radius:12px;padding:8px;margin:6px 0;background:#0d0b0e}
+.evi img,.evi .noimg{width:48px;height:48px;object-fit:contain;border-radius:8px;background:#151116;flex:none}
+.evi div{display:flex;flex-direction:column;min-width:0}.evi small{font-size:12px}
+.rlist li{list-style:none;margin-left:-20px;display:block}.ricon{width:26px;height:26px;object-fit:contain;vertical-align:middle;margin-right:6px;border-radius:6px;background:#151116}
+.lexi{border-left:3px solid var(--blood)}.lexi h3{color:#ff8b98}
