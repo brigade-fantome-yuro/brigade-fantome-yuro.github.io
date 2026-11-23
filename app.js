@@ -1,10 +1,10 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=18';
+import * as CFG from './config.js?v=19';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=18';
-import { castleReport, APPROX, KIND } from './castle.js?v=18';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=19';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=19';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=18';
+import { duelRate } from './ranked.js?v=19';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -47,7 +47,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '18';
+const APP_V = '19';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -98,7 +98,7 @@ function pendingView(p) {
 
 /* ---------- Données ---------- */
 async function loadKB() {
-  const { data, error } = await sb.from('content').select('key,data').neq('key', 'prestige_imgs');
+  const { data, error } = await sb.from('content').select('key,data').not('key', 'in', '(prestige_imgs,ranked_meta)');
   if (error) throw error;
   const kb = {}; for (const r of data) kb[r.key] = r.data; S.kb = kb;
   setTwoShot(kb.twoshot);
@@ -175,24 +175,32 @@ async function prestigeImgs(m) {
 // Salle du temps : chiffres du salon #salle-du-temps du Discord de la Brigade.
 const TEMPS = { kiWin: 20, p: .06, pity: 16, lrPerBooster: .000205 };
 const winsPerBooster = (() => { let e = 0, q = 1; for (let k = 0; k < TEMPS.pity; k++) { e += q; q *= 1 - TEMPS.p; } return e; })(); // ≈ 10,5
+const GEN = { c: ['Commune', 150, 29], r: ['Rare', 201, 40], e: ['Épique', 269, 54], l: ['Légendaire', 356, 75], m: ['Mythique', 648, 121] };
 function tempsCalc() {
-  return `<div class="card section"><h2>Calculateur de farm</h2><p class="mute small">Choisis ton équipe (ou saisis ton KI par minute) et la durée : le site estime le KI, les boosters et ta chance d'avoir au moins une LR.</p>
-  <label>Ton équipe de farm</label><div class="tabs" id="tm" style="margin:6px 0 12px;flex-wrap:wrap"><button data-v="200" class="on">Vegeta + 2 Communes</button><button data-v="120">3 Communes</button><button data-v="mine">Importer mes LR</button><button data-v="man">Saisir à la main</button></div>
-  <div class="row"><div style="flex:1;min-width:120px"><label for="tk">KI par minute</label><input id="tk" type="number" min="1" value="200"></div><div style="flex:1;min-width:80px"><label for="td">Jours</label><input id="td" type="number" min="0" value="0"></div><div style="flex:1;min-width:80px"><label for="th">Heures</label><input id="th" type="number" min="0" value="8"></div><div style="flex:1;min-width:80px"><label for="tn">Minutes</label><input id="tn" type="number" min="0" value="0"></div></div>
+  return `<div class="card section"><h2>Calculateur de farm</h2><p class="mute small">Choisis ton équipe de farm et la durée : le site calcule ton KI par minute en simulant tes combats de la salle (formule exacte des gardiens), calé sur nos mesures en jeu, puis estime le KI, les boosters et ta chance d'avoir au moins une LR.</p>
+  <label>Ton équipe de farm</label><div class="row picks" id="tp" style="margin:6px 0 12px"></div>
+  <div class="grid" style="margin-bottom:12px"><div><div class="mute small">KI par minute (mesure simulée)</div><div class="cd" id="tk">—</div></div><div><div class="mute small">Durée d'un combat</div><div class="cd" id="tf">—</div></div></div>
+  <div class="row"><div style="flex:1;min-width:80px"><label for="td">Jours</label><input id="td" type="number" min="0" value="0"></div><div style="flex:1;min-width:80px"><label for="th">Heures</label><input id="th" type="number" min="0" value="8"></div><div style="flex:1;min-width:80px"><label for="tn">Minutes</label><input id="tn" type="number" min="0" value="0"></div></div>
   <p class="small mute" id="tmh" style="margin-top:8px"></p><div id="to" class="calcout"></div>
-  <p class="small mute" style="margin-top:12px">Ce sont des estimations, pas des garanties : le rythme varie selon la vitesse du serveur, et les boosters et les LR dépendent du hasard des taux de drop. Base : +${TEMPS.kiWin} KI par victoire, booster dans ${TEMPS.p * 100} % des victoires et garanti au ${TEMPS.pity}e combat sans booster (≈ 1 booster toutes les ${winsPerBooster.toFixed(1).replace('.', ',')} victoires).</p></div>`;
+  <p class="small mute" style="margin-top:12px">Ce sont des estimations, pas des garanties : le rythme varie selon la vitesse du serveur, et les boosters et les LR dépendent du hasard des taux de drop. Base : Replay auto + vitesse ×2, +${TEMPS.kiWin} KI par victoire, booster dans ${TEMPS.p * 100} % des victoires et garanti au ${TEMPS.pity}e combat sans booster (≈ 1 booster toutes les ${winsPerBooster.toFixed(1).replace('.', ',')} victoires).</p></div>`;
 }
 function bindTemps() {
-  const f = () => { const k = Math.max(0, +$('#tk').value || 0), min = (+$('#td').value || 0) * 1440 + (+$('#th').value || 0) * 60 + (+$('#tn').value || 0);
-    const ki = k * min, wins = ki / TEMPS.kiWin, bo = wins / winsPerBooster, lr = 1 - Math.pow(1 - TEMPS.lrPerBooster, bo);
-    $('#to').innerHTML = `<div><div class="mute small">KI gagné</div><div class="cd">${fmt(Math.round(ki))}</div></div><div><div class="mute small">Victoires</div><div class="cd">${fmt(Math.round(wins))}</div></div><div><div class="mute small">Boosters gagnés</div><div class="cd">≈ ${fmt(Math.round(bo))}</div></div><div><div class="mute small">Chance d'au moins 1 LR</div><div class="cd">${lr < .1 ? (lr * 100).toFixed(1).replace('.', ',') : Math.round(lr * 100)} %</div></div>${wins >= 1 ? `<div><div class="mute small">Palier Cid Kagenou (1 000 victoires)</div><div class="cd">${wins >= 1000 ? '✓' : Math.round(wins / 10) + ' %'}</div></div>` : ''}`; };
-  const set = v => { const own = S.mylr?.cards || {}; let k = 200, h = 'Vegeta en tête : son EXPLOSION FINALE met les 3 gardiens K.O. d\'un coup (~200 KI/min en Replay auto ×2).';
-    if (v === '120') { k = 120; h = '3 Communes 0★ : les gardiens s\'adaptent à ton équipe, des cartes faibles finissent vite (~120 KI/min).'; }
-    if (v === 'mine') { const veg = own[1083] != null; k = veg ? 200 : 120; h = veg ? 'Tu as Majin Vegeta dans tes LR : mets-le en tête avec 2 Communes 0★ (~200 KI/min).' : 'Pas de Vegeta dans tes LR : 3 Communes 0★ (~120 KI/min). Vegeta ferait +67 % de KI et de boosters.'; }
-    if (v === 'man') { h = 'Mesure ton KI avant et après 10 minutes de farm, divise par 10 et saisis le résultat.'; $('#tk').focus(); } else $('#tk').value = k;
-    $('#tmh').textContent = h; f(); };
-  $('#tm').querySelectorAll('button').forEach(b => b.onclick = () => { $('#tm').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); set(b.dataset.v); });
-  ['#tk', '#td', '#th', '#tn'].forEach(id => $(id).oninput = f); loadMyLR().catch(() => {}); set('200');
+  let team = [];
+  const unit = v => { if (!v) return null; if (v[0] === 'g') { const g = GEN[v[1]]; return { id: -1, n: g[0] + ' 0★', hp: g[1], atk: g[2], k: v[1] === 'm' ? { k: 'hit', m: 1.8, cd: 3 } : { k: 'none' } }; } const c = LRS().find(x => x.id === +v); if (!c) return null; const st = S.mylr?.cards?.[c.id] || 0; const s = statsAt(c, st); return { id: c.id, n: `${c.n} ${st}★`, hp: s.hp, atk: s.atk }; };
+  const opts = sel => { const own = S.mylr?.cards || {}; const L = LRS().filter(c => own[c.id] != null);
+    return `<option value="">— vide —</option><optgroup label="Cartes peu chères (0★)">${Object.entries(GEN).map(([k, g]) => `<option value="g${k}" ${sel === 'g' + k ? 'selected' : ''}>${g[0]} 0★</option>`).join('')}</optgroup>${L.length ? `<optgroup label="Mes LR">${L.map(c => `<option value="${c.id}" ${sel === String(c.id) ? 'selected' : ''}>${esc(c.n)} ${own[c.id] || 0}★</option>`).join('')}</optgroup>` : ''}`; };
+  const f = () => { const T = team.map(unit).filter(Boolean); const min = (+$('#td').value || 0) * 1440 + (+$('#th').value || 0) * 60 + (+$('#tn').value || 0);
+    if (!T.length) { $('#tk').textContent = '—'; $('#tf').textContent = '—'; $('#to').innerHTML = ''; return; }
+    const r = farmRate(T); const k = r.ki;
+    $('#tk').textContent = fmt(k); $('#tf').textContent = r.secPerFight.toFixed(1).replace('.', ',') + ' s';
+    const veg = T.some(u => u.id === 1083), lr = T.filter(u => u.id > 0 && u.id !== 1083).length;
+    $('#tmh').textContent = r.winRate < .95 ? `Attention : ton équipe perd ${Math.round((1 - r.winRate) * 100)} % de ses combats, et une défaite ne rapporte rien.` : veg ? 'Vegeta en tête : son EXPLOSION FINALE met les 3 gardiens K.O. d\'un coup. C\'est la meilleure équipe de farm.' : lr ? 'Des LR dans l\'équipe : les gardiens prennent leurs PV, les combats sont plus longs et les techniques plus lentes. Des Communes 0★ farment plus vite.' : 'Les gardiens s\'adaptent à ton équipe : des cartes faibles finissent vite les combats. Avec Vegeta en tête, tu ferais environ +67 %.';
+    const ki = k * min, wins = ki / TEMPS.kiWin, bo = wins / winsPerBooster, p = 1 - Math.pow(1 - TEMPS.lrPerBooster, bo);
+    $('#to').innerHTML = `<div><div class="mute small">KI gagné</div><div class="cd">${fmt(Math.round(ki))}</div></div><div><div class="mute small">Victoires</div><div class="cd">${fmt(Math.round(wins))}</div></div><div><div class="mute small">Boosters gagnés</div><div class="cd">≈ ${fmt(Math.round(bo))}</div></div><div><div class="mute small">Chance d'au moins 1 LR</div><div class="cd">${p < .1 ? (p * 100).toFixed(1).replace('.', ',') : Math.round(p * 100)} %</div></div>`; };
+  const draw = () => { $('#tp').innerHTML = [0, 1, 2].map(i => `<select data-slot="${i}" aria-label="Carte ${i + 1}">${opts(team[i] || '')}</select>`).join(''); $('#tp').querySelectorAll('select').forEach(sl => sl.onchange = () => { team[+sl.dataset.slot] = sl.value; f(); }); f(); };
+  ['#td', '#th', '#tn'].forEach(id => $(id).oninput = f);
+  team = ['gc', 'gc', 'gc']; draw();
+  loadMyLR().then(() => { if (S.mylr?.cards?.[1083] != null) team = ['1083', 'gc', 'gc']; draw(); }).catch(() => {});
 }
 
 function castleWidget() {
@@ -638,24 +646,35 @@ function rankedScore(team, own) {
 const OPP = [[1070, 3248, 3247], [308, 1070, 3247], [340, 1070, 3248], [961, 3247, 3248], [183, 1070, 128], [499, 128, 1070]], OPP_ST = 4;
 const unitOf = (c, st) => { const s = statsAt(c, st); return { id: c.id, hp: s.hp, atk: s.atk }; };
 const oppTeams = () => OPP.map(ids => ids.map(id => LRS().find(c => c.id === id))).filter(t => t.every(Boolean));
+// Résultats calculés avec le moteur de combat du jeu (tous les trios autorisés contre la méta réelle, à 0★ et à 5★).
+async function loadRMeta() { if (S.rmeta !== undefined) return S.rmeta; const { data } = await sb.from('content').select('data').eq('key', 'ranked_meta').maybeSingle(); const d = data?.data; if (!d) { S.rmeta = null; return null; }
+  const map = new Map(); for (const row of d.trios.split(';')) { const [ids, q0, q5, f0, f5, p0, p5, o] = row.split(','); map.set(ids.split('-').map(Number).sort((x, y) => x - y).join(','), { q0: +q0 / 1000, q5: +q5 / 1000, f0: f0 ? +f0 / 1000 : null, f5: f5 ? +f5 / 1000 : null, p0, p5, o: o ? o.split('-').map(Number) : null }); }
+  S.rmeta = { ...d, map }; return S.rmeta; }
+const metaName = ids => ids.map(id => (LRS().find(c => c.id === id)?.n || '?').replace(/\s*\(.*$/, '')).join(' · ');
 function rankedSim(team, own, n = 40) {
+  const M = S.rmeta; const key = team.map(c => c.id).sort((x, y) => x - y).join(',');
+  if (M && M.map.has(key)) { const r = M.map.get(key); const m = team.reduce((a, c) => a + Math.min(5, own[c.id] || 0), 0) / team.length / 5;
+    if (r.f0 != null) { const hi = m >= .5, per = hi ? r.p5 : r.p0, meta = hi ? (M.meta5 || M.meta) : M.meta;
+      return { avg: r.f0 * (1 - m) + r.f5 * m, key: 2 + r.f0 * (1 - m) + r.f5 * m, res: meta.map((x, i) => ({ name: metaName(x.ids), w: (+per[i] || 0) / 2, f: x.w, sim: i >= (M.observed || 8) })), real: true, full: true, order: r.o }; }
+    const v = r.q0 * (1 - m) + r.q5 * m; return { avg: v, key: v, res: [], real: true, full: false }; }
   const A = team.map(c => unitOf(c, own[c.id] || 0));
-  const res = oppTeams().map(t => ({ t, w: duelRate(A, t.map(c => unitOf(c, OPP_ST)), n) }));
-  return { avg: res.length ? res.reduce((a, r) => a + r.w, 0) / res.length : 0, res };
+  const res = oppTeams().map(t => ({ name: metaName(t.map(c => c.id)), w: duelRate(A, t.map(c => unitOf(c, OPP_ST)), n) }));
+  const v = res.length ? res.reduce((a, r) => a + r.w, 0) / res.length : 0; return { avg: v, key: v, res };
 }
 async function bestRankedSim(own, onp, cur) {
+  await loadRMeta();
   const C = LRS().filter(c => own[c.id] != null); if (C.length < 3) return null; let trios = [];
   for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) for (let k = j + 1; k < C.length; k++) { const t = [C[i], C[j], C[k]]; if (roleOk(t)) trios.push(t); }
-  if (trios.length > 260) { trios.sort((a, b) => rankedScore(b, own) - rankedScore(a, own)); trios = trios.slice(0, 260); }
-  if (cur && !trios.some(t => t.every(c => cur.includes(c)))) trios.push(cur);
-  const q = []; for (let i = 0; i < trios.length; i++) { if (i % 10 === 0) { onp?.(i, trios.length + 8); await nextFrame(); } q.push({ t: trios[i], v: rankedSim(trios[i], own, 12).avg + rankedScore(trios[i], own) / 1e5 }); }
-  q.sort((a, b) => b.v - a.v); let best = null; const fin = q.slice(0, 8);
-  for (let i = 0; i < fin.length; i++) { onp?.(trios.length + i + 1, trios.length + 8); await nextFrame(); const r = rankedSim(fin[i].t, own, 80); if (!best || r.avg > best.r.avg) best = { team: fin[i].t, r }; }
+  if (!S.rmeta && trios.length > 260) { trios.sort((a, b) => rankedScore(b, own) - rankedScore(a, own)); trios = trios.slice(0, 260); }
+  let best = null; for (let i = 0; i < trios.length; i++) { if (i % 40 === 0) { onp?.(i, trios.length); await nextFrame(); } const r = rankedSim(trios[i], own, S.rmeta ? 0 : 24); if (!best || r.key > best.r.key) best = { team: trios[i], r }; }
   return best;
 }
-const forceTxt = r => `<div class="grid" style="margin-top:14px"><div><div class="mute small">Indice de force</div><div class="cd">${Math.round(r.avg * 100)}<span class="small mute">/100</span></div></div></div>
-  <div class="opps">${r.res.map(x => `<div class="opp"><span class="small">${x.t.map(c => esc(c.n.replace(/\s*\(.*$/, ''))).join(' · ')}</span><span class="bar"><i style="width:${Math.round(x.w * 100)}%"></i></span><b class="small">${Math.round(x.w * 100)} %</b></div>`).join('')}</div>
-  <p class="small mute">Victoires simulées contre les ${r.res.length} équipes de la méta (adversaires à ${OPP_ST}★), avec les stats exactes de tes cartes à leurs étoiles et la vraie technique de chacune. C'est une estimation : le joueur d'en face peut jouer autrement.</p>`;
+const forceTxt = r => { const byId = id => LRS().find(c => c.id === id);
+  const obs = r.res.filter(x => !x.sim), sim = r.res.filter(x => x.sim);
+  const rows = L => L.map(x => `<div class="opp"><span class="small">${esc(x.name)}${x.f && !x.sim ? ` <span class="mute">(${x.f}×)</span>` : ''}</span><span class="bar"><i style="width:${Math.round(x.w * 100)}%"></i></span><b class="small">${Math.round(x.w * 100)} %</b></div>`).join('');
+  return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Indice de force</div><div class="cd">${Math.round(r.avg * 100)}<span class="small mute">/100</span></div></div>${r.order ? `<div><div class="mute small">Placement conseillé</div><div style="font-weight:700;margin-top:6px">${r.order.map(id => esc((byId(id)?.n || '').replace(/\s*\(.*$/, ''))).join(' → ')}</div></div>` : ''}</div>
+  ${obs.length ? `<h3 style="margin-top:14px">Contre les équipes les plus jouées</h3><div class="opps">${rows(obs)}</div>` : ''}${sim.length ? `<h3 style="margin-top:14px">Contre la méta simulée</h3><div class="opps">${rows(sim)}</div>` : ''}
+  <p class="small mute">${r.full ? 'Calculé avec le moteur de combat du jeu : chaque camp commence à tour de rôle, ton trio joue avec son meilleur placement, et tes étoiles sont prises en compte. Méta = les équipes les plus jouées en ranked (entre parenthèses : combien de fois) + les meilleures équipes trouvées par simulation.' : r.real ? 'Calculé avec le moteur de combat du jeu contre les 3 équipes les plus jouées en ranked (ce trio n\'est pas dans le haut du classement, il n\'a pas été testé contre la méta complète).' : 'Estimation.'} Le joueur d'en face peut jouer autrement.</p>`; };
 function synergy(bt) {
   const has = id => bt.some(c => c.id === id), k = c => KIND_OF(c.id), L = [];
   const heal = bt.find(c => HEALERS.includes(c.id)), stun = bt.find(c => ['stunall', 'timestop', 'dom', 'door'].includes(k(c))), dodge = bt.find(c => [1070, 961].includes(c.id)), aoe = bt.find(c => k(c) === 'aoe');
@@ -721,6 +740,21 @@ function renderCastleReco(best, team, ok, own, mode, use) {
     ${same ? '' : '<button class="btn primary" id="use" style="margin-top:12px">Utiliser cette équipe</button>'}</div>`;
   const u = $('#use'); if (u) u.onclick = () => use(bt);
 }
+function renderTop5(el, M) {
+  let lvl = '0';
+  const draw = () => { const L = M.top[lvl] || []; const byId = id => LRS().find(c => c.id === id);
+    el.innerHTML = `<div class="card section"><span class="chip red">Analyse approfondie</span><h2 style="margin-top:10px">Top 5 des compos ranked</h2>
+      <p class="mute small">Les ${fmt(M.n)} trios autorisés par le jeu, testés avec le moteur de combat du jeu, chacun avec son meilleur placement, chaque camp commençant à tour de rôle. La méta est définie par simulation : on part des ${M.observed || 8} équipes les plus jouées en ranked (${fmt(M.matches)} matchs relevés), on ajoute les meilleures équipes trouvées, et on recommence jusqu'à ce que le classement ne bouge plus. Les deux camps au même niveau d'étoiles. Placement : de gauche à droite comme dans le jeu.</p>
+      <div class="tabs" id="tl" style="max-width:360px"><button data-l="0" class="${lvl === '0' ? 'on' : ''}">Tout à 0★</button><button data-l="5" class="${lvl === '5' ? 'on' : ''}">Tout à 5★</button></div>
+      ${M.note ? `<p class="small" style="margin-top:10px">${esc(M.note)}</p>` : ''}
+      ${L.map((t, i) => { const T = t.ids.map(byId).filter(Boolean); return `<div class="topc"><div class="row"><span class="rk">${i + 1}</span><h3 style="margin:0">${T.map(c => esc(c.n.replace(/\s*\(.*$/, ''))).join(' · ')}</h3><span class="sp"></span>${t.w != null ? `<span class="cd" style="font-size:22px">${Math.round(t.w * 100)}<span class="small mute">/100</span></span>` : ''}</div>
+        <div class="teamrow mini">${T.map(c => `<div class="tm">${lrImg(c) ? `<img src="${lrImg(c)}" alt="">` : ''}<b>${esc(c.n)}</b><span class="small mute">${ROLE[c.c] || ''}</span></div>`).join('')}</div>
+        ${t.build ? `<p><b>Le build :</b> ${esc(t.build)}</p>` : ''}${t.combo ? `<p><b>Les combinaisons :</b> ${esc(t.combo)}</p>` : ''}${t.strat ? `<p><b>Stratégie de jeu :</b> ${esc(t.strat)}</p>` : ''}${t.weak ? `<p class="small mute"><b>Point faible :</b> ${esc(t.weak)}</p>` : ''}</div>`; }).join('')}</div>`;
+    if (M.tiers) { const byT = {}; for (const [id, v, t] of M.tiers) { const c = byId(id); if (c) (byT[t] = byT[t] || []).push(c); }
+      el.insertAdjacentHTML('beforeend', `<div class="card section"><span class="chip red">Tier list</span><h2 style="margin-top:10px">Tier list des LR en ranked</h2><p class="mute small">Note de chaque carte = résultat moyen de tous les trios où elle joue (moteur du jeu, mêmes adversaires). Identique à 0★ et à 5★.</p>${['S', 'A', 'B', 'C', 'D'].filter(t => byT[t]).map(t => `<div class="tierrow"><span class="tier t${t}">${t}</span><div class="tierc">${byT[t].map(c => `<span class="tchip">${lrImg(c) ? `<img src="${lrImg(c)}" alt="">` : ''}${esc(c.n.replace(/\s*\(.*$/, ''))}</span>`).join('')}</div></div>`).join('')}</div>`); }
+    el.querySelectorAll('#tl button').forEach(b => b.onclick = () => { lvl = b.dataset.l; draw(); }); };
+  draw();
+}
 function renderRankedReco(best, team, ok, own, use) {
   const bt = best.team, r = best.r; const same = ok && bt.every(c => team.some(x => x.id === c.id)); const cur = ok && !same ? rankedSim(team, own, 80) : null;
   const syn = synergy(bt);
@@ -741,13 +775,14 @@ P.equipe = async (m, mode = 'chateau') => {
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">${title}</span><h1 style="margin-top:12px">Meilleure équipe</h1><p class="mute">${mode === 'chateau' ? 'Choisis ton équipe actuelle pour voir la chambre max qu\'elle peut atteindre, ou laisse le site trouver la meilleure parmi tes LR.' : 'Choisis ton équipe actuelle, ou laisse le site trouver la meilleure parmi tes LR : chaque trio est testé en matchs simulés contre les équipes de la méta, avec les stats à tes étoiles, les techniques et les synergies.'}</p>
     <div class="row" style="margin-top:12px"><button class="btn primary" id="af">⚡ Auto-remplir la meilleure équipe</button><a class="btn ghost" href="#meslr">Modifier mes LR</a></div></section>
     <div class="card section"><h2>Mon équipe</h2><p class="small mute">Une seule carte par rôle, comme dans le jeu.</p><div class="row picks">${teamPicker(team, own)}</div><div id="cur" style="margin-top:14px"></div></div>
-    <div id="rec"></div>`;
+    <div id="rec"></div>${mode === 'ranked' ? '<div id="top5"></div>' : ''}`;
+  if (mode === 'ranked') loadRMeta().then(M => { const el = $('#top5'); if (el && M?.top) renderTop5(el, M); });
   const use = async bt => { team = bt.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Équipe enregistrée'); };
   const show = () => {
     const ok = team.length === 3 && roleOk(team);
     if (!ok) { $('#cur').innerHTML = team.length === 3 ? '<div class="msg">Deux cartes ont le même rôle : le jeu ne l\'accepte pas.</div>' : '<p class="mute small">Choisis 3 cartes.</p>'; }
     else if (mode === 'chateau') { const r = simCastle(team, own); $('#cur').innerHTML = `${teamCards(team, own)}${simBlock(r, team)}`; }
-    else $('#cur').innerHTML = `${teamCards(team, own)}${forceTxt(rankedSim(team, own, 40))}`;
+    else { $('#cur').innerHTML = `${teamCards(team, own)}<p class="mute small">Calcul…</p>`; loadRMeta().then(() => { $('#cur').innerHTML = `${teamCards(team, own)}${forceTxt(rankedSim(team, own, 40))}`; }); }
     if (mode === 'chateau') { $('#rec').innerHTML = '<div class="card section"><div class="row"><span class="chip red">Simulation</span><span class="mute small" id="simp">Combats simulés en cours…</span></div><div class="bar" style="margin-top:10px"><i id="simbar" style="width:0%"></i></div></div>'; const tok = (S.simTok = (S.simTok || 0) + 1);
       bestCastleSim(own, (i, n) => { if (S.simTok !== tok) return; const b = $('#simbar'); if (b) b.style.width = (i / n * 100) + '%'; const t = $('#simp'); if (t) t.textContent = `Combats simulés : ${Math.round(i / n * 100)} %…`; }, ok ? team : null).then(best => { if (S.simTok !== tok || !best) return; renderCastleReco(best, team, ok, own, mode, use); });
       return; }

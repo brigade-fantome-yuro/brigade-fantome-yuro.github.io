@@ -39,14 +39,14 @@ function rng(seed) { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x ^= 
 
 // team : [{id, hp, atk}] (stats exactes à leurs étoiles)
 export function fight(room, team, seed = 1, opts = {}) {
-  const R = rng(seed), g = towerAt(room);
-  const P = team.map(c => ({ id: c.id, k: kindOf(c.id), hp: c.hp, max: c.hp, atk: c.atk, cd: 0, rose: false, ward: kindOf(c.id).ward || 0 }));
+  const R = rng(seed), g = opts.g || towerAt(room); const N = { acts: 0, strikes: 0, skills: 0 };
+  const P = team.map(c => ({ id: c.id, k: c.k || kindOf(c.id), hp: c.hp, max: c.hp, atk: c.atk, cd: 0, rose: false, ward: kindOf(c.id).ward || 0 }));
   const E = [0, 1, 2].map(() => ({ hp: g.hp, max: g.hp, atk: g.atk, frozen: 0, fresh: false, guardStun: 0, struck: false, bleed: 0, bleedDmg: 0 }));
   let last = -1, turn = 0;
   const aliveP = () => P.filter(p => p.hp > 0), aliveE = () => E.filter(e => e.hp > 0);
   const rise = t => { if (t.hp > 0 || t.dead) return; const k = t.k; if (t.overlord) { t.hp = 1; t.overlord = false; return; } if (t.almighty > 0) { t.hp = Math.max(1, Math.round(t.max * .5)); t.almighty = 0; return; } if (k.rise && !t.rose) { t.hp = Math.max(1, Math.round(t.max * k.rise)); t.rose = true; } };
   const strike = e => {
-    const al = aliveP(); if (!al.length) return;
+    const al = aliveP(); if (!al.length) return; N.strikes++;
     const pool = al.length > 1 ? al.filter(u => P.indexOf(u) !== last) : al; const t = pool[Math.min(pool.length - 1, Math.floor(R() * pool.length))]; last = P.indexOf(t);
     if (t.mui > 0) return; if (t.dodges > 0) { t.dodges--; return; }
     if (t.haki) { t.haki = false; return; }
@@ -76,7 +76,7 @@ export function fight(room, team, seed = 1, opts = {}) {
   const act = p => {
     const tgt = focus(); if (!tgt) return;
     const k = p.k; const atk = g.atk; const ready = p.cd === 0 && !(k.once && p.spent) && !(k.uses && (p.uses || 0) >= k.uses) && !(k.fromTurn && turn < k.fromTurn);
-    const useSkill = () => { p.cd = k.cd || 0; if (k.once) p.spent = true; if (k.uses) p.uses = (p.uses || 0) + 1; };
+    const useSkill = () => { N.skills++; p.cd = k.cd || 0; if (k.once) p.spent = true; if (k.uses) p.uses = (p.uses || 0) + 1; };
     if (k.k === 'swap' && ready && p.hp <= atk * (opts.swapAt || 1)) {
       const al = aliveE(); const full = al.reduce((m, e) => e.hp / e.max > m.hp / m.max ? e : m, al[0]);
       const a = p.hp / p.max, t = full.hp / full.max; p.hp = Math.max(1, Math.min(p.max, Math.round(t * p.max))); full.hp = Math.max(1, Math.min(full.max, Math.round(a * full.max))); useSkill(); return;
@@ -114,21 +114,21 @@ export function fight(room, team, seed = 1, opts = {}) {
     turn++;
     const done = new Set();
     for (;;) {
-      const p = next(done); if (!p) break; done.add(p); act(p);
-      if (!E.some(e => e.hp > 0)) return { win: true, turn };
-      if (P.some(q => q.hp > 0 && !done.has(q))) { const c = E.find(e => e.hp > 0 && !e.struck && !(e.frozen > 0)); if (c) { c.struck = true; strike(c); } if (!aliveP().length) return { win: false, turn }; }
+      const p = next(done); if (!p) break; done.add(p); N.acts++; act(p);
+      if (!E.some(e => e.hp > 0)) return { win: true, turn, ...N };
+      if (P.some(q => q.hp > 0 && !done.has(q))) { const c = E.find(e => e.hp > 0 && !e.struck && !(e.frozen > 0)); if (c) { c.struck = true; strike(c); } if (!aliveP().length) return { win: false, turn, ...N }; }
       else break;
     }
-    for (const c of E.filter(e => e.hp > 0 && !(e.frozen > 0) && !e.struck)) { strike(c); if (!aliveP().length) return { win: false, turn }; }
+    for (const c of E.filter(e => e.hp > 0 && !(e.frozen > 0) && !e.struck)) { strike(c); if (!aliveP().length) return { win: false, turn, ...N }; }
     // fin de tour
     for (const u of P) { if (u.armor > 0) { u.armor--; if (!u.armor && u.hp > 0 && u.store > 0) { const al = aliveE(); const per = Math.max(1, Math.round(u.store / al.length)); for (const e of al) e.hp = Math.max(0, e.hp - per); u.store = 0; } } if (u.almighty > 0) u.almighty--; if (u.mui > 0) u.mui--; if (u.mirror > 0) u.mirror--; if (u.titanT > 0) u.titanT--; }
     for (const e of E) if (e.mark > 0) e.mark--;
     for (const e of E) if (e.bleed > 0 && e.hp > 0) { e.hp = Math.max(0, e.hp - e.bleedDmg); e.bleed--; }
-    if (!E.some(e => e.hp > 0)) return { win: true, turn };
+    if (!E.some(e => e.hp > 0)) return { win: true, turn, ...N };
     for (const e of E) { if (!(e.frozen > 0)) { if (e.guardStun > 0) e.guardStun--; } else if (e.fresh) e.fresh = false; else { e.frozen--; if (!e.frozen) { if (e.stunType === 'stun' || e.stunType === 'control') e.guardStun = 1; e.banished = false; } } e.struck = false; }
     for (const u of P) { u.cd = Math.max(0, u.cd - 1); if (u.k.regen && u.hp > 0 && u.hp < u.max) u.hp = Math.min(u.max, u.hp + Math.max(1, Math.round(u.max * u.k.regen))); }
   }
-  return { win: false, turn };
+  return { win: false, turn, ...N };
 }
 
 export function winRate(room, team, n = 200, opts) { let w = 0; for (let i = 0; i < n; i++) if (fight(room, team, 1 + i * 7919 + room * 104729, opts).win) w++; return w / n; }
@@ -148,4 +148,16 @@ export function castleReport(team, n = 200, opts = {}, onp) {
   }
   for (; k < th.length; k++) out[th[k][0]] = 2000;
   return out;
+}
+
+// Salle du temps : 3 gardiens à 90 % des PV moyens et 75 % de l'attaque moyenne de l'équipe (formule du jeu).
+// Durée d'un combat en Replay auto ×2, calée sur nos mesures en jeu : Vegeta + 2 Communes ≈ 200 KI/min, 3 Communes ≈ 120 KI/min.
+export const FARM_T = { relaunch: 3.0, action: 0.26, skill: 2.5 };
+export function farmRate(team, n = 60) {
+  const avgHp = team.reduce((a, c) => a + c.hp, 0) / team.length, avgAtk = team.reduce((a, c) => a + c.atk, 0) / team.length;
+  const g = { hp: Math.max(60, Math.round(avgHp * .9)), atk: Math.max(8, Math.round(avgAtk * .75)) };
+  let wins = 0, time = 0;
+  for (let i = 0; i < n; i++) { const r = fight(1, team, 1 + i * 7919, { g }); time += FARM_T.relaunch + FARM_T.action * (r.acts + r.strikes) + FARM_T.skill * r.skills; if (r.win) wins++; }
+  const perMin = wins / (time / 60);
+  return { ki: Math.round(perMin * 20), winsPerMin: perMin, winRate: wins / n, secPerFight: time / n, g };
 }
