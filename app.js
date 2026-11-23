@@ -1,10 +1,10 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=20';
+import * as CFG from './config.js?v=21';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=20';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=20';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=21';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=21';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=20';
+import { duelRate } from './ranked.js?v=21';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -47,7 +47,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '20';
+const APP_V = '21';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -674,6 +674,7 @@ const forceTxt = r => { const byId = id => LRS().find(c => c.id === id);
   const rows = L => L.map(x => `<div class="opp"><span class="small">${esc(x.name)}${x.f && !x.sim ? ` <span class="mute">(${x.f}×)</span>` : ''}</span><span class="bar"><i style="width:${Math.round(x.w * 100)}%"></i></span><b class="small">${Math.round(x.w * 100)} %</b></div>`).join('');
   return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Indice de force</div><div class="cd">${Math.round(r.avg * 100)}<span class="small mute">/100</span></div></div>${r.order ? `<div><div class="mute small">Placement conseillé</div><div style="font-weight:700;margin-top:6px">${r.order.map(id => esc((byId(id)?.n || '').replace(/\s*\(.*$/, ''))).join(' → ')}</div></div>` : ''}</div>
   ${obs.length ? `<h3 style="margin-top:14px">Contre les équipes les plus jouées</h3><div class="opps">${rows(obs)}</div>` : ''}${sim.length ? `<h3 style="margin-top:14px">Contre la méta simulée</h3><div class="opps">${rows(sim)}</div>` : ''}
+  <p class="small" style="color:#f3c26b">Simulation en cours de calibrage sur les vrais matchs ranked : à prendre comme une indication, pas comme une vérité.</p>
   <p class="small mute">${r.full ? 'Calculé avec le moteur de combat du jeu : chaque camp commence à tour de rôle, ton trio joue avec son meilleur placement, et tes étoiles sont prises en compte. Méta = les équipes les plus jouées en ranked (entre parenthèses : combien de fois) + les meilleures équipes trouvées par simulation.' : r.real ? 'Calculé avec le moteur de combat du jeu contre les 3 équipes les plus jouées en ranked (ce trio n\'est pas dans le haut du classement, il n\'a pas été testé contre la méta complète).' : 'Estimation.'} Le joueur d'en face peut jouer autrement.</p>`; };
 function synergy(bt) {
   const has = id => bt.some(c => c.id === id), k = c => KIND_OF(c.id), L = [];
@@ -742,8 +743,8 @@ function renderCastleReco(best, team, ok, own, mode, use) {
 }
 function renderTop5(el, M) {
   let lvl = '0';
-  const draw = () => { const L = M.top[lvl] || []; const byId = id => LRS().find(c => c.id === id);
-    el.innerHTML = `<div class="card section"><span class="chip red">Analyse approfondie</span><h2 style="margin-top:10px">Top 5 des compos ranked</h2>
+  const draw = () => { const L = M.top?.[lvl] || []; const byId = id => LRS().find(c => c.id === id);
+    el.innerHTML = !L.length ? '' : `<div class="card section"><span class="chip red">Analyse approfondie</span><h2 style="margin-top:10px">Top 5 des compos ranked</h2>
       <p class="mute small">Les ${fmt(M.n)} trios autorisés par le jeu, testés avec le moteur de combat du jeu, chacun avec son meilleur placement, chaque camp commençant à tour de rôle. La méta est définie par simulation : on part des ${M.observed || 8} équipes les plus jouées en ranked (${fmt(M.matches)} matchs relevés), on ajoute les meilleures équipes trouvées, et on recommence jusqu'à ce que le classement ne bouge plus. Les deux camps au même niveau d'étoiles. Placement : de gauche à droite comme dans le jeu.</p>
       <div class="tabs" id="tl" style="max-width:360px"><button data-l="0" class="${lvl === '0' ? 'on' : ''}">Tout à 0★</button><button data-l="5" class="${lvl === '5' ? 'on' : ''}">Tout à 5★</button></div>
       ${M.note ? `<p class="small" style="margin-top:10px">${esc(M.note)}</p>` : ''}
@@ -776,7 +777,7 @@ P.equipe = async (m, mode = 'chateau') => {
     <div class="row" style="margin-top:12px"><button class="btn primary" id="af">⚡ Auto-remplir la meilleure équipe</button><a class="btn ghost" href="#meslr">Modifier mes LR</a></div></section>
     <div class="card section"><h2>Mon équipe</h2><p class="small mute">Une seule carte par rôle, comme dans le jeu.</p><div class="row picks">${teamPicker(team, own)}</div><div id="cur" style="margin-top:14px"></div></div>
     <div id="rec"></div>${mode === 'ranked' ? '<div id="top5"></div>' : ''}`;
-  if (mode === 'ranked') loadRMeta().then(M => { const el = $('#top5'); if (el && M?.top) renderTop5(el, M); });
+  if (mode === 'ranked') loadRMeta().then(M => { const el = $('#top5'); if (el && M) renderTop5(el, M); });
   const use = async bt => { team = bt.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Équipe enregistrée'); };
   const show = () => {
     const ok = team.length === 3 && roleOk(team);
