@@ -21,14 +21,14 @@ export function statsAt(card, stars) {
   const r = TS && TS[card.id]; if (r) return { hp: r[s][0], atk: r[s][1] };
   const k = 1 + 0.08 * s; return { hp: Math.round(card.hp * k), atk: Math.round(card.atk * k) };
 }
-// Dernière chambre où la carte survit à 2 coups de gardien en gardant au moins 1 % de vie.
+// Dernière chambre où la carte survit à 2 coups de gardien avec au moins 1 PV (0 PV = morte).
 // Avec soin : un soin de 30 % des PV max (arrondi comme dans le jeu) entre les deux coups.
 export function twoShotRoom(_t, card, stars, heal) {
   const hp = statsAt(card, stars).hp; let last = 0;
   for (let room = 1; room <= 3000; room++) {
     const atk = towerAt(null, room).atk; let v = hp - atk; if (v <= 0) break;
     if (heal) v = Math.min(hp, v + Math.max(1, Math.round(hp * .3)));
-    v -= atk; if (v >= hp * .01) last = room; else break;
+    v -= atk; if (v >= 1) last = room; else break;
   }
   return last;
 }
