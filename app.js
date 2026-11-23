@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=34';
+import * as CFG from './config.js?v=35';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=34';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=34';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=35';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=35';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=34';
-import * as SCAN from './scan.js?v=34';
+import { duelRate } from './ranked.js?v=35';
+import * as SCAN from './scan.js?v=35';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -38,7 +38,7 @@ const SPIDER = `<svg viewBox="0 0 48 48" aria-hidden="true"><g fill="none" strok
 const ROUTES = [
   ['accueil', 'Accueil', 'home'], ['kakashi', 'Kakashi Bot', 'bot'], ['meslr', 'Mes LR', 'users'],
   ['sep', 'Château de l\'infini'], ['guide/chateau', 'Guide du château', 'book'], ['equipe/chateau', 'Meilleure équipe', 'layers'], ['calculs', 'Calculateurs', 'calc'],
-  ['sep', 'Ranked'], ['guide/ranked', 'Guide ranked', 'book'], ['equipe/ranked', 'Meilleure équipe', 'layers'], ['simulateur', 'Simulateur de match', 'layers'],
+  ['sep', 'Ranked'], ['guide/ranked', 'Guide ranked', 'book'], ['equipe/ranked', 'Meilleure équipe', 'layers'], ['simulateur', 'Jouer un match (simulateur)', 'layers'],
   ['sep', 'Salle du temps'], ['guide/temps', 'Guide et calculateur', 'calc'],
   ['sep', 'Collection et Prestige'], ['checklist', 'Collection Prestige', 'check'], ['guide/prestige', 'Guide Prestige', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'],
   ['sep', 'Cartes'], ['persos', 'Fiches perso', 'users'],
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='34';
+const APP_V='35';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -342,60 +342,146 @@ P.prix = m => {
   S.timers.push(setInterval(async () => { await loadPrices(); if ($('#tb')) draw(); }, 60000));
 };
 
-/* ---------- Simulateur de match ranked + test A/B (modèle simplifié, à brancher sur le moteur officiel avec l'accord du dev) ---------- */
-const TECH = { // id -> modèle simplifié
-  340: { k: 'dom', cd: 3 }, 308: { k: 'stunAll', cd: 4, uses: 2 }, 183: { k: 'stunAll', cd: 4, uses: 2 }, 230: { k: 'stunAll', cd: 4, uses: 2 }, 3239: { k: 'stunAll', cd: 3, m: .6 },
-  3241: { k: 'stunAll', cd: 4, m: 1.1, hits: 2 }, 1070: { k: 'hit', m: 1.6, cd: 3, dodge: 2 }, 961: { k: 'hit', m: 1.7, uses: 1, mui: 3 }, 3248: { k: 'healAll', cd: 3, self: true },
-  408: { k: 'healAll', cd: 3 }, 499: { k: 'veil', cd: 3 }, 3247: { k: 'aoe', m: 1.3, cd: 3 }, 175: { k: 'aoe', m: 1.5, cd: 3 }, 369: { k: 'aoe', m: 1.5, cd: 3 }, 451: { k: 'aoe', m: 1.5, cd: 3 },
-  1083: { k: 'aoe', m: 2.5, uses: 1, die: true }, 953: { k: 'swap', cd: 4 }, 941: { k: 'hit', m: 1.5, cd: 3 }, 3246: { k: 'hit', m: 1.5, cd: 3 }, 68: { k: 'hit', m: 2.2, cd: 4 }, 3240: { k: 'hit', m: 1.6, cd: 3 }
-};
-const PASSIVE = { 3247: { revive: .6, regen: .05 }, 3248: { revive: .5 }, 105: { revive: .5 }, 190: { revive: 0 } };
-function mkUnit(c, s) { const st = statsAt(c, s), t = TECH[c.id] ? { ...TECH[c.id] } : null; return { c, n: c.n, hp: st.hp, max: st.hp, atk: st.atk, t, cd: 0, uses: (t || {}).uses ?? 99, stun: 0, dodge: 0, veil: 0, pas: { ...(PASSIVE[c.id] || {}) } }; }
-function checkDeath(u) { if (u.hp <= 0 && u.pas.revive != null) { u.hp = Math.max(1, Math.round(u.max * u.pas.revive)); u.pas.revive = null; } }
-function pickTarget(foes, plan) { const a = foes.filter(u => u.hp > 0); if (!a.length) return null; if (plan.focus === 'low') return a.reduce((x, y) => y.hp < x.hp ? y : x); if (plan.focus === 'atk') return a.reduce((x, y) => y.atk > x.atk ? y : x); return a[0]; }
-function hitUnit(u, dmg) { if (u.dodge > 0) { u.dodge--; return; } if (u.veil > 0) { u.veil = 0; return; } u.hp -= Math.round(dmg); checkDeath(u); }
-function act(u, mine, foes, plan) {
-  if (u.pas.regen) u.hp = Math.min(u.max, u.hp + Math.round(u.max * u.pas.regen));
-  if (u.stun > 0) { u.stun--; return; }
-  const tgt = pickTarget(foes, plan); if (!tgt) return; const t = u.t, ready = t && u.cd <= 0 && u.uses > 0 && plan.tech;
-  if (ready) {
-    u.cd = t.cd || 99; u.uses--;
-    if (t.k === 'hit') { hitUnit(tgt, u.atk * t.m); if (t.dodge) u.dodge = t.dodge, t.dodge = 0; if (t.mui) u.dodge = 99, u.mui = t.mui; return; }
-    if (t.k === 'aoe') { foes.forEach(f => f.hp > 0 && hitUnit(f, u.atk * t.m)); if (t.die) { u.hp = 0; u.pas.revive = null; } return; }
-    if (t.k === 'stunAll') { foes.forEach(f => { if (f.hp > 0) { if (f.veil || f.dodge) { f.veil ? f.veil = 0 : f.dodge--; } else { f.stun = 1; if (t.m) { f.hp -= Math.round(u.atk * t.m); checkDeath(f); } } } }); return; }
-    if (t.k === 'dom') { if (tgt.veil || tgt.dodge) { tgt.veil ? tgt.veil = 0 : tgt.dodge--; return; } tgt.hp -= Math.round(tgt.atk * 1.5); checkDeath(tgt); tgt.stun = 1; return; }
-    if (t.k === 'healAll') { mine.forEach(a => { if (a.hp > 0 && (t.self || a !== u)) a.hp = Math.min(a.max, a.hp + Math.round(a.max * .3)); }); return; }
-    if (t.k === 'veil') { mine.forEach(a => a.hp > 0 && (a.veil = 1)); return; }
-    if (t.k === 'swap') { const full = foes.filter(f => f.hp > 0).reduce((x, y) => y.hp / y.max > x.hp / x.max ? y : x); const pa = u.hp / u.max, pb = full.hp / full.max; if (pb > pa) { u.hp = Math.round(pb * u.max); full.hp = Math.round(pa * full.max); return; } u.cd = 0; u.uses++; }
-  }
-  hitUnit(tgt, u.atk); if (u.cd > 0) u.cd--;
-}
-function simMatch(A, B, planA, planB, starter) {
-  const a = A.map(x => mkUnit(x.c, x.s)), b = B.map(x => mkUnit(x.c, x.s)); let side = starter;
-  for (let round = 0; round < 60; round++) {
-    for (let i = 0; i < 3; i++) for (const s of side ? [b, a] : [a, b]) { const u = s[i]; if (u && u.hp > 0) act(u, s, s === a ? b : a, s === a ? planA : planB); if (!a.some(x => x.hp > 0) || !b.some(x => x.hp > 0)) return a.some(x => x.hp > 0) ? 1 : 0; }
-    [...a, ...b].forEach(u => { if (u.mui && --u.mui <= 0) u.dodge = 0; u.veil = 0; }); side = 1 - side;
-  }
-  return a.reduce((s, x) => s + Math.max(0, x.hp) / x.max, 0) > b.reduce((s, x) => s + Math.max(0, x.hp) / x.max, 0) ? 1 : 0;
-}
+/* ---------- Jouer un match ranked (simulateur jouable + analyse de chaque coup) ---------- */
 P.simulateur = m => {
-  const cards = S.kb.cards.filter(c => !c.r);
-  const pick = (p, i, def) => `<div style="flex:1;min-width:160px"><label for="${p}${i}">Carte ${i + 1}</label><select id="${p}${i}">${cards.map(c => `<option value="${c.id}" ${c.id === def ? 'selected' : ''}>${esc(c.n)}</option>`).join('')}</select><label for="${p}s${i}">Étoiles</label><select id="${p}s${i}">${[0, 1, 2, 3, 4, 5].map(s => `<option>${s}</option>`).join('')}</select></div>`;
-  const plan = p => `<div style="flex:1;min-width:200px"><label for="${p}f">Cible</label><select id="${p}f"><option value="first">Focus le premier</option><option value="low">Le plus bas en PV</option><option value="atk">La plus grosse attaque</option></select><label for="${p}t">Techniques</label><select id="${p}t"><option value="1">Dès qu'elles sont prêtes</option><option value="0">Jamais (attaques seules)</option></select></div>`;
-  m.innerHTML = `<h1>Simulateur de match ranked</h1><p class="mute">Simule des centaines de matchs entre ton équipe et une équipe adverse, et compare deux façons de jouer (test A/B) pour savoir laquelle gagne le plus souvent.</p>
-  <div class="soon"><div class="card section"><h2>Ton équipe</h2><div class="row">${pick('a', 0, 1070)}${pick('a', 1, 3248)}${pick('a', 2, 3247)}</div></div>
-  <div class="card section"><h2>Équipe adverse</h2><div class="row">${pick('b', 0, 3241)}${pick('b', 1, 973)}${pick('b', 2, 68)}</div><div class="row">${plan('o')}</div></div>
-  <div class="grid"><div class="card"><h2>Plan A</h2><div class="row">${plan('pa')}</div></div><div class="card"><h2>Plan B</h2><div class="row">${plan('pb')}</div></div></div>
-  <div class="row section"><label for="nn" style="margin:0">Matchs par plan</label><select id="nn" style="width:auto"><option>100</option><option selected>500</option><option>2000</option></select><button class="btn primary" id="go">Lancer la simulation</button></div>
-  <div id="res"></div></div>`;
-  $('#pbt').value = '1'; $('#pbf').value = 'low';
-  $('#go').onclick = () => {
-    const team = p => [0, 1, 2].map(i => ({ c: cards.find(c => c.id === +$('#' + p + i).value), s: +$('#' + p + 's' + i).value }));
-    const pl = p => ({ focus: $('#' + p + 'f').value, tech: $('#' + p + 't').value === '1' }); const A = team('a'), B = team('b'), N = +$('#nn').value, opp = pl('o');
-    const run = P => { let w = 0, wf = 0, ws = 0; for (let k = 0; k < N; k++) { const st = k % 2, r = simMatch(A, B, P, opp, st); w += r; if (st) ws += r; else wf += r; } return { w: w / N, first: wf / (N / 2), second: ws / (N / 2) }; };
-    const ra = run(pl('pa')), rb = run(pl('pb')); const pc = v => (v * 100).toFixed(0) + ' %';
-    $('#res').innerHTML = `<div class="grid">${[['Plan A', ra], ['Plan B', rb]].map(([n, r]) => `<div class="card"><div class="k">${n}</div><div class="cd">${pc(r.w)}</div><div class="small mute">Tu commences : ${pc(r.first)} · Il commence : ${pc(r.second)}</div></div>`).join('')}</div><p class="small mute">Modèle simplifié : il ne reproduit pas encore tous les effets du jeu.</p>`;
+  const EXS = (S.kb.ex_cards || []).filter(c => c.r === 'Exclusive').map(c => ({ ...c, ex: true }));
+  const ALL = [...(S.kb.cards || []), ...EXS];
+  const cnt = {}; ALL.forEach(c => cnt[c.n] = (cnt[c.n] || 0) + 1);
+  const lab = c => cnt[c.n] > 1 ? `${c.n} (${c.ex ? 'Exclusive' : c.p ? 'prestige' : c.r || 'LR'} #${c.id})` : c.n;
+  const byName = new Map(ALL.map(c => [lab(c).toLowerCase(), c]));
+  const stOf = (c, st) => c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st);
+  const def = [[1070, 3248, 3247], [308, 1070, 128]];
+  const slot = (p, i, id) => { const c = ALL.find(x => x.id === id) || ALL[0]; return `<div class="pl-slot"><label for="${p}${i}">Carte ${i + 1}</label><input id="${p}${i}" list="plCards" value="${esc(lab(c))}" autocomplete="off"><label for="${p}s${i}">Étoiles</label><select id="${p}s${i}">${[0, 1, 2, 3, 4, 5].map(s => `<option ${s === 5 ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`; };
+  m.innerHTML = `<h1>Jouer un match ranked</h1><p class="mute">Choisis les deux équipes (n'importe quelles cartes, n'importe quelles étoiles : stats du jeu), joue le match coup par coup, et l'IA analyse chacun de tes coups : bon coup, imprécision ou erreur, avec la raison et le meilleur coup. Les flèches ‹ › (ou ← → au clavier) te ramènent à n'importe quel moment pour essayer un autre coup.</p>
+  <datalist id="plCards">${ALL.map(c => `<option value="${esc(lab(c))}">`).join('')}</datalist>
+  <div id="plSetup"><div class="grid"><div class="card"><h2>Ton équipe</h2><div class="pl-row">${def[0].map((id, i) => slot('a', i, id)).join('')}</div></div>
+  <div class="card"><h2>Équipe adverse</h2><div class="pl-row">${def[1].map((id, i) => slot('b', i, id)).join('')}</div></div></div>
+  <div class="card section"><div class="pl-row"><div class="pl-slot"><label for="plStart">Qui commence</label><select id="plStart"><option value="0">Moi</option><option value="1">L'adversaire</option><option value="r">Au hasard</option></select></div>
+  <div class="pl-slot"><label for="plMode">L'adversaire est joué par</label><select id="plMode"><option value="ia">L'IA</option><option value="moi">Moi (je joue les deux camps)</option></select></div>
+  <div class="pl-slot"><label for="plN">Précision de l'analyse</label><select id="plN"><option value="24">Rapide</option><option value="48" selected>Normale</option><option value="96">Fine (plus lent)</option></select></div></div>
+  <div class="row section"><button class="btn primary" id="plGo">Commencer le match</button><span id="plErr" class="red small"></span></div></div></div>
+  <div id="plGame"></div>
+  <p class="small mute section">Comment l'IA juge : pour chaque coup possible, elle rejoue la suite du match des dizaines de fois et compare tes chances de victoire. Écart de moins de 6 points = bon coup, 6 à 15 = imprécision, plus de 15 = erreur. Les techniques suivent la table du simulateur du site ; les cartes marquées ≈ ont une technique seulement approchée.</p>`;
+  let PL = null;
+  $('#plGo').onclick = async () => {
+    const team = p => [0, 1, 2].map(i => { const c = byName.get($('#' + p + i).value.trim().toLowerCase()); if (!c) return null; const st = +$('#' + p + 's' + i).value, s = stOf(c, st); return { id: c.id, n: c.n, st, hp: s.hp, atk: s.atk, tn: c.t?.[0]?.[0] || 'Technique', td: c.t?.[0]?.[1] || '', img: c.ex ? c.img : lrImg(c) }; });
+    const A = team('a'), B = team('b');
+    if (A.includes(null) || B.includes(null)) { $('#plErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
+    $('#plErr').textContent = '';
+    const G = await import('./play.js?v=35');
+    const sv = $('#plStart').value, starter = sv === 'r' ? null : +sv;
+    const st0 = G.start(G.newGame(A, B, starter));
+    PL = { G, A, B, mode: $('#plMode').value, n: +$('#plN').value, H: [{ st: st0 }], idx: 0, sel: null, busy: false };
+    $('#plSetup').style.display = 'none'; drawGame(); maybeAI();
   };
+  const cur = () => PL.H[PL.idx].st;
+  const pc = v => Math.round(v * 100) + ' %';
+  const human = s => PL.mode === 'moi' || s === 0;
+  const unitHtml = (u, s, st, clickable) => {
+    const pct = Math.max(0, u.hp / u.max * 100), dead = u.hp <= 0, ready = PL.G.techReady(st, u), info = PL[s ? 'B' : 'A'][u.i];
+    const tags = [];
+    if (u.frozen > 0) tags.push('figé'); if (u.dodges > 0) tags.push(u.dodges + ' esquive' + (u.dodges > 1 ? 's' : '')); if (u.mui > 0) tags.push('Ultra Instinct'); if (u.haki) tags.push('Haki'); if (u.armor > 0) tags.push('armure'); if (u.mirror > 0) tags.push('miroir'); if (u.bleed > 0) tags.push('saigne'); if (u.banished) tags.push('banni'); if (u.done && !dead) tags.push('a joué');
+    const tech = u.k.k === 'none' ? 'pas de technique' : ready ? '<b class="ok">technique prête</b>' : (u.k.once && u.spent) || (u.k.uses && (u.uses || 0) >= u.k.uses) ? 'technique utilisée' : u.k.fromTurn && st.round < u.k.fromTurn ? 'technique au tour ' + u.k.fromTurn : 'recharge ' + u.cd;
+    const approx = !KIND[u.id] || APPROX.has(u.id) ? ' <span title="Technique approchée">≈</span>' : '';
+    return `<button class="pl-u ${dead ? 'dead' : ''} ${clickable ? 'can' : ''} ${PL.sel && PL.sel.s === s && PL.sel.i === u.i ? 'sel' : ''}" data-s="${s}" data-i="${u.i}" ${dead ? 'disabled' : ''}>
+      ${info.img ? `<img src="${esc(info.img)}" alt="" loading="lazy">` : '<div class="pl-noimg"></div>'}
+      <div class="pl-n">${esc(u.n)} <span class="mute">${info.st}★</span>${approx}</div>
+      <div class="pl-bar"><i style="width:${pct}%"></i></div><div class="small">${dead ? 'K.O.' : `${u.hp} / ${u.max} PV · ${u.atk} ATQ`}</div>
+      <div class="small mute">${tech}</div>${tags.length ? `<div class="pl-tags">${tags.map(t => `<span>${t}</span>`).join('')}</div>` : ''}</button>`;
+  };
+  function drawGame() {
+    const st = cur(), G = PL.G, s = st.s, mine = human(s) && st.over == null && !PL.busy;
+    const can = new Set(mine ? G.avail(st, s).map(u => s + ':' + u.i) : []);
+    let targets = new Set();
+    if (PL.sel && PL.sel.act) { const e = G.alive(st, 1 - s), ok = e.filter(u => !u.banished); (ok.length ? ok : e).forEach(u => targets.add((1 - s) + ':' + u.i)); }
+    const row = side => `<div class="pl-team">${st.U[side].map(u => unitHtml(u, side, st, can.has(side + ':' + u.i) || targets.has(side + ':' + u.i))).join('')}</div>`;
+    const selU = PL.sel ? st.U[PL.sel.s][PL.sel.i] : null;
+    let ctrl = '';
+    if (st.over != null) ctrl = `<div class="pl-over ${st.over === 0 ? 'ok' : 'red'}">${st.over === 0 ? 'Victoire' : 'Défaite'}</div>`;
+    else if (PL.busy) ctrl = '<span class="mute">L\'IA réfléchit…</span>';
+    else if (!human(s)) ctrl = `<span class="mute">Au tour de l'adversaire.</span> <button class="btn" id="plAI">Coup de l'IA</button>`;
+    else if (!selU) ctrl = `<span>Tour ${st.round} · <b>${s ? 'camp adverse' : 'ton camp'}</b> : choisis une carte qui n'a pas encore joué.</span>`;
+    else if (!PL.sel.act) ctrl = `<span><b>${esc(selU.n)}</b> :</span> <button class="btn" data-act="atk">Attaque (${G.dmgOf(selU, false)})</button>${G.techReady(st, selU) ? ` <button class="btn primary" data-act="tech">${esc(PL[s ? 'B' : 'A'][selU.i].tn)}</button>` : ''} <button class="btn ghost" data-act="x">Annuler</button>`;
+    else ctrl = `<span><b>${esc(selU.n)}</b> → choisis la cible dans l'équipe ${s ? 'du bas' : 'du haut'}.</span> <button class="btn ghost" data-act="x">Annuler</button>`;
+    const techHelp = selU && !PL.sel.act ? `<p class="small mute">${esc(PL[s ? 'B' : 'A'][selU.i].tn)} : ${esc(PL[s ? 'B' : 'A'][selU.i].td)}</p>` : '';
+    const moves = PL.H.slice(1).map((h, j) => { const a = h.an; const ic = !a ? '' : a.pending ? '…' : a.grade; return `<li class="${j + 1 === PL.idx ? 'on' : ''} ${j + 1 > PL.idx ? 'fut' : ''}" data-j="${j + 1}"><span class="pl-ic">${ic}</span> <span class="mute small">${h.side ? 'Adv.' : 'Toi'}</span> ${esc(h.txt)}</li>`; }).join('');
+    const last = PL.H[PL.idx];
+    const anal = PL.idx > 0 && last.an ? anHtml(last) : '';
+    $('#plGame').innerHTML = `<div class="pl-wrap"><div class="card pl-board"><div class="pl-lab mute small">Adversaire</div>${row(1)}<div class="pl-mid"><div>${ctrl}</div>${techHelp}</div>${row(0)}<div class="pl-lab mute small">Toi</div></div>
+      <div class="card pl-side"><div class="pl-nav"><button class="btn" id="plPrev" aria-label="Coup précédent" ${PL.idx ? '' : 'disabled'}>‹</button><span class="small mute">Coup ${PL.idx} / ${PL.H.length - 1}</span><button class="btn" id="plNext" aria-label="Coup suivant" ${PL.idx < PL.H.length - 1 ? '' : 'disabled'}>›</button></div>
+      ${anal}<ol class="pl-hist">${moves || '<li class="mute small">Aucun coup joué.</li>'}</ol>${st.over != null && PL.idx === PL.H.length - 1 ? summary() : ''}
+      <div class="row section"><button class="btn ghost" id="plNew">Nouvelle partie</button></div></div></div>`;
+    $('#plGame').querySelectorAll('.pl-u').forEach(b => b.onclick = () => clickUnit(+b.dataset.s, +b.dataset.i));
+    $('#plGame').querySelectorAll('[data-act]').forEach(b => b.onclick = () => clickAct(b.dataset.act));
+    $('#plGame').querySelectorAll('.pl-hist li[data-j]').forEach(li => li.onclick = () => goTo(+li.dataset.j));
+    $('#plPrev').onclick = () => goTo(PL.idx - 1); $('#plNext').onclick = () => goTo(PL.idx + 1);
+    $('#plNew').onclick = () => { PL = null; $('#plGame').innerHTML = ''; $('#plSetup').style.display = ''; };
+    if ($('#plAI')) $('#plAI').onclick = () => aiPlay();
+  }
+  function goTo(j) { if (!PL || PL.busy || j < 0 || j >= PL.H.length) return; PL.idx = j; PL.sel = null; drawGame(); }
+  document.onkeydown = e => { if (!PL || !$('#plGame') || /input|select|textarea/i.test(e.target.tagName)) return; if (e.key === 'ArrowLeft') goTo(PL.idx - 1); if (e.key === 'ArrowRight') goTo(PL.idx + 1); };
+  function clickUnit(s, i) {
+    const st = cur(), G = PL.G; if (PL.busy || st.over != null || !human(st.s)) return;
+    if (PL.sel && PL.sel.act && s === 1 - st.s) { doMove({ i: PL.sel.i, tech: PL.sel.act === 'tech', t: i }); return; }
+    if (s === st.s && G.avail(st, s).some(u => u.i === i)) { PL.sel = { s, i }; drawGame(); }
+  }
+  function clickAct(a) {
+    const st = cur(), G = PL.G; if (a === 'x') { PL.sel = null; drawGame(); return; }
+    const u = st.U[PL.sel.s][PL.sel.i];
+    if (a === 'tech' && !G.needsTarget(u.k)) { doMove({ i: u.i, tech: true, t: null }); return; }
+    const e = G.alive(st, 1 - st.s), ok = e.filter(x => !x.banished), T = ok.length ? ok : e;
+    if (T.length === 1) { doMove({ i: u.i, tech: a === 'tech', t: T[0].i }); return; }
+    PL.sel.act = a; drawGame();
+  }
+  function push(mv, analyse) {
+    const st = cur(), r = PL.G.play(st, mv); PL.H = PL.H.slice(0, PL.idx + 1);
+    const h = { st: r.st, mv, txt: r.txt, side: st.s, from: st, an: analyse ? { pending: true } : null };
+    PL.H.push(h); PL.idx = PL.H.length - 1; PL.sel = null; return h;
+  }
+  function doMove(mv) { const h = push(mv, true); drawGame(); setTimeout(() => analyse(h), 30); maybeAI(); }
+  function maybeAI() { const st = cur(); if (PL.mode === 'ia' && st.over == null && st.s === 1 && PL.idx === PL.H.length - 1) { PL.busy = true; drawGame(); setTimeout(() => { PL.busy = false; aiPlay(); }, 700); } }
+  function aiPlay() { const st = cur(); if (st.over != null || PL.busy) return; const mv = PL.G.aiMove(JSON.parse(JSON.stringify(st)), .15); if (!mv) return; push(mv, false); drawGame(); maybeAI(); }
+  const descMv = (st, mv) => { const p = st.U[st.s][mv.i], t = mv.t != null ? st.U[1 - st.s][mv.t] : null; return `${p.n} : ${mv.tech ? PL[st.s ? 'B' : 'A'][mv.i].tn : 'attaque'}${t && (!mv.tech || PL.G.needsTarget(p.k)) ? ' → ' + t.n : ''}`; };
+  const same = (a, b) => a.i === b.i && !!a.tech === !!b.tech && (a.t ?? null) === (b.t ?? null);
+  function analyse(h) {
+    const st = h.from, G = PL.G, side = st.s;
+    const ev = G.evalMoves(st, side, PL.n).sort((a, b) => b.p - a.p);
+    const mine = ev.find(e => same(e.mv, h.mv)) || { p: 0, mv: h.mv }, best = ev[0], d = (best.p - mine.p) * 100;
+    const grade = d < 6 ? '✅' : d <= 15 ? '⚠️' : '❌', label = d < 6 ? (same(best.mv, h.mv) ? 'Meilleur coup' : 'Bon coup') : d <= 15 ? 'Imprécision' : 'Erreur';
+    h.an = { grade, label, d, mine: mine.p, best, top: ev.slice(0, 3), why: d < 6 ? [] : reasons(st, h.mv, best.mv) };
+    if (PL.H.includes(h)) drawGame();
+  }
+  function reasons(st, mv, bm) {
+    const G = PL.G, s = st.s, p = st.U[s][mv.i], q = st.U[s][bm.i], t = mv.t != null ? st.U[1 - s][mv.t] : null, bt = bm.t != null ? st.U[1 - s][bm.t] : null, out = [];
+    const tn = i => PL[s ? 'B' : 'A'][i].tn;
+    if (t && (!mv.tech || G.needsTarget(p.k)) && G.prot(t)) out.push(`${t.n} était protégé (${t.mui > 0 ? 'Ultra Instinct' : t.dodges > 0 ? 'esquive' : 'Haki'}) : ton coup a été absorbé sans dégâts.`);
+    if (bt && !G.prot(bt)) { const dm = G.dmgOf(q, bm.tech); if (bt.hp <= dm && (!t || t !== bt)) out.push(`${q.n} pouvait achever ${bt.n} (${bt.hp} PV restants) : un ennemi en moins, c'est un coup de moins à encaisser.`); }
+    if (bm.tech && !mv.tech) out.push(`La technique ${tn(bm.i)} de ${q.n} était prête et rapportait plus qu'une attaque simple.`);
+    if (mv.tech && !bm.tech) {
+      if (p.k.k === 'heal') { const me = G.alive(st, s); const gain = me.filter(u => p.k.self || u !== p).reduce((a, u) => a + Math.min(u.max - u.hp, Math.round(u.max * .3)), 0); out.push(`Soin trop tôt : il n'a rendu que ${gain} PV au total, mieux valait le garder pour un moment où ton équipe est vraiment touchée.`); }
+      else if (p.k.k === 'swap') out.push(`Échange trop tôt : ${p.n} avait encore ${Math.round(p.hp / p.max * 100)} % de ses PV. L'échange est plus fort quand ses PV sont bas.`);
+      else if (t && G.prot(t)) { /* déjà dit */ }
+      else out.push(`Mieux valait garder ${tn(mv.i)} pour plus tard (recharge ou usage unique).`);
+    }
+    if (!out.length && mv.i !== bm.i) out.push(`Il valait mieux faire jouer ${q.n} d'abord.`);
+    if (!out.length && bt && t !== bt) out.push(`Mieux valait viser ${bt.n}.`);
+    return out;
+  }
+  function anHtml(h) {
+    const a = h.an; if (a.pending) return '<div class="pl-an mute small">Analyse du coup…</div>';
+    const st = h.from;
+    return `<div class="pl-an ${a.grade === '✅' ? 'g' : a.grade === '⚠️' ? 'w' : 'b'}"><div><b>${a.grade} ${a.label}</b> <span class="small mute">· tes chances ${pc(a.mine)}${a.d >= 1 ? ` (meilleur coup : ${pc(a.best.p)})` : ''}</span></div>
+      ${a.why.map(w => `<p class="small">${esc(w)}</p>`).join('')}
+      ${a.d >= 6 ? `<p class="small">Meilleur coup : <b>${esc(descMv(st, a.best.mv))}</b>.</p>` : ''}
+      <details class="small"><summary>Les 3 meilleurs coups</summary><ol>${a.top.map(e => `<li>${esc(descMv(st, e.mv))} — ${pc(e.p)}</li>`).join('')}</ol></details>
+      ${a.d >= 6 ? `<button class="btn ghost small" id="plTry">‹ Revenir avant ce coup et essayer autre chose</button>` : ''}</div>`;
+  }
+  function summary() {
+    const mine = PL.H.slice(1).filter(h => h.an && !h.an.pending); const c = g => mine.filter(h => h.an.grade === g).length;
+    const worst = mine.filter(h => h.an.d >= 6).sort((x, y) => y.an.d - x.an.d)[0];
+    return `<div class="pl-an"><b>Bilan</b><p class="small">${c('✅')} bons coups · ${c('⚠️')} imprécisions · ${c('❌')} erreurs.</p>${worst ? `<p class="small">Le coup qui a le plus pesé : <b>${esc(worst.txt.split(' · ')[0])}</b> (−${Math.round(worst.an.d)} points). <a href="#" data-j2="${PL.H.indexOf(worst)}">Y revenir</a></p>` : ''}</div>`;
+  }
+  $('#plGame').addEventListener('click', e => { const a = e.target.closest('[data-j2]'); if (a && PL) { e.preventDefault(); goTo(+a.dataset.j2 - 1); } if (e.target.id === 'plTry' && PL) goTo(PL.idx - 1); });
 };
 
 async function loadEvents() {
