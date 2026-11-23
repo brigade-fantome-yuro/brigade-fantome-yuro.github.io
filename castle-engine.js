@@ -2105,6 +2105,9 @@ function combatAutoButtons(b){const kind=combatAutoKind(b);if(!kind)return '';
  const next=kind==='castle'?combatAutoButtonHTML('castle',castleAutoNext,'⏭ Suivant auto','Après une victoire, la chambre suivante se lance toute seule'):kind==='campaign'?combatAutoButtonHTML('next',combatAutoNext==='next','⏭ Suivant auto','Après une victoire, l’acte suivant se lance tout seul'):'';
  const replay=kind==='castle'?'':combatAutoButtonHTML('replay',combatAutoNext==='replay','⟳ Replay auto','Le même niveau se relance tout seul à la fin du combat');
  return `<span class="combat-auto-group">${next}${replay}</span>`;}
+function legendBolt(seed){let x=0,y=0,d='M0 0';for(let i=1;i<=6;i++){y-=9+((seed*7+i*5)%7);x+=((seed*13+i*11)%17)-8;d+=` L${x} ${y}`;}return d;}
+var LEGEND_ART='https://yurocollection.fr/assets/broly-legendaire.webp';
+
 // ---- Pilote Brigade Fantôme : branche l'écran de combat du jeu sur le moteur du jeu ----
 var __host=null,__opts=null,__hist=[],__hidx=0;
 function renderInfinity(){
