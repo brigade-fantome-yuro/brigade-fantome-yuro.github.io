@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=39';
+import * as CFG from './config.js?v=40';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=39';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=39';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=40';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=40';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=39';
-import * as SCAN from './scan.js?v=39';
+import { duelRate } from './ranked.js?v=40';
+import * as SCAN from './scan.js?v=40';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='39';
+const APP_V='40';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -350,138 +350,94 @@ P.simulateur = m => {
   const lab = c => cnt[c.n] > 1 ? `${c.n} (${c.ex ? 'Exclusive' : c.p ? 'prestige' : c.r || 'LR'} #${c.id})` : c.n;
   const byName = new Map(ALL.map(c => [lab(c).toLowerCase(), c]));
   const stOf = (c, st) => c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st);
+  const rar = c => c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret';
   const def = [[1070, 3248, 3247], [308, 1070, 128]];
   const slot = (p, i, id) => { const c = ALL.find(x => x.id === id) || ALL[0]; return `<div class="pl-slot"><label for="${p}${i}">Carte ${i + 1}</label><input id="${p}${i}" list="plCards" value="${esc(lab(c))}" autocomplete="off"><label for="${p}s${i}">Étoiles</label><select id="${p}s${i}">${[0, 1, 2, 3, 4, 5].map(s => `<option ${s === 5 ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`; };
-  m.innerHTML = `<h1>Jouer un match ranked</h1><p class="mute">Choisis les deux équipes (n'importe quelles cartes, n'importe quelles étoiles : stats du jeu), joue le match coup par coup, et l'IA analyse chacun de tes coups : bon coup, imprécision ou erreur, avec la raison et le meilleur coup. Les flèches ‹ › (ou ← → au clavier) te ramènent à n'importe quel moment pour essayer un autre coup.</p>
+  m.innerHTML = `<h1>Jouer un match ranked</h1><p class="mute">Le vrai combat du jeu : même écran de duel, mêmes techniques (RAGE de Broly, HOLLOW PURPLE, Haki de Roger et de Xebec…) et mêmes animations. Choisis les deux équipes (n'importe quelles cartes, n'importe quelles étoiles), puis jouez chacun votre tour. Chaque coup est analysé par le coach : bon coup, imprécision ou erreur, avec la raison. Les flèches ‹ › te ramènent à n'importe quel coup pour en essayer un autre.</p>
   <datalist id="plCards">${ALL.map(c => `<option value="${esc(lab(c))}">`).join('')}</datalist>
   <div id="plSetup"><div class="grid"><div class="card"><h2>Ton équipe</h2><div class="pl-row">${def[0].map((id, i) => slot('a', i, id)).join('')}</div></div>
   <div class="card"><h2>Équipe adverse</h2><div class="pl-row">${def[1].map((id, i) => slot('b', i, id)).join('')}</div></div></div>
   <div class="card section"><div class="pl-row"><div class="pl-slot"><label for="plStart">Qui commence</label><select id="plStart"><option value="0">Moi</option><option value="1">L'adversaire</option><option value="r">Au hasard</option></select></div>
-  <div class="pl-slot"><label for="plMode">L'adversaire est joué par</label><select id="plMode"><option value="ia">L'IA</option><option value="moi">Moi (je joue les deux camps)</option></select></div>
-  <div class="pl-slot"><label for="plN">Précision de l'analyse</label><select id="plN"><option value="24">Rapide</option><option value="48" selected>Normale</option><option value="96">Fine (plus lent)</option></select></div></div>
+  <div class="pl-slot"><label for="plMode">L'adversaire est joué par</label><select id="plMode"><option value="ia">L'ordinateur</option><option value="moi">Moi (je joue les deux camps)</option></select></div>
+  <div class="pl-slot"><label for="plN">Précision de l'analyse</label><select id="plN"><option value="12">Rapide</option><option value="24" selected>Normale</option><option value="48">Fine (plus lent)</option></select></div></div>
   <div class="row section"><button class="btn primary" id="plGo">Commencer le match</button><span id="plErr" class="red small"></span></div></div></div>
-  <div id="plGame"></div>
-  <p class="small mute section">Comment l'IA juge : pour chaque coup possible, elle rejoue la suite du match des dizaines de fois et compare tes chances de victoire. Écart de moins de 6 points = bon coup, 6 à 15 = imprécision, plus de 15 = erreur. Les techniques suivent la table du simulateur du site ; les cartes marquées ≈ ont une technique seulement approchée.</p>`;
-  let PL = null;
-  $('#plGo').onclick = async () => {
-    const team = p => [0, 1, 2].map(i => { const c = byName.get($('#' + p + i).value.trim().toLowerCase()); if (!c) return null; const st = +$('#' + p + 's' + i).value, s = stOf(c, st); return { id: c.id, n: c.n, st, hp: s.hp, atk: s.atk, tn: c.t?.[0]?.[0] || 'Technique', td: c.t?.[0]?.[1] || '', img: c.ex ? c.img : lrImg(c) }; });
-    const A = team('a'), B = team('b');
-    if (A.includes(null) || B.includes(null)) { $('#plErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
-    $('#plErr').textContent = '';
-    const G = await import('./play.js?v=39');
-    const sv = $('#plStart').value, starter = sv === 'r' ? null : +sv;
-    const st0 = G.start(G.newGame(A, B, starter));
-    PL = { G, A, B, mode: $('#plMode').value, n: +$('#plN').value, H: [{ st: st0 }], idx: 0, sel: null, busy: false };
-    $('#plSetup').style.display = 'none'; drawGame(); maybeAI();
-  };
-  const cur = () => PL.H[PL.idx].st;
+  <div id="plGame" style="display:none"><div class="cs-wrap"><div class="cs-stage" id="plHost"></div><aside class="card cs-side"><div class="pl-nav"><button class="btn" id="plPrev" aria-label="Coup précédent">‹</button><span class="small mute" id="plPos">Coup 0</span><button class="btn" id="plNext" aria-label="Coup suivant">›</button></div><div id="plAn"></div><ol class="pl-hist" id="plHist"></ol><div class="row section"><button class="btn ghost" id="plNew">Changer les équipes</button></div></aside></div></div>
+  <p class="small mute section">Comment le coach juge : pour chaque coup possible (quelle carte, quelle action, quelle cible), il rejoue la suite du match des dizaines de fois avec le moteur du jeu et compare les chances de victoire. Les mêmes tirages au sort servent pour tous les coups, et les meilleurs sont rejoués 6 fois plus pour les départager. Un coup reste « bon » tant qu'il n'y avait pas nettement mieux : moins de 8 points d'écart (ou dans la marge des tirages) = bon coup, 8 à 20 = imprécision, plus de 20 = vraie erreur. Les coups de l'ordinateur ne sont pas notés.</p>`;
+  if (!document.getElementById('csFonts')) { const l = document.createElement('link'); l.id = 'csFonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Condensed:wght@400;500;600;700&family=Caprasimo&family=Dela+Gothic+One&family=JetBrains+Mono:wght@500;600&family=Archivo:wdth,wght@125,900&family=Saira+Condensed:wght@500;600;700;800;900&family=Kanit:ital,wght@0,700;1,600;1,800;1,900&family=Chakra+Petch:wght@500;600;700&display=swap'; document.head.appendChild(l); }
+  const loadEngine = () => window.BFDuel ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=40'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+  let worker = null, techOf = {}, AN = new Map(), seq = 0, N = 24, names = ['Toi', 'Adversaire'], ai = [false, true];
   const pc = v => Math.round(v * 100) + ' %';
-  const human = s => PL.mode === 'moi' || s === 0;
-  const unitHtml = (u, s, st, clickable) => {
-    const pct = Math.max(0, u.hp / u.max * 100), dead = u.hp <= 0, ready = PL.G.techReady(st, u), info = PL[s ? 'B' : 'A'][u.i];
-    const tags = [];
-    if (u.frozen > 0) tags.push('figé'); if (u.dodges > 0) tags.push(u.dodges + ' esquive' + (u.dodges > 1 ? 's' : '')); if (u.mui > 0) tags.push('Ultra Instinct'); if (u.haki) tags.push('Haki'); if (u.armor > 0) tags.push('armure'); if (u.mirror > 0) tags.push('miroir'); if (u.bleed > 0) tags.push('saigne'); if (u.banished) tags.push('banni'); if (u.done && !dead) tags.push('a joué');
-    const tech = u.k.k === 'none' ? 'pas de technique' : ready ? '<b class="ok">technique prête</b>' : (u.k.once && u.spent) || (u.k.uses && (u.uses || 0) >= u.k.uses) ? 'technique utilisée' : u.k.fromTurn && st.round < u.k.fromTurn ? 'technique au tour ' + u.k.fromTurn : 'recharge ' + u.cd;
-    const approx = !KIND[u.id] || APPROX.has(u.id) ? ' <span title="Technique approchée">≈</span>' : '';
-    return `<button class="pl-u ${dead ? 'dead' : ''} ${clickable ? 'can' : ''} ${PL.sel && PL.sel.s === s && PL.sel.i === u.i ? 'sel' : ''}" data-s="${s}" data-i="${u.i}" ${dead ? 'disabled' : ''}>
-      ${info.img ? `<img src="${esc(info.img)}" alt="" loading="lazy">` : '<div class="pl-noimg"></div>'}
-      <div class="pl-n">${esc(u.n)} <span class="mute">${info.st}★</span>${approx}</div>
-      <div class="pl-bar"><i style="width:${pct}%"></i></div><div class="small">${dead ? 'K.O.' : `${u.hp} / ${u.max} PV · ${u.atk} ATQ`}</div>
-      <div class="small mute">${tech}</div>${tags.length ? `<div class="pl-tags">${tags.map(t => `<span>${t}</span>`).join('')}</div>` : ''}</button>`;
-  };
-  function drawGame() {
-    const st = cur(), G = PL.G, s = st.s, mine = human(s) && st.over == null && !PL.busy;
-    const can = new Set(mine ? G.avail(st, s).map(u => s + ':' + u.i) : []);
-    let targets = new Set();
-    if (PL.sel && PL.sel.act) { const e = G.alive(st, 1 - s), ok = e.filter(u => !u.banished); (ok.length ? ok : e).forEach(u => targets.add((1 - s) + ':' + u.i)); }
-    const row = side => `<div class="pl-team">${st.U[side].map(u => unitHtml(u, side, st, can.has(side + ':' + u.i) || targets.has(side + ':' + u.i))).join('')}</div>`;
-    const selU = PL.sel ? st.U[PL.sel.s][PL.sel.i] : null;
-    let ctrl = '';
-    if (st.over != null) ctrl = `<div class="pl-over ${st.over === 0 ? 'ok' : 'red'}">${st.over === 0 ? 'Victoire' : 'Défaite'}</div>`;
-    else if (PL.busy) ctrl = '<span class="mute">L\'IA réfléchit…</span>';
-    else if (!human(s)) ctrl = `<span class="mute">Au tour de l'adversaire.</span> <button class="btn" id="plAI">Coup de l'IA</button>`;
-    else if (!selU) ctrl = `<span>Tour ${st.round} · <b>${s ? 'camp adverse' : 'ton camp'}</b> : choisis une carte qui n'a pas encore joué.</span>`;
-    else if (!PL.sel.act) ctrl = `<span><b>${esc(selU.n)}</b> :</span> <button class="btn" data-act="atk">Attaque (${G.dmgOf(selU, false)})</button>${G.techReady(st, selU) ? ` <button class="btn primary" data-act="tech">${esc(PL[s ? 'B' : 'A'][selU.i].tn)}</button>` : ''} <button class="btn ghost" data-act="x">Annuler</button>`;
-    else ctrl = `<span><b>${esc(selU.n)}</b> → choisis la cible dans l'équipe ${s ? 'du bas' : 'du haut'}.</span> <button class="btn ghost" data-act="x">Annuler</button>`;
-    const techHelp = selU && !PL.sel.act ? `<p class="small mute">${esc(PL[s ? 'B' : 'A'][selU.i].tn)} : ${esc(PL[s ? 'B' : 'A'][selU.i].td)}</p>` : '';
-    const moves = PL.H.slice(1).map((h, j) => { const a = h.an; const ic = !a ? '' : a.pending ? '…' : a.grade; return `<li class="${j + 1 === PL.idx ? 'on' : ''} ${j + 1 > PL.idx ? 'fut' : ''}" data-j="${j + 1}"><span class="pl-ic">${ic}</span> <span class="mute small">${h.side ? 'Adv.' : 'Toi'}</span> ${esc(h.txt)}</li>`; }).join('');
-    const last = PL.H[PL.idx];
-    const anal = PL.idx > 0 && last.an ? anHtml(last) : '';
-    $('#plGame').innerHTML = `<div class="pl-wrap"><div class="card pl-board"><div class="pl-lab mute small">Adversaire</div>${row(1)}<div class="pl-mid"><div>${ctrl}</div>${techHelp}</div>${row(0)}<div class="pl-lab mute small">Toi</div></div>
-      <div class="card pl-side"><div class="pl-nav"><button class="btn" id="plPrev" aria-label="Coup précédent" ${PL.idx ? '' : 'disabled'}>‹</button><span class="small mute">Coup ${PL.idx} / ${PL.H.length - 1}</span><button class="btn" id="plNext" aria-label="Coup suivant" ${PL.idx < PL.H.length - 1 ? '' : 'disabled'}>›</button></div>
-      ${anal}<ol class="pl-hist">${moves || '<li class="mute small">Aucun coup joué.</li>'}</ol>${st.over != null && PL.idx === PL.H.length - 1 ? summary() : ''}
-      <div class="row section"><button class="btn ghost" id="plNew">Nouvelle partie</button></div></div></div>`;
-    $('#plGame').querySelectorAll('.pl-u').forEach(b => b.onclick = () => clickUnit(+b.dataset.s, +b.dataset.i));
-    $('#plGame').querySelectorAll('[data-act]').forEach(b => b.onclick = () => clickAct(b.dataset.act));
-    $('#plGame').querySelectorAll('.pl-hist li[data-j]').forEach(li => li.onclick = () => goTo(+li.dataset.j));
-    $('#plPrev').onclick = () => goTo(PL.idx - 1); $('#plNext').onclick = () => goTo(PL.idx + 1);
-    $('#plNew').onclick = () => { PL = null; $('#plGame').innerHTML = ''; $('#plSetup').style.display = ''; };
-    if ($('#plAI')) $('#plAI').onclick = () => aiPlay();
-  }
-  function goTo(j) { if (!PL || PL.busy || j < 0 || j >= PL.H.length) return; PL.idx = j; PL.sel = null; drawGame(); }
-  document.onkeydown = e => { if (!PL || !$('#plGame') || /input|select|textarea/i.test(e.target.tagName)) return; if (e.key === 'ArrowLeft') goTo(PL.idx - 1); if (e.key === 'ArrowRight') goTo(PL.idx + 1); };
-  function clickUnit(s, i) {
-    const st = cur(), G = PL.G; if (PL.busy || st.over != null || !human(st.s)) return;
-    if (PL.sel && PL.sel.act && s === 1 - st.s) { doMove({ i: PL.sel.i, tech: PL.sel.act === 'tech', t: i }); return; }
-    if (s === st.s && G.avail(st, s).some(u => u.i === i)) { PL.sel = { s, i }; drawGame(); }
-  }
-  function clickAct(a) {
-    const st = cur(), G = PL.G; if (a === 'x') { PL.sel = null; drawGame(); return; }
-    const u = st.U[PL.sel.s][PL.sel.i];
-    if (a === 'tech' && !G.needsTarget(u.k)) { doMove({ i: u.i, tech: true, t: null }); return; }
-    const e = G.alive(st, 1 - st.s), ok = e.filter(x => !x.banished), T = ok.length ? ok : e;
-    if (T.length === 1) { doMove({ i: u.i, tech: a === 'tech', t: T[0].i }); return; }
-    PL.sel.act = a; drawGame();
-  }
-  function push(mv, analyse) {
-    const st = cur(), r = PL.G.play(st, mv); PL.H = PL.H.slice(0, PL.idx + 1);
-    const h = { st: r.st, mv, txt: r.txt, side: st.s, from: st, an: analyse ? { pending: true } : null };
-    PL.H.push(h); PL.idx = PL.H.length - 1; PL.sel = null; return h;
-  }
-  function doMove(mv) { const h = push(mv, true); drawGame(); setTimeout(() => analyse(h), 30); maybeAI(); }
-  function maybeAI() { const st = cur(); if (PL.mode === 'ia' && st.over == null && st.s === 1 && PL.idx === PL.H.length - 1) { PL.busy = true; drawGame(); setTimeout(() => { PL.busy = false; aiPlay(); }, 700); } }
-  function aiPlay() { const st = cur(); if (st.over != null || PL.busy) return; const mv = PL.G.aiMove(JSON.parse(JSON.stringify(st)), .15); if (!mv) return; push(mv, false); drawGame(); maybeAI(); }
-  const descMv = (st, mv) => { const p = st.U[st.s][mv.i], t = mv.t != null ? st.U[1 - st.s][mv.t] : null; return `${p.n} : ${mv.tech ? PL[st.s ? 'B' : 'A'][mv.i].tn : 'attaque'}${t && (!mv.tech || PL.G.needsTarget(p.k)) ? ' → ' + t.n : ''}`; };
-  const same = (a, b) => a.i === b.i && !!a.tech === !!b.tech && (a.t ?? null) === (b.t ?? null);
-  function analyse(h) {
-    const st = h.from, G = PL.G, side = st.s;
-    const ev = G.evalMoves(st, side, PL.n).sort((a, b) => b.p - a.p);
-    const mine = ev.find(e => same(e.mv, h.mv)) || { p: 0, mv: h.mv }, best = ev[0], d = (best.p - mine.p) * 100;
-    const grade = d < 6 ? '✅' : d <= 15 ? '⚠️' : '❌', label = d < 6 ? (same(best.mv, h.mv) ? 'Meilleur coup' : 'Bon coup') : d <= 15 ? 'Imprécision' : 'Erreur';
-    h.an = { grade, label, d, mine: mine.p, best, top: ev.slice(0, 3), why: d < 6 ? [] : reasons(st, h.mv, best.mv) };
-    if (PL.H.includes(h)) drawGame();
-  }
-  function reasons(st, mv, bm) {
-    const G = PL.G, s = st.s, p = st.U[s][mv.i], q = st.U[s][bm.i], t = mv.t != null ? st.U[1 - s][mv.t] : null, bt = bm.t != null ? st.U[1 - s][bm.t] : null, out = [];
-    const tn = i => PL[s ? 'B' : 'A'][i].tn;
-    if (t && (!mv.tech || G.needsTarget(p.k)) && G.prot(t)) out.push(`${t.n} était protégé (${t.mui > 0 ? 'Ultra Instinct' : t.dodges > 0 ? 'esquive' : 'Haki'}) : ton coup a été absorbé sans dégâts.`);
-    if (bt && !G.prot(bt)) { const dm = G.dmgOf(q, bm.tech); if (bt.hp <= dm && (!t || t !== bt)) out.push(`${q.n} pouvait achever ${bt.n} (${bt.hp} PV restants) : un ennemi en moins, c'est un coup de moins à encaisser.`); }
-    if (bm.tech && !mv.tech) out.push(`La technique ${tn(bm.i)} de ${q.n} était prête et rapportait plus qu'une attaque simple.`);
-    if (mv.tech && !bm.tech) {
-      if (p.k.k === 'heal') { const me = G.alive(st, s); const gain = me.filter(u => p.k.self || u !== p).reduce((a, u) => a + Math.min(u.max - u.hp, Math.round(u.max * .3)), 0); out.push(`Soin trop tôt : il n'a rendu que ${gain} PV au total, mieux valait le garder pour un moment où ton équipe est vraiment touchée.`); }
-      else if (p.k.k === 'swap') out.push(`Échange trop tôt : ${p.n} avait encore ${Math.round(p.hp / p.max * 100)} % de ses PV. L'échange est plus fort quand ses PV sont bas.`);
-      else if (t && G.prot(t)) { /* déjà dit */ }
-      else out.push(`Mieux valait garder ${tn(mv.i)} pour plus tard (recharge ou usage unique).`);
+  const fmt = v => Math.round(v).toLocaleString('fr-FR');
+  const persp = (D, s) => BFDuel.engine.persp(D.b, s);
+  const actName = (name, a) => a === 'attack' ? 'Attaque' : a === 'purple' ? 'HOLLOW PURPLE' : a === 'rage' ? 'RAGE' : a === 'ultimate' ? 'FULL POWER' : (techOf[name] || 'Technique');
+  const mvTxt = (D, side, mv) => { const b = persp(D, side), p = b.players[mv.i], t = b.enemies[mv.t]; return `${p?.name || '?'} : ${actName(p?.name, mv.a)}${t ? ' → ' + (t.shadowName || t.name) : ''}`; };
+  const same = (x, y) => x.i === y.i && x.a === y.a && x.t === y.t;
+  function why(D, side, best, mine) {
+    const b = persp(D, side), q = b.players[best.m.i], bt = b.enemies[best.m.t], out = [];
+    const tech = actName(q.name, best.m.a), sk = best.m.a !== 'attack';
+    const foe = bt ? bt.shadowName || bt.name : '';
+    if (best.kills >= 0.5 && bt) out.push(`Il achève ${foe} (${bt.hp} PV) : une carte adverse en moins, c'est une action de moins contre toi à chaque tour.`);
+    if (sk && best.frozen >= 0.5) out.push(`${tech} fige ${best.frozen >= 1.5 ? 'plusieurs cartes adverses' : 'une carte adverse'} : elles ne jouent pas pendant ce tour, tes cartes enchaînent.`);
+    if (sk && best.healed > 0 && best.healed >= (mine?.healed || 0) + 100) out.push(`${tech} rend environ ${fmt(best.healed)} PV utiles maintenant, au moment où ton équipe en a besoin.`);
+    if (sk && best.dealt > (mine?.dealt || 0) * 1.2 && best.dealt > 0) out.push(`${tech} inflige environ ${fmt(best.dealt)} dégâts, contre ${fmt(mine?.dealt || 0)} pour ton coup.`);
+    if (!sk && mine && mine.m.a !== 'attack') {
+      const mp = b.players[mine.m.i];
+      if (/ayanokouji/i.test(mp.name)) out.push(`${mp.name} est à ${Math.round(mp.hp / mp.maxHp * 100)} % de ses PV : l'échange ne sert que quand il est bas. Là, il échange ses PV contre ceux d'une carte adverse sans rien gagner, et sa technique part en recharge.`);
+      else if (mine.healed > 0 && mine.healed < b.players.reduce((a, p) => a + (p.hp > 0 ? Math.round(p.maxHp * .3) : 0), 0) * .6) out.push(`Ton ${actName(mp.name, mine.m.a)} ne rendait que ${fmt(mine.healed)} PV : ton équipe était encore trop pleine. Garde-le pour plus tard, il soignera bien plus.`);
+      else out.push(`Garder ${actName(mp.name, mine.m.a)} pour plus tard rapporte davantage : il sera disponible au moment où il compte vraiment.`);
     }
-    if (!out.length && mv.i !== bm.i) out.push(`Il valait mieux faire jouer ${q.n} d'abord.`);
-    if (!out.length && bt && t !== bt) out.push(`Mieux valait viser ${bt.n}.`);
+    if (!out.length && mine && best.m.i !== mine.m.i) out.push(`Faire jouer ${q.name} en premier : ${b.players[mine.m.i].name} gagne à jouer après lui.`);
+    if (!out.length && mine && best.m.t !== mine.m.t && bt) out.push(`Viser ${foe} (${bt.hp} PV) : c'est la cible qui fait gagner le plus souvent.`);
+    if (!out.length) out.push(`C'est le coup qui gagne le plus souvent quand on rejoue la suite.`);
+    out.push(`Résultat : ${pc(best.p)} de victoire${mine && !same(mine.m, best.m) ? ` contre ${pc(mine.p)} avec ton coup` : ''}, avec en moyenne ${best.alive.toFixed(1).replace('.', ',')} carte${best.alive >= 1.5 ? 's' : ''} encore debout à la fin (sur ${best.n} matchs rejoués).`);
     return out;
   }
   function anHtml(h) {
-    const a = h.an; if (a.pending) return '<div class="pl-an mute small">Analyse du coup…</div>';
-    const st = h.from;
-    return `<div class="pl-an ${a.grade === '✅' ? 'g' : a.grade === '⚠️' ? 'w' : 'b'}"><div><b>${a.grade} ${a.label}</b> <span class="small mute">· tes chances ${pc(a.mine)}${a.d >= 1 ? ` (meilleur coup : ${pc(a.best.p)})` : ''}</span></div>
-      ${a.why.map(w => `<p class="small">${esc(w)}</p>`).join('')}
-      ${a.d >= 6 ? `<p class="small">Meilleur coup : <b>${esc(descMv(st, a.best.mv))}</b>.</p>` : ''}
-      <details class="small"><summary>Les 3 meilleurs coups</summary><ol>${a.top.map(e => `<li>${esc(descMv(st, e.mv))} — ${pc(e.p)}</li>`).join('')}</ol></details>
-      ${a.d >= 6 ? `<button class="btn ghost small" id="plTry">‹ Revenir avant ce coup et essayer autre chose</button>` : ''}</div>`;
+    if (ai[h.side]) return '';
+    const a = AN.get(h); if (!a) return '<div class="pl-an mute small">Le coach analyse toutes les combinaisons…</div>';
+    const best = a.res[0]; if (!best) return '';
+    const mine = a.res.find(r => same(r.m, h.mv)) || { p: 0, m: h.mv }, d = (best.p - mine.p) * 100;
+    const noise = 100 * Math.sqrt(Math.max(.05, best.p * (1 - best.p)) / Math.max(1, Math.min(best.n, mine.n || best.n)));
+    const top = same(best.m, h.mv), g = top || d < Math.max(8, noise * 1.5) ? '✅' : d <= 20 ? '⚠️' : '❌';
+    a.grade = g;
+    const head = top ? 'C\'est le meilleur coup' : g === '✅' ? 'Bon coup (presque aussi bon que le meilleur)' : g === '⚠️' ? 'Imprécision' : 'Erreur';
+    return `<div class="pl-an ${g === '✅' ? 'g' : g === '⚠️' ? 'w' : 'b'}"><b>${g} ${head}</b>${h.side ? ' <span class="small mute">(camp adverse)</span>' : ''}
+      ${top || g === '✅' ? '' : `<p class="small">Le meilleur coup selon le coach : <b>${esc(mvTxt(h.from, h.side, best.m))}</b></p>`}
+      ${g === '✅' && !top ? `<p class="small">Ton coup se vaut avec le meilleur : ${pc(mine.p)} de victoire contre ${pc(best.p)}, l'écart est dans la marge du hasard. Rien à corriger.</p>` : `<p class="small"><b>Pourquoi :</b></p><ul class="small cs-why">${why(h.from, h.side, best, top ? null : mine).map(w => `<li>${esc(w)}</li>`).join('')}</ul>`}
+      ${g !== '✅' ? '<button class="btn ghost small" data-pl-try>‹ Revenir avant ce coup et jouer le meilleur</button>' : ''}</div>`;
   }
-  function summary() {
-    const mine = PL.H.slice(1).filter(h => h.an && !h.an.pending); const c = g => mine.filter(h => h.an.grade === g).length;
-    const worst = mine.filter(h => h.an.d >= 6).sort((x, y) => y.an.d - x.an.d)[0];
-    return `<div class="pl-an"><b>Bilan</b><p class="small">${c('✅')} bons coups · ${c('⚠️')} imprécisions · ${c('❌')} erreurs.</p>${worst ? `<p class="small">Le coup qui a le plus pesé : <b>${esc(worst.txt.split(' · ')[0])}</b> (−${Math.round(worst.an.d)} points). <a href="#" data-j2="${PL.H.indexOf(worst)}">Y revenir</a></p>` : ''}</div>`;
+  function side(info) {
+    const H = info.hist; $('#plPos').textContent = `Coup ${info.idx} / ${H.length - 1}`; $('#plPrev').disabled = info.idx <= 0; $('#plNext').disabled = info.idx >= H.length - 1;
+    $('#plHist').innerHTML = H.slice(1).map((h, j) => { const a = AN.get(h); const ic = ai[h.side] ? '' : a ? (a.grade || '') : '…'; return `<li class="${j + 1 === info.idx ? 'on' : ''} ${j + 1 > info.idx ? 'fut' : ''}" data-j="${j + 1}"><span class="pl-ic">${ic}</span> <span class="mute small">${h.side ? esc(names[1]) : 'Toi'}</span> ${esc(mvTxt(h.from, h.side, h.mv))}</li>`; }).join('') || '<li class="mute small">Aucun coup joué.</li>';
+    const cur = H[info.idx]; $('#plAn').innerHTML = cur && cur.from ? anHtml(cur) : '';
+    if (info.D?.winner != null && info.idx === H.length - 1) { const L = H.slice(1).filter(h => !ai[h.side]).map(h => AN.get(h)).filter(Boolean); const c = g => L.filter(a => a.grade === g).length; $('#plAn').innerHTML += `<div class="pl-an"><b>Bilan · ${info.D.winner === 0 ? 'Victoire' : info.D.winner === 'draw' ? 'Égalité' : 'Défaite'}</b><p class="small">${c('✅')} bons coups · ${c('⚠️')} imprécisions · ${c('❌')} erreurs.</p></div>`; }
   }
-  $('#plGame').addEventListener('click', e => { const a = e.target.closest('[data-j2]'); if (a && PL) { e.preventDefault(); goTo(+a.dataset.j2 - 1); } if (e.target.id === 'plTry' && PL) goTo(PL.idx - 1); });
+  function onChange(info) {
+    const last = info.hist[info.hist.length - 1];
+    if (last.from && !ai[last.side] && !AN.has(last) && !last.sent) { last.sent = ++seq; worker.postMessage({ id: last.sent, from: last.from, chosen: last.mv, n: N }); }
+    side(info);
+  }
+  const quit = () => { BFDuel.stop(); $('#plGame').style.display = 'none'; $('#plSetup').style.display = ''; };
+  $('#plGo').onclick = async () => {
+    const team = p => [0, 1, 2].map(i => { const c = byName.get($('#' + p + i).value.trim().toLowerCase()); if (!c) return null; const s = stOf(c, +$('#' + p + 's' + i).value); techOf[c.n] = c.t?.[0]?.[0] || 'Technique'; return { name: c.n, rarity: rar(c), image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; });
+    const A = team('a'), B = team('b');
+    if (A.includes(null) || B.includes(null)) { $('#plErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
+    N = +$('#plN').value; ai = [false, $('#plMode').value === 'ia']; names = ['Toi', ai[1] ? 'Ordinateur' : 'Adversaire'];
+    $('#plErr').textContent = 'Chargement du combat…';
+    try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
+    $('#plErr').textContent = '';
+    if (!worker) { worker = new Worker('duel-worker.js?v=40'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
+    const sv = $('#plStart').value;
+    BFDuel.mount($('#plHost'), { css: 'castle-battle.css?v=40', A, B, names, ai, onChange, onQuit: quit });
+    AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
+  };
+  $('#plPrev').onclick = () => BFDuel.go(BFDuel.info().idx - 1);
+  $('#plNext').onclick = () => BFDuel.go(BFDuel.info().idx + 1);
+  $('#plNew').onclick = quit;
+  $('#plHist').onclick = e => { const li = e.target.closest('[data-j]'); if (li) BFDuel.go(+li.dataset.j); };
+  $('#plAn').onclick = e => { if (e.target.closest('[data-pl-try]')) BFDuel.go(BFDuel.info().idx - 1); };
+  document.onkeydown = e => { if (!window.BFDuel || $('#plGame')?.style.display === 'none' || /input|select|textarea/i.test(e.target.tagName)) return; if (e.key === 'ArrowLeft') BFDuel.go(BFDuel.info().idx - 1); if (e.key === 'ArrowRight') BFDuel.go(BFDuel.info().idx + 1); };
 };
 
 /* ---------- Simulateur du Château de l'infini : écran de combat et moteur du jeu, analyse de chaque coup ---------- */
@@ -502,7 +458,7 @@ P.chateausim = m => {
   <div id="csGame" style="display:none"><div class="cs-wrap"><div class="cs-stage" id="csHost"></div><aside class="card cs-side"><div class="pl-nav"><button class="btn" id="csPrev" aria-label="Coup précédent">‹</button><span class="small mute" id="csPos">Coup 0</span><button class="btn" id="csNext" aria-label="Coup suivant">›</button></div><div id="csAn"></div><ol class="pl-hist" id="csHist"></ol><div class="row section"><button class="btn ghost" id="csNew">Changer d'équipe</button></div></aside></div></div>
   <p class="small mute section">Comment l'IA juge : pour chaque coup possible (quelle carte, quelle action, quelle cible), elle rejoue la suite de la chambre des dizaines de fois (les gardiens visent au hasard, comme dans le jeu) et compare tes chances de victoire. Les mêmes tirages au sort servent pour tous les coups, et les meilleurs sont rejoués 6 fois plus pour les départager. Le coach donne alors un seul meilleur coup et explique pourquoi. Un coup reste « bon » tant qu'il n'y avait pas nettement mieux : moins de 8 points d'écart (ou dans la marge des tirages) = bon coup, 8 à 20 = imprécision, plus de 20 = vraie erreur.</p>`;
   if (!document.getElementById('csFonts')) { const l = document.createElement('link'); l.id = 'csFonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Condensed:wght@400;500;600;700&family=Caprasimo&family=Dela+Gothic+One&family=JetBrains+Mono:wght@500;600&family=Archivo:wdth,wght@125,900&family=Saira+Condensed:wght@500;600;700;800;900&family=Kanit:ital,wght@0,700;1,600;1,800;1,900&family=Chakra+Petch:wght@500;600;700&display=swap'; document.head.appendChild(l); }
-  const loadEngine = () => window.BFCastle ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=39'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+  const loadEngine = () => window.BFCastle ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=40'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
   let worker = null, techOf = {}, AN = new Map(), seq = 0, N = 32;
   const pc = v => Math.round(v * 100) + ' %';
   const actName = (name, a) => a === 'attack' ? 'Attaque' : a === 'purple' ? 'HOLLOW PURPLE' : a === 'rage' ? 'RAGE' : a === 'ultimate' ? 'FULL POWER' : (techOf[name] || 'Technique');
@@ -560,10 +516,10 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=39'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=40'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
-    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=39', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
+    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=40', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
     AN = new Map(); BFCastle.start(room);
   };
   $('#csPrev').onclick = () => BFCastle.go(BFCastle.info().idx - 1);
