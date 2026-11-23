@@ -538,8 +538,8 @@ P.chateausim = m => {
     a.grade = g;
     const head = top ? 'C\'est le meilleur coup' : g === '✅' ? 'Bon coup (presque aussi bon que le meilleur)' : g === '⚠️' ? 'Imprécision' : 'Erreur';
     return `<div class="pl-an ${g === '✅' ? 'g' : g === '⚠️' ? 'w' : 'b'}"><b>${g} ${head}</b>
-      ${top ? '' : `<p class="small">Le meilleur coup selon le coach : <b>${esc(mvTxt(h.from, best.m))}</b></p>`}
-      <p class="small"><b>Pourquoi :</b></p><ul class="small cs-why">${why(h.from, best, top ? null : mine).map(w => `<li>${esc(w)}</li>`).join('')}</ul>
+      ${top || g === '✅' ? '' : `<p class="small">Le meilleur coup selon le coach : <b>${esc(mvTxt(h.from, best.m))}</b></p>`}
+      ${g === '✅' && !top ? `<p class="small">Ton coup se vaut avec le meilleur : ${pc(mine.p)} de victoire contre ${pc(best.p)}, l'écart est dans la marge du hasard. Rien à corriger.</p>` : `<p class="small"><b>Pourquoi :</b></p><ul class="small cs-why">${why(h.from, best, top ? null : mine).map(w => `<li>${esc(w)}</li>`).join('')}</ul>`}
       ${g !== '✅' ? '<button class="btn ghost small" data-cs-try>‹ Revenir avant ce coup et jouer le meilleur</button>' : ''}</div>`;
   }
   function side(info) {
