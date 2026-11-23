@@ -56,13 +56,14 @@ function qtyCrop(src, b) {
 
 const hexToArr = h => { const a = new Uint8Array(h.length); for (let i = 0; i < h.length; i++) a[i] = parseInt(h[i], 16); return a; };
 let REF = null;
-export function setFeats(rows) { REF = rows.map(r => ({ id: r[0], r: r[1], n: r[2], s: r[3], img: r[4], f: hexToArr(r[5]) })); }
-function match(f, rar) { let best = null, second = null; for (const c of REF) { if (rar && !rar.includes(c.r)) continue; let d = 0; for (let i = 0; i < 240; i++) d += Math.abs(f[i] - c.f[i]); if (!best || d < best.d) { second = best; best = { c, d }; } else if (!second || d < second.d) second = { c, d }; } return { best, second }; }
+function zn(a) { const n = a.length; let m = 0; for (const v of a) m += v; m /= n; let s = 0; for (const v of a) s += (v - m) * (v - m); s = Math.sqrt(s / n) || 1; return Array.from(a, v => (v - m) / s); }
+export function setFeats(rows) { REF = rows.map(r => ({ id: r[0], r: r[1], n: r[2], s: r[3], img: r[4], z: zn(hexToArr(r[5])) })); }
+function match(f, rar) { const z = zn(f); let best = null, second = null; for (const c of REF) { if (rar && !rar.includes(c.r)) continue; let d = 0; for (let i = 0; i < 240; i++) { const t = z[i] - c.z[i]; d += t * t; } if (!best || d < best.d) { second = best; best = { c, d }; } else if (!second || d < second.d) second = { c, d }; } return { best, second }; }
 
 // Analyse plusieurs captures. rar : lettres de rareté autorisées ('S' = LR, 'M' = UR, 'L' = SSR).
 export async function analyze(files, rar, ocrWorker, onp) {
   if (!REF) throw Error('empreintes des cartes non chargées');
-  const found = new Map(); let nCards = 0, unknown = 0;
+  const found = new Map(); let nCards = 0, unknown = 0; const dbg = [];
   for (let fi = 0; fi < files.length; fi++) {
     const im = await loadImg(files[fi]); const sc = Math.min(1, 1800 / im.naturalWidth);
     const W = Math.round(im.naturalWidth * sc), H = Math.round(im.naturalHeight * sc);
@@ -70,14 +71,14 @@ export async function analyze(files, rar, ocrWorker, onp) {
     const boxes = findCards(ctx, W, H);
     for (let bi = 0; bi < boxes.length; bi++) {
       onp?.(fi, files.length, bi, boxes.length); const b = boxes[bi]; nCards++;
-      const { best, second } = match(featOf(cv, b), rar);
-      if (!best || best.d > 520 || (second && second.d - best.d < 25 && best.d > 300)) { unknown++; continue; }
+      const { best, second } = match(featOf(cv, b), rar); dbg.push([Math.round(b.x), Math.round(b.y), best?.c.n, best?.d, second?.c.n, second?.d]);
+      if (!best || best.d > 240 || (second && best.d > 0.85 * second.d)) { unknown++; continue; }
       let qty = 1;
       if (ocrWorker) { try { const r = await ocrWorker.recognize(qtyCrop(cv, b)); const m = String(r.data.text).match(/(\d{1,2})/); if (m) qty = Math.max(1, +m[1]); } catch (e) { /* on garde 1 */ } }
       const prev = found.get(best.c.id);
-      const it = { id: best.c.id, name: best.c.n, series: best.c.s, r: best.c.r, img: best.c.img, stars: starsOf(ctx, b), qty, conf: Math.max(0, Math.min(1, 1 - best.d / 520)) };
+      const it = { id: best.c.id, name: best.c.n, series: best.c.s, r: best.c.r, img: best.c.img, stars: starsOf(ctx, b), qty, conf: Math.max(0, Math.min(1, 1 - best.d / 260)) };
       if (!prev || it.conf > prev.conf) found.set(best.c.id, it);
     }
   }
-  return { cards: [...found.values()], nCards, unknown };
+  return { cards: [...found.values()], nCards, unknown, dbg };
 }
