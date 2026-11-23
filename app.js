@@ -497,34 +497,48 @@ P.chateausim = m => {
   m.innerHTML = `<h1>Jouer une chambre du château</h1><p class="mute">Le vrai combat du jeu : même écran, mêmes techniques, mêmes gardiens et mêmes animations. Choisis ton équipe (n'importe quelles cartes, n'importe quelles étoiles) et la chambre, puis joue. Chaque coup est analysé : bon coup, imprécision ou erreur, avec la raison. Les flèches ‹ › te ramènent à n'importe quel coup pour en essayer un autre.</p>
   <datalist id="csCards">${ALL.map(c => `<option value="${esc(lab(c))}">`).join('')}</datalist>
   <div id="csSetup" class="card section"><div class="pl-row">${[953, 3248, 499].map((id, i) => slot(i, id)).join('')}</div>
-  <div class="pl-row"><div class="pl-slot"><label for="csRoom">Chambre</label><input id="csRoom" type="number" min="1" max="5000" value="500"></div><div class="pl-slot"><label for="csN">Précision de l'analyse</label><select id="csN"><option value="16">Rapide</option><option value="32" selected>Normale</option><option value="64">Fine (plus lent)</option></select></div></div>
+  <div class="pl-row"><div class="pl-slot"><label for="csRoom">Chambre</label><input id="csRoom" type="number" min="1" max="5000" value="500"></div><div class="pl-slot"><label for="csN">Précision de l'analyse</label><select id="csN"><option value="12">Rapide</option><option value="24" selected>Normale</option><option value="48">Fine (plus lent)</option></select></div></div>
   <div class="row section"><button class="btn primary" id="csGo">Entrer dans la chambre</button><span id="csErr" class="red small"></span></div></div>
   <div id="csGame" style="display:none"><div class="cs-wrap"><div class="cs-stage" id="csHost"></div><aside class="card cs-side"><div class="pl-nav"><button class="btn" id="csPrev" aria-label="Coup précédent">‹</button><span class="small mute" id="csPos">Coup 0</span><button class="btn" id="csNext" aria-label="Coup suivant">›</button></div><div id="csAn"></div><ol class="pl-hist" id="csHist"></ol><div class="row section"><button class="btn ghost" id="csNew">Changer d'équipe</button></div></aside></div></div>
-  <p class="small mute section">Comment l'IA juge : pour chaque coup possible (quelle carte, quelle action, quelle cible), elle rejoue la suite de la chambre des dizaines de fois (les gardiens visent au hasard, comme dans le jeu) et compare tes chances de victoire. Moins de 6 points d'écart = bon coup, 6 à 15 = imprécision, plus de 15 = erreur.</p>`;
+  <p class="small mute section">Comment l'IA juge : pour chaque coup possible (quelle carte, quelle action, quelle cible), elle rejoue la suite de la chambre des dizaines de fois (les gardiens visent au hasard, comme dans le jeu) et compare tes chances de victoire. Les mêmes tirages au sort servent pour tous les coups, et les meilleurs sont rejoués 6 fois plus pour les départager. Le coach donne alors un seul meilleur coup et explique pourquoi. Moins de 6 points d'écart = bon coup, 6 à 15 = imprécision, plus de 15 = erreur.</p>`;
   if (!document.getElementById('csFonts')) { const l = document.createElement('link'); l.id = 'csFonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Condensed:wght@400;500;600;700&family=Caprasimo&family=Dela+Gothic+One&family=JetBrains+Mono:wght@500;600&family=Archivo:wdth,wght@125,900&family=Saira+Condensed:wght@500;600;700;800;900&family=Kanit:ital,wght@0,700;1,600;1,800;1,900&family=Chakra+Petch:wght@500;600;700&display=swap'; document.head.appendChild(l); }
-  const loadEngine = () => window.BFCastle ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=36'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+  const loadEngine = () => window.BFCastle ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=37'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
   let worker = null, techOf = {}, AN = new Map(), seq = 0, N = 32;
   const pc = v => Math.round(v * 100) + ' %';
   const actName = (name, a) => a === 'attack' ? 'Attaque' : a === 'purple' ? 'HOLLOW PURPLE' : a === 'rage' ? 'RAGE' : a === 'ultimate' ? 'FULL POWER' : (techOf[name] || 'Technique');
   const mvTxt = (b, mv) => { const p = b.players[mv.i], t = b.enemies[mv.t]; return `${p?.name || '?'} : ${actName(p?.name, mv.a)}${t ? ' → ' + (t.shadowName || t.name) : ''}`; };
   const same = (x, y) => x.i === y.i && x.a === y.a && x.t === y.t;
-  function reasons(b, mv, bm) {
-    const p = b.players[mv.i], q = b.players[bm.i], t = b.enemies[mv.t], bt = b.enemies[bm.t], out = [];
-    if (bm.a !== 'attack' && mv.a === 'attack') out.push(`${actName(q.name, bm.a)} de ${q.name} était disponible et rapportait plus qu'une attaque simple.`);
-    if (mv.a !== 'attack' && bm.a === 'attack') out.push(`Mieux valait garder ${actName(p.name, mv.a)} de ${p.name} pour plus tard.`);
-    if (!out.length && mv.i !== bm.i) out.push(`Il valait mieux faire jouer ${q.name} d'abord.`);
-    if (bt && t !== bt && (!out.length || mv.i === bm.i)) out.push(`Mieux valait viser ${bt.shadowName || bt.name} (${bt.hp} PV) plutôt que ${t ? (t.shadowName || t.name) + ' (' + t.hp + ' PV)' : 'cette cible'}.`);
+  const fmt = v => Math.round(v).toLocaleString('fr-FR');
+  // Le coach donne UN meilleur coup et explique pourquoi, à partir des combats rejoués.
+  function why(b, best, mine) {
+    const q = b.players[best.m.i], bt = b.enemies[best.m.t], out = [];
+    const tech = actName(q.name, best.m.a), sk = best.m.a !== 'attack';
+    if (best.kills >= 0.5) out.push(`Il achève ${bt.shadowName || bt.name} (${bt.hp} PV) : un gardien en moins, c'est une riposte de moins à chaque tour.`);
+    if (sk && best.frozen >= 0.5) out.push(`${tech} fige ${best.frozen >= 1.5 ? 'plusieurs gardiens' : 'un gardien'} : ils ne ripostent pas ce tour-ci.`);
+    if (sk && best.healed > 0 && best.healed >= (mine?.healed || 0) + 100) out.push(`${tech} rend environ ${fmt(best.healed)} PV utiles maintenant, au moment où ton équipe en a besoin.`);
+    if (sk && best.dealt > (mine?.dealt || 0) * 1.2 && best.dealt > 0) out.push(`${tech} inflige environ ${fmt(best.dealt)} dégâts, contre ${fmt(mine?.dealt || 0)} pour ton coup.`);
+    if (!sk && mine && mine.m.a !== 'attack') {
+      if (mine.healed > 0 && mine.healed < b.players.reduce((a, p) => a + (p.hp > 0 ? Math.round(p.maxHp * .3) : 0), 0) * .6) out.push(`Ton ${actName(b.players[mine.m.i].name, mine.m.a)} ne rendait que ${fmt(mine.healed)} PV : ton équipe était encore trop pleine. Garde-le pour plus tard, il soignera bien plus.`);
+      else out.push(`Garder ${actName(b.players[mine.m.i].name, mine.m.a)} pour plus tard rapporte davantage : il sera disponible au moment où il compte vraiment.`);
+    }
+    if (!out.length && mine && best.m.i !== mine.m.i) out.push(`Faire jouer ${q.name} en premier : ${b.players[mine.m.i].name} gagne à jouer après lui.`);
+    if (!out.length && mine && best.m.t !== mine.m.t) out.push(`Viser ${bt.shadowName || bt.name} (${bt.hp} PV) : c'est la cible qui fait tomber la chambre le plus souvent.`);
+    if (!out.length) out.push(`C'est le coup qui gagne le plus souvent quand on rejoue la suite.`);
+    out.push(`Résultat : ${pc(best.p)} de victoire${mine && !same(mine.m, best.m) ? ` contre ${pc(mine.p)} avec ton coup` : ''}, avec en moyenne ${best.alive.toFixed(1).replace('.', ',')} carte${best.alive >= 1.5 ? 's' : ''} encore debout à la fin (sur ${best.n} combats rejoués).`);
     return out;
   }
   function anHtml(h) {
-    const a = AN.get(h); if (!a) return h.from ? '<div class="pl-an mute small">Analyse du coup…</div>' : '';
-    const best = a.res[0], mine = a.res.find(r => same(r.m, h.mv)) || { p: 0 }, d = (best.p - mine.p) * 100;
-    const g = d < 6 ? '✅' : d <= 15 ? '⚠️' : '❌', l = d < 6 ? (same(best.m, h.mv) ? 'Meilleur coup' : 'Bon coup') : d <= 15 ? 'Imprécision' : 'Erreur';
-    a.grade = g; a.d = d;
-    return `<div class="pl-an ${g === '✅' ? 'g' : g === '⚠️' ? 'w' : 'b'}"><b>${g} ${l}</b> <span class="small mute">· tes chances ${pc(mine.p)}${d >= 1 ? ` (meilleur coup : ${pc(best.p)})` : ''}</span>
-      ${d >= 6 ? reasons(h.from, h.mv, best.m).map(w => `<p class="small">${esc(w)}</p>`).join('') + `<p class="small">Meilleur coup : <b>${esc(mvTxt(h.from, best.m))}</b>.</p>` : ''}
-      <details class="small"><summary>Les 3 meilleurs coups</summary><ol>${a.res.slice(0, 3).map(r => `<li>${esc(mvTxt(h.from, r.m))} — ${pc(r.p)}</li>`).join('')}</ol></details>
-      ${d >= 6 ? '<button class="btn ghost small" data-cs-try>‹ Revenir avant ce coup et essayer autre chose</button>' : ''}</div>`;
+    const a = AN.get(h); if (!a) return h.from ? '<div class="pl-an mute small">Le coach analyse toutes les combinaisons…</div>' : '';
+    const best = a.res[0], mine = a.res.find(r => same(r.m, h.mv)) || { p: 0, m: h.mv }, d = (best.p - mine.p) * 100;
+    // Écart de moins de 6 points (ou dans la marge des tirages) : le coup se vaut.
+    const noise = 100 * Math.sqrt(Math.max(.05, best.p * (1 - best.p)) / Math.max(1, Math.min(best.n, mine.n || best.n)));
+    const top = same(best.m, h.mv), g = top || d < Math.max(6, noise) ? '✅' : d <= 15 ? '⚠️' : '❌';
+    a.grade = g;
+    const head = top ? 'C\'est le meilleur coup' : g === '✅' ? 'Bon coup (presque aussi bon que le meilleur)' : g === '⚠️' ? 'Imprécision' : 'Erreur';
+    return `<div class="pl-an ${g === '✅' ? 'g' : g === '⚠️' ? 'w' : 'b'}"><b>${g} ${head}</b>
+      ${top ? '' : `<p class="small">Le meilleur coup selon le coach : <b>${esc(mvTxt(h.from, best.m))}</b></p>`}
+      <p class="small"><b>Pourquoi :</b></p><ul class="small cs-why">${why(h.from, best, top ? null : mine).map(w => `<li>${esc(w)}</li>`).join('')}</ul>
+      ${g !== '✅' ? '<button class="btn ghost small" data-cs-try>‹ Revenir avant ce coup et jouer le meilleur</button>' : ''}</div>`;
   }
   function side(info) {
     const H = info.hist; $('#csPos').textContent = `Coup ${info.idx} / ${H.length - 1}`; $('#csPrev').disabled = info.idx <= 0; $('#csNext').disabled = info.idx >= H.length - 1;
@@ -534,7 +548,7 @@ P.chateausim = m => {
   }
   function onChange(info) {
     const H = info.hist; for (const h of H) if (h.from && !h.mv) h.mv = { i: h.active, a: h.action, t: h.target };
-    const last = H[H.length - 1]; if (last.from && !AN.has(last) && !last.sent) { last.sent = ++seq; worker.postMessage({ id: last.sent, from: last.from, n: N }); }
+    const last = H[H.length - 1]; if (last.from && !AN.has(last) && !last.sent) { last.sent = ++seq; worker.postMessage({ id: last.sent, from: last.from, chosen: { i: last.active, a: last.action, t: last.target }, n: N }); }
     side(info);
   }
   $('#csGo').onclick = async () => {
@@ -544,7 +558,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=36'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=37'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=36b', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });

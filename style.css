@@ -262,3 +262,4 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 @media(max-width:1200px){.cs-wrap{grid-template-columns:1fr}}
 .cs-stage{border-radius:var(--r);overflow:hidden;min-height:520px;background:#0d0d14}
 .cs-side{position:sticky;top:12px}
+.cs-why{margin:.2em 0 .6em;padding-left:1.1em}.cs-why li{margin:.25em 0}

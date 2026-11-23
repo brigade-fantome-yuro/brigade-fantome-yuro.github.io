@@ -1,6 +1,10 @@
-// Analyse des coups du simulateur du château : rejoue la suite du combat des dizaines de fois pour chaque coup possible.
-importScripts('castle-engine.js?v=36');
+// Analyse des coups du simulateur du château.
+// Pour chaque coup possible (carte, action, cible), on rejoue la suite de la chambre avec les mêmes tirages au sort
+// pour tous les coups (comparaison juste), puis on rejoue beaucoup plus de fois les meilleurs pour départager.
+importScripts('castle-engine.js?v=37');
 const E = self.BFCastle.engine;
+const RND = Math.random;
+const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
 const alive = b => b.enemies.map((e, i) => i).filter(i => b.enemies[i].hp > 0 && !b.enemies[i].banished);
 function options(b) {
   const out = [], T = alive(b);
@@ -13,8 +17,7 @@ function options(b) {
   });
   return out;
 }
-function tryMove(b, m) { try { return E.advance(b, m.a, m.i, m.t); } catch (e) { return null; } }
-// Suite du combat : chaque carte joue sa technique dès qu'elle est prête, sinon attaque, en visant l'ennemi le plus bas.
+const tryMove = (b, m) => { try { return E.advance(b, m.a, m.i, m.t); } catch (e) { return null; } };
 function rollout(b) {
   for (let g = 0; g < 400 && !b.result; g++) {
     const i = b.players.findIndex(p => p.hp > 0 && !p.acted); if (i < 0) break;
@@ -24,15 +27,36 @@ function rollout(b) {
     let nb = null; for (const a of order) { nb = tryMove(b, { i, a, t }); if (nb) break; }
     if (!nb) break; b = nb;
   }
-  return b.result === 'win';
+  return b;
 }
+// Joue le coup puis la suite, avec les tirages n°k. Renvoie le résultat et les effets immédiats du coup.
+function play(from, m, k) {
+  Math.random = seeded(1000003 * (k + 1));
+  const nb = tryMove(from, m); if (!nb) { Math.random = RND; return null; }
+  const dealt = from.enemies.reduce((a, e, j) => a + Math.max(0, e.hp - (nb.enemies[j]?.hp ?? e.hp)), 0);
+  const kills = from.enemies.filter((e, j) => e.hp > 0 && nb.enemies[j] && nb.enemies[j].hp <= 0).length;
+  const lost = from.players.reduce((a, p, j) => a + Math.max(0, p.hp - (nb.players[j]?.hp ?? p.hp)), 0);
+  const healed = from.players.reduce((a, p, j) => a + Math.max(0, (nb.players[j]?.hp ?? p.hp) - p.hp), 0);
+  const frozen = nb.enemies.filter((e, j) => e.frozen > 0 && !(from.enemies[j].frozen > 0)).length;
+  const end = nb.result ? nb : rollout(nb);
+  Math.random = RND;
+  return { win: end.result === 'win', alive: end.players.filter(p => p.hp > 0).length, turns: end.turn, dealt, kills, lost, healed, frozen };
+}
+function score(from, m, k0, n) {
+  const s = { m, n: 0, w: 0, alive: 0, turns: 0, dealt: 0, kills: 0, lost: 0, healed: 0, frozen: 0 };
+  for (let k = k0; k < k0 + n; k++) { const r = play(from, m, k); if (!r) return null; s.n++; if (r.win) s.w++; for (const f of ['alive', 'turns', 'dealt', 'kills', 'lost', 'healed', 'frozen']) s[f] += r[f]; }
+  return s;
+}
+const merge = (a, b) => { for (const f of ['n', 'w', 'alive', 'turns', 'dealt', 'kills', 'lost', 'healed', 'frozen']) a[f] += b[f]; return a; };
+const fin = s => ({ m: s.m, p: s.w / s.n, n: s.n, alive: s.alive / s.n, turns: s.turns / s.n, dealt: s.dealt / s.n, kills: s.kills / s.n, lost: s.lost / s.n, healed: s.healed / s.n, frozen: s.frozen / s.n });
 onmessage = ({ data }) => {
   const { id, from, chosen, n } = data;
-  const opts = options(from), res = [];
-  for (const m of opts) {
-    let w = 0, ok = 0;
-    for (let k = 0; k < n; k++) { const nb = tryMove(from, m); if (!nb) break; ok++; if (nb.result === 'win' || (!nb.result && rollout(nb))) w++; }
-    if (ok) res.push({ m, p: w / ok });
-  }
-  postMessage({ id, res, chosen });
+  let all = options(from).map(m => score(from, m, 0, n)).filter(Boolean);
+  all.sort((a, b) => b.w - a.w || b.alive - a.alive);
+  // Départage : les 4 meilleurs et le coup joué sont rejoués 6 fois plus.
+  const same = (x, y) => x.i === y.i && x.a === y.a && x.t === y.t;
+  const refine = all.slice(0, 4); const mine = all.find(s => chosen && same(s.m, chosen)); if (mine && !refine.includes(mine)) refine.push(mine);
+  for (const s of refine) { const extra = score(from, s.m, n, n * 5); if (extra) merge(s, extra); }
+  const res = all.map(fin).sort((a, b) => b.p - a.p || b.alive - a.alive);
+  postMessage({ id, res });
 };
