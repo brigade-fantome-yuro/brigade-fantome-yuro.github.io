@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=24';
+import * as CFG from './config.js?v=25';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=24';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=24';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=25';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=25';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=24';
-import * as SCAN from './scan.js?v=24';
+import { duelRate } from './ranked.js?v=25';
+import * as SCAN from './scan.js?v=25';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -43,12 +43,13 @@ const ROUTES = [
   ['sep', 'Collection et Prestige'], ['checklist', 'Collection Prestige', 'check'], ['guide/prestige', 'Guide Prestige', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'],
   ['sep', 'Cartes'], ['persos', 'Fiches perso', 'users'],
   ['sep', 'Marché'], ['prix', 'Prix marché', 'chart'], ['alertes', 'Alertes prix', 'bell'],
+  ['sep', 'Tournoi'], ['tournoi', 'Tournoi de clans', 'layers'],
   ['sep', 'Guilde'], ['guilde', 'Profils de la guilde', 'users'], ['discord', 'Espace Discord', 'chat'],
   ['sep', 'Brigade'], ['calendrier', 'Calendrier', 'cal'], ['nouveautes', 'Nouveautés', 'bell'], ['lexique', 'Lexique', 'text']
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='24';
+const APP_V='25';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -1031,6 +1032,69 @@ P.admin = async m => {
   $('#ef').onsubmit = async e => { e.preventDefault(); const r = await sb.from('events').insert({ title: $('#et').value, detail: $('#ed').value || null, kind: $('#ek').value, ends_at: new Date($('#ee').value).toISOString(), repeat_days: +$('#er').value || null }); if (r.error) return toast(r.error.message); e.target.reset(); loadE(); };
   $('#nf').onsubmit = async e => { e.preventDefault(); await sb.from('news').insert({ title: $('#nt').value, body: $('#nb').value }); e.target.reset(); toast('Publié'); };
   loadP(); loadE(); loadQA();
+};
+
+
+/* ---------- Tournoi de clans ---------- */
+const T_RULES = [
+  ['Univers', 'Même univers : les 3 cartes viennent du même anime.'],
+  ['Univers', '3 univers différents obligatoires.'],
+  ['Univers', 'Univers tiré au sort pour tous les joueurs.'],
+  ['Univers', 'Thème imposé : Shōnen Jump, Isekai ou Seinen uniquement.'],
+  ['Rôles', 'Interdit : healer.'],
+  ['Rôles', 'Interdit : stunner (pas d\'arrêt du temps, pas de domination).'],
+  ['Rôles', '2 cartes à technique de dégâts maximum.'],
+  ['Rôles', '1 healer obligatoire.'],
+  ['Rareté', 'Pas de LR : Mythique maximum.'],
+  ['Rareté', '1 LR maximum par équipe.'],
+  ['Rareté', 'Cartes à 0 étoile uniquement (règle d\'honneur).'],
+  ['Rareté', 'Interdit : les cartes du top tier de la méta.'],
+  ['Rareté', 'Budget de cotes : la cote marché totale des 3 cartes ne dépasse pas 60 000 KI.'],
+  ['Draft', 'Draft par paliers : 10 points, LR méta 5 pts, LR 4, Mythique 3, Légendaire 2, autres 1.'],
+  ['Draft', 'Chaque joueur bannit 1 carte de l\'adversaire avant le duel.'],
+  ['Draft', 'Pick aveugle : compo envoyée en MP à l\'arbitre avant de voir celle de l\'autre.'],
+  ['Draft', 'Une carte Commune tirée au sort doit être dans l\'équipe.'],
+  ['Format', 'Interdit de reprendre la même compo au tour suivant.'],
+  ['Format', 'Pas de carte en commun entre les deux joueurs (le premier qui la déclare la garde).'],
+  ['Format', 'BO3 : le perdant d\'une manche peut changer 1 carte.'],
+  ['Format', 'Mort subite (BO1) à partir des demi-finales.'],
+  ['Fun', 'Équipe « méchants » uniquement.'],
+  ['Fun', 'Équipe de personnages féminins uniquement.'],
+  ['Fun', 'Le personnage le plus ancien de ta collection est obligatoire.']
+];
+const T_PAY = n => n <= 8 ? [65, 35] : n <= 16 ? [50, 30, 20] : n <= 32 ? [40, 25, 15, 10, 5, 5] : [30, 20, 14, 10, 8, 6, 4, 4, 2, 2];
+P.tournoi = async m => {
+  const { data } = await sb.from('content').select('data').eq('key', 'tournoi').maybeSingle();
+  const cfg = data?.data || {}; const ok = Array.isArray(cfg.rules) ? cfg.rules : null;
+  const pool = ok ? ok.map(i => T_RULES[i]).filter(Boolean) : T_RULES;
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Tournoi</span><h1 style="margin-top:12px">Tournoi de duels entre clans</h1>
+    <p class="mute">Mise de 5 000 à 10 000 KI par joueur, cagnotte redistribuée comme au poker, et des règles tirées au sort pour que tout le monde puisse jouer avec sa collection.</p></section>
+    <div class="card section"><h2>Calculer la cagnotte</h2>
+      <div class="row" style="flex-wrap:wrap;gap:10px">
+        <label class="small">Participants<br><input id="tn" type="number" min="2" value="16" style="width:110px"></label>
+        <label class="small">Mise par joueur (KI)<br><input id="tm" type="number" min="5000" max="10000" step="500" value="5000" style="width:130px"></label>
+        <label class="small">Dons des chefs (KI)<br><input id="td" type="number" min="0" step="1000" value="0" style="width:130px"></label>
+      </div><div id="tout" style="margin-top:12px"></div></div>
+    <div class="card section"><h2>Tirer les règles au sort</h2>
+      ${ok ? '' : '<p class="small mute">Liste de propositions en attente de validation par les chefs.</p>'}
+      <div class="row"><label class="small">Nombre de règles <select id="tk">${[1, 2, 3].map(k => `<option${k === 2 ? ' selected' : ''}>${k}</option>`).join('')}</select></label><span class="sp"></span><button class="btn primary" id="tdraw">🎲 Tirer au sort</button></div>
+      <div id="tres" style="margin-top:12px"></div>
+      <details style="margin-top:12px"><summary class="small">Voir toutes les règles possibles (${pool.length})</summary><ul class="list">${pool.map(r => `<li><b>${esc(r[0])}</b> · ${esc(r[1])}</li>`).join('')}</ul></details></div>`;
+  const calc = () => {
+    const n = Math.max(2, +$('#tn').value || 0), mi = Math.min(10000, Math.max(5000, +$('#tm').value || 0)), d = Math.max(0, +$('#td').value || 0);
+    const tot = n * mi + d, pc = T_PAY(n);
+    $('#tout').innerHTML = `<div class="k">Cagnotte finale</div><div class="v">${fmt(tot)} <span class="small mute">KI</span></div>
+      <p class="small mute">${n} × ${fmt(mi)} KI${d ? ` + ${fmt(d)} KI de dons` : ''}</p>
+      <table class="tbl"><tr><th>Place</th><th>Part</th><th>Gain</th></tr>${pc.map((p, i) => `<tr><td>${i + 1}${i ? 'e' : 'er'}</td><td>${p} %</td><td><b>${fmt(Math.floor(tot * p / 100))}</b> KI</td></tr>`).join('')}</table>
+      <p class="small mute">Répartition : ${n <= 8 ? 'jusqu\'à 8 joueurs, 2 places payées' : n <= 16 ? 'de 9 à 16 joueurs, 3 places payées' : n <= 32 ? 'de 17 à 32 joueurs, 6 places payées' : 'plus de 32 joueurs, 10 places payées'}.</p>`;
+  };
+  ['#tn', '#tm', '#td'].forEach(k => $(k).oninput = calc); calc();
+  $('#tdraw').onclick = () => {
+    const k = +$('#tk').value, out = [], used = new Set(), cats = new Set();
+    const idx = pool.map((_, i) => i).sort(() => Math.random() - .5);
+    for (const i of idx) { if (out.length >= k) break; if (cats.has(pool[i][0])) continue; cats.add(pool[i][0]); used.add(i); out.push(pool[i]); }
+    $('#tres').innerHTML = out.map(r => `<div class="focusnote"><b>${esc(r[0])} :</b> ${esc(r[1])}</div>`).join('');
+  };
 };
 
 /* ---------- Routeur ---------- */

@@ -203,3 +203,4 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .mcard .mtag{position:absolute;top:6px;left:6px;font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;background:rgba(0,0,0,.65);color:#fff}
 .mcard figcaption{position:absolute;left:0;right:0;bottom:0;padding:18px 8px 7px;background:linear-gradient(transparent,rgba(0,0,0,.9));display:grid}
 .mcard figcaption b{font-size:12px;line-height:1.15;color:#fff}.mcard figcaption small{font-size:10px;color:#b9aea7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tbl{width:100%;border-collapse:collapse;margin-top:10px}.tbl th,.tbl td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}.tbl th{font-size:12px;opacity:.7;font-weight:600}
