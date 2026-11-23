@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=30';
+import * as CFG from './config.js?v=31';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=30';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=30';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=31';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=31';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=30';
-import * as SCAN from './scan.js?v=30';
+import { duelRate } from './ranked.js?v=31';
+import * as SCAN from './scan.js?v=31';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='30';
+const APP_V='31';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -159,20 +159,26 @@ function trend(p) {
   return `<span class="${d >= 0 ? 'up' : 'down'} small">${d >= 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} KI (${pc >= 0 ? '+' : ''}${pc.toFixed(1)} %)</span>`;
 }
 
-// Seuils d'Aya + résultats mesurés (combats réels et simulés avec les règles du jeu, 23/11).
+// Seuils d'Aya (calculés pour chaque niveau d'étoiles) + % de victoires par fourchette (mesurés 23/11, relatifs aux seuils).
 function castleReal() {
-  const rows = [['600', '~17 %', 'Boucle confortable'], ['649', '~26 %', 'Dernière chambre avant le 1er seuil'], ['650 → 732', '2 à 3,5 %', '1er seuil franchi : tout dépend du soin au bon moment'], ['750 → 852', '4 à 9 %', 'Toujours possible, à force d\'essais'], ['853 et +', '0 %', '2e seuil : Aya meurt même soignée']];
+  const aya = (S.kb?.cards || []).find(c => c.id === 953);
+  const A = r => towerAt(null, r).atk;
+  const seuils = k => { const H = statsAt(aya, k).hp; let s1 = 1; while (s1 < 5000 && A(s1) * 2 < H) s1++; let s2 = 1; while (s2 < 5000 && A(s2) * 2 < H + Math.round(H * .3)) s2++; return { H, s1, s2 }; };
+  const st = aya ? [0, 1, 2, 3, 4, 5].map(k => ({ k, ...seuils(k) })) : [];
+  const rows = [['Avant le 1er seuil', '15 à 25 %', 'Boucle confortable : Aya encaisse 2 coups sans soin'], ['Du 1er seuil au 2e seuil', '2 à 3,5 %', 'Aya ne survit à 2 coups que si le soin tombe au bon moment'], ['2e seuil et au-delà', '0 %', 'Aya meurt au 2e coup même soignée : boucle impossible']];
   return `<div class="card section"><h2>Les deux seuils d'Aya</h2>
-  <ul class="list"><li><b>1er seuil :</b> dès qu'un gardien tape pour la moitié des PV d'Aya, elle meurt au 2e coup sans soin. Sans soigneur, la boucle casse ici. Aya 5★ (1 488 PV) : <b>chambre 650</b> (gardiens à 744 d'attaque).</li>
-  <li><b>2e seuil :</b> dès que 2 coups de gardien dépassent ses PV + un soin de 30 %, Aya meurt même soignée : la boucle devient impossible. Aya 5★ avec Seiichi : <b>chambre 853</b> (967 d'attaque).</li>
-  <li>Tes propres seuils se lisent dans les <a href="#calculs">Calculateurs</a> (Two-shot), à partir de tes étoiles.</li></ul>
-  <h3 style="margin-top:14px">Exemple mesuré : Aya 5★ / Seiichi 4★ / Xebec 5★, boucle avec soigneur</h3>
-  <table class="tbl"><thead><tr><th>Chambre</th><th class="n">Victoires</th><th>Ce qui se passe</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="n">${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>
-  <p class="small mute">150 combats réels joués à la chambre 732 : 3 victoires (2 %), en accord avec les combats simulés. La plupart des défaites arrivent avant le 6e tour, quand Aya prend 2 coups avant que l'échange ou le soin soit prêt.</p>
-  <ul class="list"><li>Une défaite ne coûte rien : le record est conservé et chaque nouvel essai tire de nouvelles cibles. Au-delà du 1er seuil, compte une cinquantaine d'essais par chambre.</li>
+  <ul class="list"><li><b>1er seuil :</b> la chambre où un gardien tape pour la moitié des PV d'Aya. Elle meurt au 2e coup sans soin : sans soigneur, la boucle casse ici.</li>
+  <li><b>2e seuil :</b> la chambre où 2 coups de gardien dépassent ses PV + un soin de 30 %. Elle meurt même soignée : la boucle devient impossible, même avec un soigneur.</li>
+  <li>Les deux seuils ne dépendent que des PV d'Aya, donc de ses étoiles :</li></ul>
+  ${st.length ? `<table class="tbl"><thead><tr><th>Aya</th><th class="n">PV</th><th class="n">1er seuil (sans soin)</th><th class="n">2e seuil (avec soigneur)</th></tr></thead><tbody>${st.map(x => `<tr><td>${x.k}★</td><td class="n">${fmt(x.H)}</td><td class="n">Chambre ${x.s1}</td><td class="n"><b>Chambre ${x.s2}</b></td></tr>`).join('')}</tbody></table>` : ''}
+  <h3 style="margin-top:14px">Chances de victoire par fourchette de chambres</h3>
+  <table class="tbl"><thead><tr><th>Fourchette</th><th class="n">Victoires</th><th>Ce qui se passe</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="n">${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>
+  <p class="small mute">Prends les seuils de ta ligne d'étoiles dans le tableau du dessus. Pourcentages mesurés avec une boucle Aya + soigneur + tank (combats simulés avec les règles du jeu, et 150 combats réels juste après le 1er seuil : 3 victoires, soit 2 %). Sans soigneur, la boucle s'arrête au 1er seuil.</p>
+  <ul class="list"><li>Une défaite ne coûte rien : le record est conservé et chaque nouvel essai tire de nouvelles cibles. Entre les deux seuils, compte une cinquantaine d'essais par chambre.</li>
   <li>Le hasard des cibles des gardiens décide de presque tout : la même boucle gagne ou perd selon qui est visé au mauvais moment.</li>
-  <li>Pour monter plus haut, ce sont les PV qui comptent : les étoiles d'Aya et du soigneur repoussent les deux seuils (+8 % de PV par étoile).</li>
-  <li>Une seule carte par rôle : Aya et Janemba sont tous les deux <b>Polyvalence</b>, ils ne peuvent pas être dans la même équipe.</li></ul></div>`;
+  <li>Pour monter plus haut, ce sont les PV qui comptent : chaque étoile d'Aya (+8 % de PV) repousse les deux seuils.</li>
+  <li>Une seule carte par rôle : Aya et Janemba sont tous les deux <b>Polyvalence</b>, ils ne peuvent pas être dans la même équipe.</li>
+  <li>Tes seuils exacts, avec tes étoiles, se lisent aussi dans les <a href="#calculs">Calculateurs</a> (Two-shot).</li></ul></div>`;
 }
 
 P.guide = (m, key) => {
