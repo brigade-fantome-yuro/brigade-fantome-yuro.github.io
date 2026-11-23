@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=36';
+import * as CFG from './config.js?v=37';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=36';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=36';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=37';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=37';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=36';
-import * as SCAN from './scan.js?v=36';
+import { duelRate } from './ranked.js?v=37';
+import * as SCAN from './scan.js?v=37';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='36';
+const APP_V='37';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -368,7 +368,7 @@ P.simulateur = m => {
     const A = team('a'), B = team('b');
     if (A.includes(null) || B.includes(null)) { $('#plErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
     $('#plErr').textContent = '';
-    const G = await import('./play.js?v=36');
+    const G = await import('./play.js?v=37');
     const sv = $('#plStart').value, starter = sv === 'r' ? null : +sv;
     const st0 = G.start(G.newGame(A, B, starter));
     PL = { G, A, B, mode: $('#plMode').value, n: +$('#plN').value, H: [{ st: st0 }], idx: 0, sel: null, busy: false };
@@ -561,7 +561,7 @@ P.chateausim = m => {
     if (!worker) { worker = new Worker('castle-worker.js?v=37'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
-    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=36b', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
+    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=37', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
     AN = new Map(); BFCastle.start(room);
   };
   $('#csPrev').onclick = () => BFCastle.go(BFCastle.info().idx - 1);
