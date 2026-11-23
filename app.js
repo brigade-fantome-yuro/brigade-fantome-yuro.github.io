@@ -547,7 +547,7 @@ P.chateausim = m => {
     if (!worker) { worker = new Worker('castle-worker.js?v=36'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
-    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=36', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
+    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=36b', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
     AN = new Map(); BFCastle.start(room);
   };
   $('#csPrev').onclick = () => BFCastle.go(BFCastle.info().idx - 1);
