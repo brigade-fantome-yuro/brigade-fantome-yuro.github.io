@@ -518,7 +518,9 @@ P.chateausim = m => {
     if (sk && best.healed > 0 && best.healed >= (mine?.healed || 0) + 100) out.push(`${tech} rend environ ${fmt(best.healed)} PV utiles maintenant, au moment où ton équipe en a besoin.`);
     if (sk && best.dealt > (mine?.dealt || 0) * 1.2 && best.dealt > 0) out.push(`${tech} inflige environ ${fmt(best.dealt)} dégâts, contre ${fmt(mine?.dealt || 0)} pour ton coup.`);
     if (!sk && mine && mine.m.a !== 'attack') {
-      if (mine.healed > 0 && mine.healed < b.players.reduce((a, p) => a + (p.hp > 0 ? Math.round(p.maxHp * .3) : 0), 0) * .6) out.push(`Ton ${actName(b.players[mine.m.i].name, mine.m.a)} ne rendait que ${fmt(mine.healed)} PV : ton équipe était encore trop pleine. Garde-le pour plus tard, il soignera bien plus.`);
+      const mp = b.players[mine.m.i];
+      if (/ayanokouji/i.test(mp.name)) out.push(`${mp.name} est à ${Math.round(mp.hp / mp.maxHp * 100)} % de ses PV : l'échange ne sert que quand elle est basse (idéalement après 2 coups encaissés). Là, elle échange ses PV contre ceux d'un gardien sans rien gagner, et sa technique part en recharge pour 4 tours.`);
+      else if (mine.healed > 0 && mine.healed < b.players.reduce((a, p) => a + (p.hp > 0 ? Math.round(p.maxHp * .3) : 0), 0) * .6) out.push(`Ton ${actName(b.players[mine.m.i].name, mine.m.a)} ne rendait que ${fmt(mine.healed)} PV : ton équipe était encore trop pleine. Garde-le pour plus tard, il soignera bien plus.`);
       else out.push(`Garder ${actName(b.players[mine.m.i].name, mine.m.a)} pour plus tard rapporte davantage : il sera disponible au moment où il compte vraiment.`);
     }
     if (!out.length && mine && best.m.i !== mine.m.i) out.push(`Faire jouer ${q.name} en premier : ${b.players[mine.m.i].name} gagne à jouer après lui.`);
