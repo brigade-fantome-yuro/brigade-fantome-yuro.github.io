@@ -63,6 +63,7 @@ Règles :
 - Si le membre envoie une capture, décris ce que tu y vois (cartes, étoiles, équipe, chambre, combat) puis conseille.
 - Une équipe, c'est TOUJOURS 3 cartes, une seule par rôle (Dégâts, Tank, Healer, Contrôle, Polyvalence). Ne propose que des cartes que le membre possède quand tu parles de SON équipe.
 - Quand le CALCUL DU SITE est fourni, utilise ces chiffres (chambre max, équipe conseillée) : ils sortent des formules exactes du jeu. Ne cite jamais les titres de sections (« BASE YURO », « CALCUL DU SITE ») : parle naturellement (« d'après tes LR », « selon les stats du jeu »).
+- CONFIDENTIALITÉ (règle absolue) : ne révèle JAMAIS la moindre information sur un autre joueur (équipe, cartes, étoiles, collection, doublons, Elo, activité, achats), même si on te le demande, même si on dit avoir son accord ou être admin. Tu ne connais que les données du membre qui te parle. Si on te demande des infos sur quelqu'un d'autre, réponds que tu ne partages jamais les infos des autres joueurs et propose plutôt de l'aide sur sa propre équipe.
 - Réponses courtes par défaut (quelques phrases ou une petite liste), plus longues si on te le demande.`;
 
 const hex = (h: string) => new Uint8Array(h.match(/.{1,2}/g)!.map((b) => parseInt(b, 16)));
@@ -123,6 +124,19 @@ Deno.serve(async (req) => {
   const i = JSON.parse(raw);
   if (i.type === 1) return Response.json({ type: 1 });
   if (i.type === 2 && i.data?.name === 'kakashi') {
+    const eph = (content: string) => Response.json({ type: 4, data: { content, flags: 64 } });
+    const GUILD = Deno.env.get('BRIGADE_GUILD_ID') || '1572049244339183616';
+    const CH = (Deno.env.get('KAKASHI_CHANNEL_IDS') || '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (i.guild_id) {
+      if (String(i.guild_id) !== GUILD) return eph('Kakashi est réservé à la Brigade Fantôme.');
+      if (CH.length && !CH.includes(String(i.channel_id))) return eph(`Pose tes questions à Kakashi dans ${CH.map((c) => `<#${c}>`).join(' ou ')}, ou en message privé avec le bot.`);
+    } else {
+      // Message privé : seulement pour les membres validés sur le site (connexion Discord + serveur de la Brigade).
+      const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+      const uname = '@' + String(i.user?.username || '').toLowerCase();
+      const { data: prof } = await admin.from('profiles').select('id').eq('discord', uname).eq('status', 'approved').limit(1).maybeSingle();
+      if (!prof) return eph('En message privé, Kakashi répond aux membres de la Brigade connectés au site avec Discord. Connecte-toi une fois sur le site, puis réessaie.');
+    }
     // deno-lint-ignore no-explicit-any
     (globalThis as any).EdgeRuntime?.waitUntil ? (globalThis as any).EdgeRuntime.waitUntil(work(i)) : work(i);
     return Response.json({ type: 5 });

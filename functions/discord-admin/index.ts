@@ -14,7 +14,12 @@ Deno.serve(async (req) => {
     if (!sec.discord_client_secret) return new Response('clé secrète absente', { status: 400, headers: CORS });
     const tr = await fetch('https://discord.com/api/v10/oauth2/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Authorization: 'Basic ' + btoa(APP + ':' + sec.discord_client_secret) }, body: 'grant_type=client_credentials&scope=applications.commands.update' });
     const tj = await tr.json(); if (!tj.access_token) return Response.json({ step: 'token', status: tr.status, tj }, { headers: CORS });
-    const r = await fetch(`https://discord.com/api/v10/applications/${APP}/guilds/${GUILD}/commands`, { method: 'PUT', headers: { Authorization: 'Bearer ' + tj.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify([{ name: 'kakashi', description: 'Pose une question à Kakashi, le stratège de la Brigade (YURO)', options: [{ type: 3, name: 'question', description: 'Ta question', required: true }, { type: 11, name: 'capture', description: "Une capture d'écran (facultatif)", required: false }] }]) });
-    return Response.json({ step: 'commands', status: r.status, body: (await r.text()).slice(0, 300) }, { headers: CORS });
+    const H = { Authorization: 'Bearer ' + tj.access_token, 'Content-Type': 'application/json' };
+    // Commande globale : utilisable sur le serveur (salon dédié) et en message privé avec le bot.
+    const cmd = { name: 'kakashi', description: 'Pose une question à Kakashi, le stratège de la Brigade (YURO)', integration_types: [0], contexts: [0, 1], options: [{ type: 3, name: 'question', description: 'Ta question', required: true }, { type: 11, name: 'capture', description: "Une capture d'écran (facultatif)", required: false }] };
+    const g = await fetch(`https://discord.com/api/v10/applications/${APP}/commands`, { method: 'PUT', headers: H, body: JSON.stringify([cmd]) });
+    const gb = (await g.text()).slice(0, 300);
+    const l = g.ok ? await fetch(`https://discord.com/api/v10/applications/${APP}/guilds/${GUILD}/commands`, { method: 'PUT', headers: H, body: '[]' }) : null;
+    return Response.json({ step: 'commands', global: g.status, body: gb, guildCleared: l?.status }, { headers: CORS });
   } catch (e) { return new Response('Erreur : ' + (e as Error).message, { status: 500 }); }
 });

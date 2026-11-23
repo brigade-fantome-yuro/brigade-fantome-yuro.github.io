@@ -161,7 +161,16 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .loops{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
 .loopfig{margin:8px auto;max-width:380px;width:100%}
 .loopfig svg{width:100%;height:auto;display:block}
-.loopfig figcaption{text-align:center;color:var(--mute);font-size:13px;font-weight:700;margin-top:4px}
+.loopfig figcaption{text-align:center;color:#fff;font-size:17px;font-weight:800;margin:6px 0 2px;letter-spacing:.2px}
+.ctitle{text-align:center}
+.focusnote{text-align:center;color:#fff;font-size:15.5px;line-height:1.55;max-width:680px;margin:6px auto 4px;padding:10px 14px;border:1px solid rgba(208,18,47,.45);border-radius:12px;background:rgba(208,18,47,.08)}
+.focusnote b{color:#ff5a6e}
+.opps{display:grid;gap:6px;margin-top:10px}
+.opp{display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center}
+.opp .bar{height:7px}
+.calcout{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}
+.pimgs{display:grid;gap:12px;margin-top:6px}
+.pimgs img{width:100%;border-radius:12px;border:1px solid var(--line,#2a2228)}
 .pimg{position:relative}
 .rank{position:absolute;top:10px;left:10px;z-index:2;min-width:34px;height:34px;padding:0 8px;border-radius:99px;display:grid;place-items:center;background:var(--blood);color:#fff;font-weight:800;font-size:15px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
 .evolist{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:14px}

@@ -1,8 +1,10 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=16';
+import * as CFG from './config.js?v=17';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=16';
-import { castleReport, APPROX } from './castle.js?v=16';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=17';
+import { castleReport, APPROX, KIND } from './castle.js?v=17';
+const KIND_OF = id => (KIND[id] || {}).k;
+import { duelRate } from './ranked.js?v=17';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -36,14 +38,17 @@ const ROUTES = [
   ['accueil', 'Accueil', 'home'], ['kakashi', 'Kakashi Bot', 'bot'], ['meslr', 'Mes LR', 'users'],
   ['sep', 'Château de l\'infini'], ['guide/chateau', 'Guide du château', 'book'], ['equipe/chateau', 'Meilleure équipe', 'layers'], ['calculs', 'Calculateurs', 'calc'],
   ['sep', 'Ranked'], ['guide/ranked', 'Guide ranked', 'book'], ['equipe/ranked', 'Meilleure équipe', 'layers'], ['simulateur', 'Simulateur de match', 'layers'],
-  ['sep', 'Salle du temps'], ['guide/temps', 'Guide salle du temps', 'book'],
+  ['sep', 'Salle du temps'], ['guide/temps', 'Guide et calculateur', 'calc'],
   ['sep', 'Collection et Prestige'], ['checklist', 'Collection Prestige', 'check'], ['guide/prestige', 'Guide Prestige', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'],
   ['sep', 'Cartes'], ['persos', 'Fiches perso', 'users'],
-  ['sep', 'Marché'], ['prix', 'Prix en direct', 'chart'], ['alertes', 'Alertes prix', 'bell'],
+  ['sep', 'Marché'], ['prix', 'Prix marché', 'chart'], ['alertes', 'Alertes prix', 'bell'],
   ['sep', 'Guilde'], ['guilde', 'Profils de la guilde', 'users'], ['discord', 'Espace Discord', 'chat'],
   ['sep', 'Brigade'], ['calendrier', 'Calendrier', 'cal'], ['nouveautes', 'Nouveautés', 'bell'], ['lexique', 'Lexique', 'text']
 ];
 
+// Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
+const APP_V = '17';
+fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
 
@@ -52,7 +57,7 @@ function authView(mode = 'login', note = '') {
   app.innerHTML = `<div class="auth"><div class="auth-card"><div class="moon"></div>
     <div class="brand" style="margin:0 0 6px">${SPIDER}<b>Brigade Fantôme</b></div>
     <h1>Le repaire de la Brigade</h1>
-    <p class="mute">Guides, fiches, prix en direct et Kakashi Bot. Réservé aux membres de la Brigade sur Discord.</p>
+    <p class="mute">Guides, fiches, prix du marché et Kakashi Bot. Réservé aux membres de la Brigade sur Discord.</p>
 ${CFG.DISCORD_LOGIN ? `<button class="btn discord" id="dl" style="width:100%;margin-top:14px"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20 4.6A18 18 0 0 0 15.6 3l-.6 1.2a16 16 0 0 0-6 0L8.4 3A18 18 0 0 0 4 4.6C1.2 8.8.5 12.8.8 16.8A18 18 0 0 0 6.3 19.6l1.2-1.9a11 11 0 0 1-1.8-.9l.4-.3a12.8 12.8 0 0 0 11.8 0l.4.3a11 11 0 0 1-1.8.9l1.2 1.9a18 18 0 0 0 5.5-2.8c.4-4.6-.7-8.6-3.2-12.2zM8.7 14.4c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2zm6.6 0c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2z"/></svg>Se connecter avec Discord</button>
     <p class="small mute" style="margin:8px 0 0">On vérifie automatiquement que tu es sur le serveur de la Brigade : accès immédiat, aucun mot de passe.</p>` : ''}
     <details class="alt"${!CFG.DISCORD_LOGIN || mode === 'signup' || note ? ' open' : ''}><summary>Connexion avec mot de passe (anciens comptes)</summary>
@@ -93,7 +98,7 @@ function pendingView(p) {
 
 /* ---------- Données ---------- */
 async function loadKB() {
-  const { data, error } = await sb.from('content').select('key,data');
+  const { data, error } = await sb.from('content').select('key,data').neq('key', 'prestige_imgs');
   if (error) throw error;
   const kb = {}; for (const r of data) kb[r.key] = r.data; S.kb = kb;
   setTwoShot(kb.twoshot);
@@ -156,10 +161,39 @@ P.guide = (m, key) => {
   if (key === 'eveil') return evoGuide(m); if (key === 'raids') return raidGuide(m); if (key === 'roles') { location.hash = '#persos'; return; }
   const g = S.kb.guides?.[key]; if (!g) { m.innerHTML = '<div class="empty">Guide introuvable.</div>'; return; }
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guide</span><h1 style="margin-top:12px">${esc(g.title)}</h1></section>
-    ${key === 'chateau' ? castleWidget() + `<div class="card section"><h2>Les deux boucles</h2><p class="mute small">Tout le monde tape le même gardien tant que l'échange n'est pas fait. Dès qu'un gardien est échangé, on l'achève en priorité, puis on revient au gardien de départ.</p><div class="loops">${loopSVG(false)}${loopSVG(true)}</div></div>` : ''}
+    ${key === 'temps' ? tempsCalc() : ''}
+    ${key === 'chateau' ? castleWidget() + `<div class="card section"><h2 class="ctitle">Les deux boucles</h2><p class="focusnote"><b>Le focus :</b> tout le monde tape le même gardien tant que l'échange n'est pas fait. Dès qu'un gardien est échangé, on l'achève en priorité, puis on revient au gardien de départ.</p><div class="loops">${loopSVG(false)}${loopSVG(true)}</div></div>` : ''}
     ${g.sections.map(s => `<div class="card section"><h2>${esc(s.h)}</h2>${(s.p || []).map(x => `<p>${esc(x)}</p>`).join('')}${s.list ? `<ul class="list">${s.list.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>`).join('')}`;
   if (key === 'chateau') bindCastle();
+  if (key === 'temps') bindTemps();
+  if (key === 'prestige') prestigeImgs(m);
 };
+async function prestigeImgs(m) {
+  const { data } = await sb.from('content').select('data').eq('key', 'prestige_imgs').maybeSingle(); const L = data?.data?.imgs || []; if (!L.length) return;
+  const d = document.createElement('div'); d.className = 'card section'; d.innerHTML = `<h2>Le tuto en images</h2><div class="pimgs">${L.map((u, i) => `<img src="${u}" alt="Tuto Prestige, image ${i + 1}" loading="lazy">`).join('')}</div>`; m.appendChild(d);
+}
+// Salle du temps : chiffres du salon #salle-du-temps du Discord de la Brigade.
+const TEMPS = { kiWin: 20, p: .06, pity: 16, lrPerBooster: .000205 };
+const winsPerBooster = (() => { let e = 0, q = 1; for (let k = 0; k < TEMPS.pity; k++) { e += q; q *= 1 - TEMPS.p; } return e; })(); // ≈ 10,5
+function tempsCalc() {
+  return `<div class="card section"><h2>Calculateur de farm</h2><p class="mute small">Choisis ton équipe (ou saisis ton KI par minute) et la durée : le site estime le KI, les boosters et ta chance d'avoir au moins une LR.</p>
+  <label>Ton équipe de farm</label><div class="tabs" id="tm" style="margin:6px 0 12px;flex-wrap:wrap"><button data-v="200" class="on">Vegeta + 2 Communes</button><button data-v="120">3 Communes</button><button data-v="mine">Importer mes LR</button><button data-v="man">Saisir à la main</button></div>
+  <div class="row"><div style="flex:1;min-width:120px"><label for="tk">KI par minute</label><input id="tk" type="number" min="1" value="200"></div><div style="flex:1;min-width:80px"><label for="td">Jours</label><input id="td" type="number" min="0" value="0"></div><div style="flex:1;min-width:80px"><label for="th">Heures</label><input id="th" type="number" min="0" value="8"></div><div style="flex:1;min-width:80px"><label for="tn">Minutes</label><input id="tn" type="number" min="0" value="0"></div></div>
+  <p class="small mute" id="tmh" style="margin-top:8px"></p><div id="to" class="calcout"></div>
+  <p class="small mute" style="margin-top:12px">Ce sont des estimations, pas des garanties : le rythme varie selon la vitesse du serveur, et les boosters et les LR dépendent du hasard des taux de drop. Base : +${TEMPS.kiWin} KI par victoire, booster dans ${TEMPS.p * 100} % des victoires et garanti au ${TEMPS.pity}e combat sans booster (≈ 1 booster toutes les ${winsPerBooster.toFixed(1).replace('.', ',')} victoires).</p></div>`;
+}
+function bindTemps() {
+  const f = () => { const k = Math.max(0, +$('#tk').value || 0), min = (+$('#td').value || 0) * 1440 + (+$('#th').value || 0) * 60 + (+$('#tn').value || 0);
+    const ki = k * min, wins = ki / TEMPS.kiWin, bo = wins / winsPerBooster, lr = 1 - Math.pow(1 - TEMPS.lrPerBooster, bo);
+    $('#to').innerHTML = `<div><div class="mute small">KI gagné</div><div class="cd">${fmt(Math.round(ki))}</div></div><div><div class="mute small">Victoires</div><div class="cd">${fmt(Math.round(wins))}</div></div><div><div class="mute small">Boosters gagnés</div><div class="cd">≈ ${fmt(Math.round(bo))}</div></div><div><div class="mute small">Chance d'au moins 1 LR</div><div class="cd">${lr < .1 ? (lr * 100).toFixed(1).replace('.', ',') : Math.round(lr * 100)} %</div></div>${wins >= 1 ? `<div><div class="mute small">Palier Cid Kagenou (1 000 victoires)</div><div class="cd">${wins >= 1000 ? '✓' : Math.round(wins / 10) + ' %'}</div></div>` : ''}`; };
+  const set = v => { const own = S.mylr?.cards || {}; let k = 200, h = 'Vegeta en tête : son EXPLOSION FINALE met les 3 gardiens K.O. d\'un coup (~200 KI/min en Replay auto ×2).';
+    if (v === '120') { k = 120; h = '3 Communes 0★ : les gardiens s\'adaptent à ton équipe, des cartes faibles finissent vite (~120 KI/min).'; }
+    if (v === 'mine') { const veg = own[1083] != null; k = veg ? 200 : 120; h = veg ? 'Tu as Majin Vegeta dans tes LR : mets-le en tête avec 2 Communes 0★ (~200 KI/min).' : 'Pas de Vegeta dans tes LR : 3 Communes 0★ (~120 KI/min). Vegeta ferait +67 % de KI et de boosters.'; }
+    if (v === 'man') { h = 'Mesure ton KI avant et après 10 minutes de farm, divise par 10 et saisis le résultat.'; $('#tk').focus(); } else $('#tk').value = k;
+    $('#tmh').textContent = h; f(); };
+  $('#tm').querySelectorAll('button').forEach(b => b.onclick = () => { $('#tm').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); set(b.dataset.v); });
+  ['#tk', '#td', '#th', '#tn'].forEach(id => $(id).oninput = f); loadMyLR().catch(() => {}); set('200');
+}
 
 function castleWidget() {
   return `<div class="card section"><h2>Où en est ta tour ?</h2><div class="row"><div style="flex:1;min-width:160px"><label for="cr">Chambre</label><input id="cr" type="number" min="1" max="1500" value="600"></div></div><div id="co" style="margin-top:12px"></div></div>`;
@@ -252,7 +286,7 @@ function bigChart(el, card, win) {
 P.prix = m => {
   let key = 'sales', dir = -1, win = '7j', open = null;
   const days = { '24h': 1, '7j': 7, '30j': 30 };
-  m.innerHTML = `<div class="row"><h1 style="margin:0">Prix en direct</h1><span class="sp"></span><span class="chip ok">● En direct</span></div>
+  m.innerHTML = `<div class="row"><h1 style="margin:0">Prix marché</h1></div>
     <p class="mute">Ventes réelles du marché (LR classiques), calculées comme le guide des prix : <b class="bone">médiane</b>, <b class="bone">bon prix</b> (bonne affaire) et <b class="bone">max conseillé</b> (au-delà tu paies trop cher). La tendance compare les 7 derniers jours à la semaine d'avant. Touche une carte pour voir sa courbe.</p>
     <div class="msg" style="margin:0 0 14px">Nous sommes des humains : les ventes sont relevées à la main via le comptoir du marché, il peut donc arriver qu'on rate des transactions.</div>
     <div class="row"><input id="q" placeholder="Rechercher une carte" style="flex:1;min-width:200px"><div class="tabs" style="margin:0" id="wn">${['24h', '7j', '30j'].map(w => `<button data-w="${w}" class="${w === win ? 'on' : ''}">${w}</button>`).join('')}</div></div>
@@ -600,6 +634,38 @@ function rankedScore(team, own) {
   if (has(1070) || has(961)) sc += 5; if (has(3247)) sc += 6; if (has(499)) sc += 3;
   return Math.round(sc);
 }
+// Équipes adverses de la méta (relevées en ranked), simulées à 4★.
+const OPP = [[1070, 3248, 3247], [308, 1070, 3247], [340, 1070, 3248], [961, 3247, 3248], [183, 1070, 128], [499, 128, 1070]], OPP_ST = 4;
+const unitOf = (c, st) => { const s = statsAt(c, st); return { id: c.id, hp: s.hp, atk: s.atk }; };
+const oppTeams = () => OPP.map(ids => ids.map(id => LRS().find(c => c.id === id))).filter(t => t.every(Boolean));
+function rankedSim(team, own, n = 40) {
+  const A = team.map(c => unitOf(c, own[c.id] || 0));
+  const res = oppTeams().map(t => ({ t, w: duelRate(A, t.map(c => unitOf(c, OPP_ST)), n) }));
+  return { avg: res.length ? res.reduce((a, r) => a + r.w, 0) / res.length : 0, res };
+}
+async function bestRankedSim(own, onp, cur) {
+  const C = LRS().filter(c => own[c.id] != null); if (C.length < 3) return null; let trios = [];
+  for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) for (let k = j + 1; k < C.length; k++) { const t = [C[i], C[j], C[k]]; if (roleOk(t)) trios.push(t); }
+  if (trios.length > 260) { trios.sort((a, b) => rankedScore(b, own) - rankedScore(a, own)); trios = trios.slice(0, 260); }
+  if (cur && !trios.some(t => t.every(c => cur.includes(c)))) trios.push(cur);
+  const q = []; for (let i = 0; i < trios.length; i++) { if (i % 10 === 0) { onp?.(i, trios.length + 8); await nextFrame(); } q.push({ t: trios[i], v: rankedSim(trios[i], own, 12).avg + rankedScore(trios[i], own) / 1e5 }); }
+  q.sort((a, b) => b.v - a.v); let best = null; const fin = q.slice(0, 8);
+  for (let i = 0; i < fin.length; i++) { onp?.(trios.length + i + 1, trios.length + 8); await nextFrame(); const r = rankedSim(fin[i].t, own, 80); if (!best || r.avg > best.r.avg) best = { team: fin[i].t, r }; }
+  return best;
+}
+const forceTxt = r => `<div class="grid" style="margin-top:14px"><div><div class="mute small">Indice de force</div><div class="cd">${Math.round(r.avg * 100)}<span class="small mute">/100</span></div></div></div>
+  <div class="opps">${r.res.map(x => `<div class="opp"><span class="small">${x.t.map(c => esc(c.n.replace(/\s*\(.*$/, ''))).join(' · ')}</span><span class="bar"><i style="width:${Math.round(x.w * 100)}%"></i></span><b class="small">${Math.round(x.w * 100)} %</b></div>`).join('')}</div>
+  <p class="small mute">Victoires simulées contre les ${r.res.length} équipes de la méta (adversaires à ${OPP_ST}★), avec les stats exactes de tes cartes à leurs étoiles et la vraie technique de chacune. C'est une estimation : le joueur d'en face peut jouer autrement.</p>`;
+function synergy(bt) {
+  const has = id => bt.some(c => c.id === id), k = c => KIND_OF(c.id), L = [];
+  const heal = bt.find(c => HEALERS.includes(c.id)), stun = bt.find(c => ['stunall', 'timestop', 'dom', 'door'].includes(k(c))), dodge = bt.find(c => [1070, 961].includes(c.id)), aoe = bt.find(c => k(c) === 'aoe');
+  if (heal && has(3247)) L.push(`<b>${esc(heal.n)} + Boros Second Form</b> : le soin remonte Boros avant sa résurrection, il encaisse donc deux vies pleines.`);
+  if (heal && dodge) L.push(`<b>${esc(dodge.n)}</b> fait taper l'adversaire dans le vide pendant que <b>${esc(heal.n)}</b> remonte l'équipe : les dégâts adverses sont perdus deux fois.`);
+  if (stun && aoe) L.push(`<b>${esc(stun.n)}</b> bloque l'adversaire un tour pendant que <b>${esc(aoe.n)}</b> touche toute son équipe.`);
+  if (has(499)) L.push('<b>Xebec</b> : le HAKI annule le prochain coup sur chaque allié, et bloque les contrôles adverses.');
+  if (has(953) && heal) L.push('<b>Ayanokouji + soin</b> : Aya descend bas, échange ses PV avec l\'adversaire le plus plein, puis le soin la remonte.');
+  return L;
+}
 const META = [[1070, 3248, 3247], [308, 1070, 3247], [340, 1070, 3248], [961, 3247, 3248]];
 function bestTeam(mode, own) {
   const C = LRS().filter(c => own[c.id] != null); if (C.length < 3) return null;
@@ -638,7 +704,7 @@ function loopSVG(heal) {
   const arrows = pts.map((p, i) => { const q = pts[(i + 1) % pts.length]; const a1 = Math.atan2(q[1] - p[1], q[0] - p[0]); const s = [p[0] + (r + 6) * Math.cos(a1), p[1] + (r + 6) * Math.sin(a1)], e = [q[0] - (r + 10) * Math.cos(a1), q[1] - (r + 10) * Math.sin(a1)]; return `<line x1="${s[0].toFixed(1)}" y1="${s[1].toFixed(1)}" x2="${e[0].toFixed(1)}" y2="${e[1].toFixed(1)}" stroke="#5a4d55" stroke-width="2" marker-end="url(#ah${heal ? 1 : 0})"/>`; }).join('');
   const nodes = N.map((n, i) => { const [x, y] = pts[i]; const col = C[n[2]]; const sub = n[3] ? [n[1], n[3]] : [n[1]];
     return `<g><circle cx="${x}" cy="${y}" r="${r}" fill="#0c0a0d" stroke="${col}" stroke-width="3"/><text x="${x}" y="${y - (sub.length > 1 ? 10 : 4)}" text-anchor="middle" font-size="13" font-weight="800" fill="${col}">${n[0]}</text>${sub.map((t, k) => `<text x="${x}" y="${y + 12 + k * 14 - (sub.length > 1 ? 6 : 0)}" text-anchor="middle" font-size="11" fill="#b9aea7">${t}</text>`).join('')}</g>`; }).join('');
-  return `<figure class="loopfig"><svg viewBox="0 0 ${W} ${W}" role="img" aria-label="Boucle Aya ${heal ? 'avec' : 'sans'} soigneur"><defs><marker id="ah${heal ? 1 : 0}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5a4d55"/></marker></defs>${arrows}${nodes}<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-family="Cormorant Garamond,serif" font-size="26" font-weight="700" fill="#efe6dc">Boucle</text><text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="12" fill="#9a8f88">à faire 2 fois</text></svg><figcaption>${heal ? 'Avec soigneur (quand Aya meurt en 2 coups)' : 'Sans soigneur'}</figcaption></figure>`;
+  return `<figure class="loopfig"><figcaption>${heal ? 'Avec soigneur (quand Aya meurt en 2 coups)' : 'Sans soigneur'}</figcaption><svg viewBox="0 0 ${W} ${W}" role="img" aria-label="Boucle Aya ${heal ? 'avec' : 'sans'} soigneur"><defs><marker id="ah${heal ? 1 : 0}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5a4d55"/></marker></defs>${arrows}${nodes}<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-family="Cormorant Garamond,serif" font-size="26" font-weight="700" fill="#efe6dc">Boucle</text><text x="${cx}" y="${cy + 18}" text-anchor="middle" font-size="12" fill="#9a8f88">à faire 2 fois</text></svg></figure>`;
 }
 function simBlock(r, team) {
   const approx = team.filter(c => APPROX.has(c.id));
@@ -652,6 +718,17 @@ function renderCastleReco(best, team, ok, own, mode, use) {
     ${teamCards(bt, own)}${simBlock(r, bt)}${cur && !same ? `<p><b>Gain par rapport à ton équipe :</b> chambre jouable ${r.play - cur.play >= 0 ? '+' : ''}${r.play - cur.play}, chambre sûre ${r.sure - cur.sure >= 0 ? '+' : ''}${r.sure - cur.sure}.</p>` : ''}
     <h3 style="margin-top:18px">Pourquoi cette équipe</h3><ul class="list">${castleWhy(bt, own, e).map(x => `<li>${x}</li>`).join('')}</ul>
     <h3>La stratégie</h3>${e.aya ? loopSVG(e.heal) : ''}<ol class="list">${castleStrat(e).map(x => `<li>${x}</li>`).join('')}</ol>
+    ${same ? '' : '<button class="btn primary" id="use" style="margin-top:12px">Utiliser cette équipe</button>'}</div>`;
+  const u = $('#use'); if (u) u.onclick = () => use(bt);
+}
+function renderRankedReco(best, team, ok, own, use) {
+  const bt = best.team, r = best.r; const same = ok && bt.every(c => team.some(x => x.id === c.id)); const cur = ok && !same ? rankedSim(team, own, 80) : null;
+  const syn = synergy(bt);
+  $('#rec').innerHTML = `<div class="card section reco"><span class="chip ${same ? 'ok' : 'red'}">${same ? '✓ Ton équipe est déjà la meilleure' : 'Recommandation'}</span><h2 style="margin-top:10px">${same ? 'Garde cette équipe' : 'Équipe conseillée'}</h2>
+    ${teamCards(bt, own)}${forceTxt(r)}${cur ? `<p><b>Gain par rapport à ton équipe :</b> ${Math.round((r.avg - cur.avg) * 100) >= 0 ? '+' : ''}${Math.round((r.avg - cur.avg) * 100)} points d'indice de force.</p>` : ''}
+    <h3 style="margin-top:18px">Pourquoi cette équipe</h3><ul class="list"><li>Testée en match simulé contre chaque équipe de la méta, avec les stats de tes cartes à leurs étoiles, leurs techniques et une seule carte par rôle : c'est le trio qui gagne le plus souvent parmi tes LR.</li>${syn.map(x => `<li>${x}</li>`).join('')}
+    ${bt.some(c => HEALERS.includes(c.id)) ? '' : '<li>Pas de soigneur dans ce trio : Seiichi est la carte qui ferait le plus progresser ton équipe.</li>'}</ul>
+    <h3>La stratégie</h3><ol class="list"><li>Focus d'abord l'adversaire qui n'est pas protégé (pas d'esquive, pas d'UI, pas de voile Haki).</li><li>Ne gaspille pas un contrôle ou un gros coup sur une carte qui esquive encore : fais-lui d'abord perdre ses esquives avec des attaques simples.</li><li>Achève en priorité un adversaire qu'on peut tuer en un coup.</li><li>Garde le soin pour sauver un allié d'un coup fatal, pas pour remonter quelques PV.</li></ol>
     ${same ? '' : '<button class="btn primary" id="use" style="margin-top:12px">Utiliser cette équipe</button>'}</div>`;
   const u = $('#use'); if (u) u.onclick = () => use(bt);
 }
@@ -670,10 +747,14 @@ P.equipe = async (m, mode = 'chateau') => {
     const ok = team.length === 3 && roleOk(team);
     if (!ok) { $('#cur').innerHTML = team.length === 3 ? '<div class="msg">Deux cartes ont le même rôle : le jeu ne l\'accepte pas.</div>' : '<p class="mute small">Choisis 3 cartes.</p>'; }
     else if (mode === 'chateau') { const r = simCastle(team, own); $('#cur').innerHTML = `${teamCards(team, own)}${simBlock(r, team)}`; }
-    else $('#cur').innerHTML = `${teamCards(team, own)}<div style="margin-top:14px"><span class="mute small">Indice de force</span> <span class="cd">${rankedScore(team, own)}</span></div>`;
+    else $('#cur').innerHTML = `${teamCards(team, own)}${forceTxt(rankedSim(team, own, 40))}`;
     if (mode === 'chateau') { $('#rec').innerHTML = '<div class="card section"><div class="row"><span class="chip red">Simulation</span><span class="mute small" id="simp">Combats simulés en cours…</span></div><div class="bar" style="margin-top:10px"><i id="simbar" style="width:0%"></i></div></div>'; const tok = (S.simTok = (S.simTok || 0) + 1);
       bestCastleSim(own, (i, n) => { if (S.simTok !== tok) return; const b = $('#simbar'); if (b) b.style.width = (i / n * 100) + '%'; const t = $('#simp'); if (t) t.textContent = `Combats simulés : ${Math.round(i / n * 100)} %…`; }, ok ? team : null).then(best => { if (S.simTok !== tok || !best) return; renderCastleReco(best, team, ok, own, mode, use); });
       return; }
+    $('#rec').innerHTML = '<div class="card section"><div class="row"><span class="chip red">Simulation</span><span class="mute small" id="simp">Matchs simulés contre la méta…</span></div><div class="bar" style="margin-top:10px"><i id="simbar" style="width:0%"></i></div></div>'; const tok = (S.simTok = (S.simTok || 0) + 1);
+    bestRankedSim(own, (i, n) => { if (S.simTok !== tok) return; const b = $('#simbar'); if (b) b.style.width = (i / n * 100) + '%'; const t = $('#simp'); if (t) t.textContent = `Matchs simulés : ${Math.round(i / n * 100)} %…`; }, ok ? team : null).then(best => { if (S.simTok !== tok || !best) return; renderRankedReco(best, team, ok, own, use); });
+  };
+  const showOld = () => { const ok = false;
     const b = bestTeam(mode, own); if (!b) { $('#rec').innerHTML = ''; return; }
     const same = ok && b.team.every(c => team.some(x => x.id === c.id));
     const bt = b.team;
@@ -692,7 +773,7 @@ P.equipe = async (m, mode = 'chateau') => {
     const u = $('#use'); if (u) u.onclick = async () => { team = bt.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Équipe enregistrée'); };
   };
   const bind = () => $('.picks').querySelectorAll('select').forEach(sel => sel.onchange = async () => { const i = +sel.dataset.slot; team[i] = byId(sel.value); team = team.filter(Boolean); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); show(); });
-  $('#af').onclick = async () => { const b = mode === 'chateau' ? await bestCastleSim(own) : bestTeam(mode, own); if (!b) return; team = b.team.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Meilleure équipe placée'); };
+  $('#af').onclick = async () => { const b = mode === 'chateau' ? await bestCastleSim(own) : await bestRankedSim(own); if (!b) return; team = b.team.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Meilleure équipe placée'); };
   bind(); show();
 };
 
