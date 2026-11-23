@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=26';
+import * as CFG from './config.js?v=27';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=26';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=26';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=27';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=27';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=26';
-import * as SCAN from './scan.js?v=26';
+import { duelRate } from './ranked.js?v=27';
+import * as SCAN from './scan.js?v=27';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='26';
+const APP_V='27';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -159,12 +159,28 @@ function trend(p) {
   return `<span class="${d >= 0 ? 'up' : 'down'} small">${d >= 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} KI (${pc >= 0 ? '+' : ''}${pc.toFixed(1)} %)</span>`;
 }
 
+// Seuils d'Aya + résultats mesurés (combats réels et simulés avec les règles du jeu, 23/11).
+function castleReal() {
+  const rows = [['600', '~17 %', 'Boucle confortable'], ['649', '~26 %', 'Dernière chambre avant le 1er seuil'], ['650 → 732', '2 à 3,5 %', '1er seuil franchi : tout dépend du soin au bon moment'], ['750 → 852', '4 à 9 %', 'Toujours possible, à force d\'essais'], ['853 et +', '0 %', '2e seuil : Aya meurt même soignée']];
+  return `<div class="card section"><h2>Les deux seuils d'Aya</h2>
+  <ul class="list"><li><b>1er seuil :</b> dès qu'un gardien tape pour la moitié des PV d'Aya, elle meurt au 2e coup sans soin. Sans soigneur, la boucle casse ici. Aya 5★ (1 488 PV) : <b>chambre 650</b> (gardiens à 744 d'attaque).</li>
+  <li><b>2e seuil :</b> dès que 2 coups de gardien dépassent ses PV + un soin de 30 %, Aya meurt même soignée : la boucle devient impossible. Aya 5★ avec Seiichi : <b>chambre 853</b> (967 d'attaque).</li>
+  <li>Tes propres seuils se lisent dans les <a href="#calculs">Calculateurs</a> (Two-shot), à partir de tes étoiles.</li></ul>
+  <h3 style="margin-top:14px">Exemple mesuré : Aya 5★ / Seiichi 4★ / Xebec 5★, boucle avec soigneur</h3>
+  <table class="tbl"><thead><tr><th>Chambre</th><th class="n">Victoires</th><th>Ce qui se passe</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="n">${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>
+  <p class="small mute">150 combats réels joués à la chambre 732 : 3 victoires (2 %), en accord avec les combats simulés. La plupart des défaites arrivent avant le 6e tour, quand Aya prend 2 coups avant que l'échange ou le soin soit prêt.</p>
+  <ul class="list"><li>Une défaite ne coûte rien : le record est conservé et chaque nouvel essai tire de nouvelles cibles. Au-delà du 1er seuil, compte une cinquantaine d'essais par chambre.</li>
+  <li>Le hasard des cibles des gardiens décide de presque tout : la même boucle gagne ou perd selon qui est visé au mauvais moment.</li>
+  <li>Pour monter plus haut, ce sont les PV qui comptent : les étoiles d'Aya et du soigneur repoussent les deux seuils (+8 % de PV par étoile).</li>
+  <li>Une seule carte par rôle : Aya et Janemba sont tous les deux <b>Polyvalence</b>, ils ne peuvent pas être dans la même équipe.</li></ul></div>`;
+}
+
 P.guide = (m, key) => {
   if (key === 'eveil') return evoGuide(m); if (key === 'raids') return raidGuide(m); if (key === 'roles') { location.hash = '#persos'; return; }
   const g = S.kb.guides?.[key]; if (!g) { m.innerHTML = '<div class="empty">Guide introuvable.</div>'; return; }
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guide</span><h1 style="margin-top:12px">${esc(g.title)}</h1></section>
     ${key === 'temps' ? tempsCalc() : ''}
-    ${key === 'chateau' ? castleWidget() + `<div class="card section"><h2 class="ctitle">Les deux boucles</h2><p class="focusnote"><b>Le focus :</b> tout le monde tape le même gardien tant que l'échange n'est pas fait. Dès qu'un gardien est échangé, on l'achève en priorité, puis on revient au gardien de départ.</p><div class="loops">${loopSVG(false)}${loopSVG(true)}</div></div>` : ''}
+    ${key === 'chateau' ? castleWidget() + `<div class="card section"><h2 class="ctitle">Les deux boucles</h2><p class="focusnote"><b>Le focus :</b> tout le monde tape le même gardien tant que l'échange n'est pas fait. Dès qu'un gardien est échangé, on l'achève en priorité, puis on revient au gardien de départ.</p><div class="loops">${loopSVG(false)}${loopSVG(true)}</div></div>${castleReal()}` : ''}
     ${g.sections.map(s => `<div class="card section"><h2>${esc(s.h)}</h2>${(s.p || []).map(x => `<p>${esc(x)}</p>`).join('')}${s.list ? `<ul class="list">${s.list.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</div>`).join('')}`;
   if (key === 'chateau') bindCastle();
   if (key === 'temps') bindTemps();
