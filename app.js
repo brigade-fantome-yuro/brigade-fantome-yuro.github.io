@@ -1,8 +1,8 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=11';
+import * as CFG from './config.js?v=12';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=11';
-import { castleReport, APPROX } from './castle.js?v=11';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=12';
+import { castleReport, APPROX } from './castle.js?v=12';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -564,12 +564,17 @@ function simCastle(team, own, n = 150) {
 }
 const nextFrame = () => new Promise(r => setTimeout(r, 0));
 // Meilleure équipe château : présélection rapide (seuil d'Aya / course aux dégâts), puis vrais combats simulés sur les meilleures.
-async function bestCastleSim(own, onp) {
+async function bestCastleSim(own, onp, current) {
   const C = LRS().filter(c => own[c.id] != null); if (C.length < 3) return null;
   const cand = [];
-  for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) for (let k = j + 1; k < C.length; k++) { const t = [C[i], C[j], C[k]]; if (!roleOk(t)) continue; const e = castleEval(t, own); cand.push({ t, v: e.room + (e.aya ? 60 : 0) + (t.some(c => HEALERS.includes(c.id)) ? 30 : 0) }); }
-  cand.sort((a, b) => b.v - a.v); const top = cand.slice(0, 10); let best = null;
-  for (let i = 0; i < top.length; i++) { onp?.(i + 1, top.length); await nextFrame(); const r = simCastle(top[i].t, own); const sc = r.play * 1000 + r.sure + r.max / 1000; if (!best || sc > best.sc) best = { team: top[i].t, r, sc }; }
+  for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) for (let k = j + 1; k < C.length; k++) { const t = [C[i], C[j], C[k]]; if (!roleOk(t)) continue; const e = castleEval(t, own);
+    const pw = t.reduce((n, c) => { const s = statsAt(c, own[c.id] || 0); return n + s.hp / 100 + s.atk / 10; }, 0);
+    cand.push({ t, v: e.room + (e.aya ? 400 : 0) + (t.some(c => HEALERS.includes(c.id)) ? 200 : 0) + (t.some(c => [340, 499, 329].includes(c.id)) ? 80 : 0) + pw }); }
+  cand.sort((a, b) => b.v - a.v); const pool = cand.slice(0, 40);
+  if (current?.length === 3 && roleOk(current) && !pool.some(x => x.t.every(c => current.some(y => y.id === c.id)))) pool.push({ t: current });
+  const quick = []; for (let i = 0; i < pool.length; i++) { if (i % 4 === 0) { onp?.(i, pool.length + 5); await nextFrame(); } const r = simCastle(pool[i].t, own, 40); quick.push({ t: pool[i].t, sc: r.play * 1000 + r.sure }); }
+  quick.sort((a, b) => b.sc - a.sc); let best = null; const fin = quick.slice(0, 5);
+  for (let i = 0; i < fin.length; i++) { onp?.(pool.length + i + 1, pool.length + 5); await nextFrame(); const r = simCastle(fin[i].t, own); const sc = r.play * 1000 + r.sure + r.max / 1000; if (!best || sc > best.sc) best = { team: fin[i].t, r, sc }; }
   return best;
 }
 function rankedScore(team, own) {
@@ -640,7 +645,7 @@ P.equipe = async (m, mode = 'chateau') => {
     else if (mode === 'chateau') { const r = simCastle(team, own); $('#cur').innerHTML = `${teamCards(team, own)}${simBlock(r, team)}`; }
     else $('#cur').innerHTML = `${teamCards(team, own)}<div style="margin-top:14px"><span class="mute small">Indice de force</span> <span class="cd">${rankedScore(team, own)}</span></div>`;
     if (mode === 'chateau') { $('#rec').innerHTML = '<div class="card section"><div class="row"><span class="chip red">Simulation</span><span class="mute small" id="simp">Combats simulés en cours…</span></div><div class="bar" style="margin-top:10px"><i id="simbar" style="width:0%"></i></div></div>'; const tok = (S.simTok = (S.simTok || 0) + 1);
-      bestCastleSim(own, (i, n) => { if (S.simTok !== tok) return; const b = $('#simbar'); if (b) b.style.width = (i / n * 100) + '%'; const t = $('#simp'); if (t) t.textContent = `Combats simulés : équipe ${i}/${n}…`; }).then(best => { if (S.simTok !== tok || !best) return; renderCastleReco(best, team, ok, own, mode, use); });
+      bestCastleSim(own, (i, n) => { if (S.simTok !== tok) return; const b = $('#simbar'); if (b) b.style.width = (i / n * 100) + '%'; const t = $('#simp'); if (t) t.textContent = `Combats simulés : ${Math.round(i / n * 100)} %…`; }, ok ? team : null).then(best => { if (S.simTok !== tok || !best) return; renderCastleReco(best, team, ok, own, mode, use); });
       return; }
     const b = bestTeam(mode, own); if (!b) { $('#rec').innerHTML = ''; return; }
     const same = ok && b.team.every(c => team.some(x => x.id === c.id));
