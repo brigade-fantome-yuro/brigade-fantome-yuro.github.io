@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=31';
+import * as CFG from './config.js?v=32';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=31';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=31';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=32';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=32';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=31';
-import * as SCAN from './scan.js?v=31';
+import { duelRate } from './ranked.js?v=32';
+import * as SCAN from './scan.js?v=32';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='31';
+const APP_V='32';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -167,9 +167,11 @@ function castleReal() {
   const st = aya ? [0, 1, 2, 3, 4, 5].map(k => ({ k, ...seuils(k) })) : [];
   const rows = [['Avant le 1er seuil', '15 à 25 %', 'Boucle confortable : Aya encaisse 2 coups sans soin'], ['Du 1er seuil au 2e seuil', '2 à 3,5 %', 'Aya ne survit à 2 coups que si le soin tombe au bon moment'], ['2e seuil et au-delà', '0 %', 'Aya meurt au 2e coup même soignée : boucle impossible']];
   return `<div class="card section"><h2>Les deux seuils d'Aya</h2>
-  <ul class="list"><li><b>1er seuil :</b> la chambre où un gardien tape pour la moitié des PV d'Aya. Elle meurt au 2e coup sans soin : sans soigneur, la boucle casse ici.</li>
-  <li><b>2e seuil :</b> la chambre où 2 coups de gardien dépassent ses PV + un soin de 30 %. Elle meurt même soignée : la boucle devient impossible, même avec un soigneur.</li>
-  <li>Les deux seuils ne dépendent que des PV d'Aya, donc de ses étoiles :</li></ul>
+  <p><b>C'est quoi un seuil ?</b> Plus tu montes dans le château, plus les gardiens tapent fort. Toute la boucle repose sur une chose : Aya doit <b>encaisser 2 coups de gardien</b> sans mourir, le temps que son échange (ou le soin) soit prêt. Un seuil, c'est le <b>numéro de chambre à partir duquel ça ne passe plus</b>.</p>
+  <ul class="list"><li><b>1er seuil, « mort en 2 coups sans soin » :</b> à partir de cette chambre, un coup de gardien enlève la moitié des PV d'Aya (ou plus). Deux coups = Aya morte. Sans soigneur dans l'équipe, la boucle s'arrête ici. Avec un soigneur, ça passe encore, mais seulement si le soin tombe entre les deux coups.</li>
+  <li><b>2e seuil, « mort en 2 coups même soignée » :</b> à partir de cette chambre, deux coups de gardien font plus de dégâts que les PV d'Aya + un soin de 30 %. Même soignée au bon moment, elle meurt : la boucle est impossible.</li>
+  <li><b>Exemple :</b> Aya 5★ a 1 488 PV. À la chambre 650, un gardien tape 744 (la moitié de 1 488) : c'est son 1er seuil. À la chambre 853, deux coups (2 × 967) dépassent 1 488 + 446 de soin : c'est son 2e seuil.</li>
+  <li>Les seuils ne dépendent que des PV d'Aya, donc de ses étoiles. Trouve ta ligne :</li></ul>
   ${st.length ? `<table class="tbl"><thead><tr><th>Aya</th><th class="n">PV</th><th class="n">1er seuil (sans soin)</th><th class="n">2e seuil (avec soigneur)</th></tr></thead><tbody>${st.map(x => `<tr><td>${x.k}★</td><td class="n">${fmt(x.H)}</td><td class="n">Chambre ${x.s1}</td><td class="n"><b>Chambre ${x.s2}</b></td></tr>`).join('')}</tbody></table>` : ''}
   <h3 style="margin-top:14px">Chances de victoire par fourchette de chambres</h3>
   <table class="tbl"><thead><tr><th>Fourchette</th><th class="n">Victoires</th><th>Ce qui se passe</th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="n">${r[1]}</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>
