@@ -229,3 +229,4 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .bpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;max-height:320px;overflow:auto;padding:4px}
 .bpk{display:flex;align-items:center;gap:7px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px;cursor:pointer}
 .bpk input{accent-color:var(--blood)}
+.brule{font-size:11px;line-height:1.35;color:var(--ink);background:rgba(208,18,47,.12);border:1px solid rgba(208,18,47,.35);border-radius:6px;padding:5px 7px;margin:0 0 8px;max-width:190px}
