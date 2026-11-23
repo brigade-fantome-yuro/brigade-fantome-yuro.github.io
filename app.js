@@ -1,7 +1,8 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=10';
+import * as CFG from './config.js?v=11';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=10';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=11';
+import { castleReport, APPROX } from './castle.js?v=11';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -555,6 +556,22 @@ function castleEval(team, own) {
   if (aya) return { room: Math.max(twoShotRoom(null, aya, st(aya), heal), race), aya: true, heal };
   return { room: race, aya: false, heal };
 }
+const SIMC = new Map();
+function simCastle(team, own, n = 150) {
+  const key = team.map(c => c.id + ':' + (own[c.id] || 0)).sort().join(',') + '|' + n;
+  if (!SIMC.has(key)) SIMC.set(key, castleReport(team.map(c => { const s = statsAt(c, own[c.id] || 0); return { id: c.id, hp: s.hp, atk: s.atk }; }), n));
+  return SIMC.get(key);
+}
+const nextFrame = () => new Promise(r => setTimeout(r, 0));
+// Meilleure équipe château : présélection rapide (seuil d'Aya / course aux dégâts), puis vrais combats simulés sur les meilleures.
+async function bestCastleSim(own, onp) {
+  const C = LRS().filter(c => own[c.id] != null); if (C.length < 3) return null;
+  const cand = [];
+  for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) for (let k = j + 1; k < C.length; k++) { const t = [C[i], C[j], C[k]]; if (!roleOk(t)) continue; const e = castleEval(t, own); cand.push({ t, v: e.room + (e.aya ? 60 : 0) + (t.some(c => HEALERS.includes(c.id)) ? 30 : 0) }); }
+  cand.sort((a, b) => b.v - a.v); const top = cand.slice(0, 10); let best = null;
+  for (let i = 0; i < top.length; i++) { onp?.(i + 1, top.length); await nextFrame(); const r = simCastle(top[i].t, own); const sc = r.play * 1000 + r.sure + r.max / 1000; if (!best || sc > best.sc) best = { team: top[i].t, r, sc }; }
+  return best;
+}
 function rankedScore(team, own) {
   const st = c => (own[c.id] || 0); let sc = 0;
   for (const c of team) { const s = statsAt(c, st(c)); sc += s.hp / 100 + s.atk / 10; }
@@ -591,6 +608,21 @@ function castleWhy(team, own, e) {
 }
 const castleStrat = e => e.aya ? (e.heal ? ['Tout le monde focus le même gardien tant que l\'échange n\'est pas fait.', 'Aya encaisse un coup, soin de 30 %, Aya encaisse un 2e coup en restant au plus près de 1 PV.', 'ÉCHANGE sur un gardien plein : il tombe presque à 0, on l\'achève tout de suite.', 'On revient sur le gardien focus au départ, et on répète la boucle une 2e fois.'] : ['Tout le monde focus le même gardien tant que l\'échange n\'est pas fait.', 'Aya encaisse 2 coups et tombe au plus près de 1 PV (pas à 20 % : sinon le gardien échangé ne tombe pas en un coup).', 'ÉCHANGE sur un gardien plein, puis on l\'achève tout de suite.', 'Retour sur le gardien focus, et on répète une 2e fois.']) : ['Focus un seul gardien à la fois, toujours le plus entamé.', 'Garde tes techniques de dégâts pour achever, pas pour entamer.', 'Monte les étoiles de ta carte la plus solide : +8 % de PV par étoile repoussent la chambre max.'];
 
+function simBlock(r, team) {
+  const approx = team.filter(c => APPROX.has(c.id));
+  return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre sûre (9 fois sur 10)</div><div class="cd">${r.sure}</div></div><div><div class="mute small">Chambre jouable (1 fois sur 2)</div><div class="cd">${r.play}</div></div><div><div class="mute small">Chambre max (1 fois sur 5)</div><div class="cd">${r.max}</div></div></div>
+  <p class="small mute" style="margin-top:8px">150 combats simulés par chambre, avec les stats exactes de tes cartes et la boucle de la Brigade (sans garde).${approx.length ? ` Technique approchée pour : ${approx.map(c => esc(c.n)).join(', ')}.` : ''}</p>`;
+}
+function renderCastleReco(best, team, ok, own, mode, use) {
+  const bt = best.team, r = best.r; const same = ok && bt.every(c => team.some(x => x.id === c.id)); const e = castleEval(bt, own);
+  const cur = ok ? simCastle(team, own) : null;
+  $('#rec').innerHTML = `<div class="card section reco"><span class="chip ${same ? 'ok' : 'red'}">${same ? '✓ Ton équipe est déjà la meilleure' : 'Recommandation'}</span><h2 style="margin-top:10px">${same ? 'Garde cette équipe' : 'Équipe conseillée'}</h2>
+    ${teamCards(bt, own)}${simBlock(r, bt)}${cur && !same ? `<p><b>Gain par rapport à ton équipe :</b> chambre jouable ${r.play - cur.play >= 0 ? '+' : ''}${r.play - cur.play}, chambre sûre ${r.sure - cur.sure >= 0 ? '+' : ''}${r.sure - cur.sure}.</p>` : ''}
+    <h3 style="margin-top:18px">Pourquoi cette équipe</h3><ul class="list">${castleWhy(bt, own, e).map(x => `<li>${x}</li>`).join('')}</ul>
+    <h3>La stratégie</h3><ol class="list">${castleStrat(e).map(x => `<li>${x}</li>`).join('')}</ol>
+    ${same ? '' : '<button class="btn primary" id="use" style="margin-top:12px">Utiliser cette équipe</button>'}</div>`;
+  const u = $('#use'); if (u) u.onclick = () => use(bt);
+}
 P.equipe = async (m, mode = 'chateau') => {
   mode = mode === 'ranked' ? 'ranked' : 'chateau'; await loadMyLR(); const own = S.mylr.cards; S.mylr.teams = S.mylr.teams || {};
   const title = mode === 'chateau' ? 'Château de l\'infini' : 'Ranked';
@@ -601,11 +633,15 @@ P.equipe = async (m, mode = 'chateau') => {
     <div class="row" style="margin-top:12px"><button class="btn primary" id="af">⚡ Auto-remplir la meilleure équipe</button><a class="btn ghost" href="#meslr">Modifier mes LR</a></div></section>
     <div class="card section"><h2>Mon équipe</h2><p class="small mute">Une seule carte par rôle, comme dans le jeu.</p><div class="row picks">${teamPicker(team, own)}</div><div id="cur" style="margin-top:14px"></div></div>
     <div id="rec"></div>`;
+  const use = async bt => { team = bt.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Équipe enregistrée'); };
   const show = () => {
     const ok = team.length === 3 && roleOk(team);
     if (!ok) { $('#cur').innerHTML = team.length === 3 ? '<div class="msg">Deux cartes ont le même rôle : le jeu ne l\'accepte pas.</div>' : '<p class="mute small">Choisis 3 cartes.</p>'; }
-    else if (mode === 'chateau') { const e = castleEval(team, own); $('#cur').innerHTML = `${teamCards(team, own)}<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre max estimée</div><div class="cd">${e.room}</div></div><div><div class="mute small">Méthode</div><div><b>${e.aya ? (e.heal ? 'Boucle Aya avec soin' : 'Boucle Aya sans soin') : 'Sans Aya'}</b></div></div></div>`; }
+    else if (mode === 'chateau') { const r = simCastle(team, own); $('#cur').innerHTML = `${teamCards(team, own)}${simBlock(r, team)}`; }
     else $('#cur').innerHTML = `${teamCards(team, own)}<div style="margin-top:14px"><span class="mute small">Indice de force</span> <span class="cd">${rankedScore(team, own)}</span></div>`;
+    if (mode === 'chateau') { $('#rec').innerHTML = '<div class="card section"><div class="row"><span class="chip red">Simulation</span><span class="mute small" id="simp">Combats simulés en cours…</span></div><div class="bar" style="margin-top:10px"><i id="simbar" style="width:0%"></i></div></div>'; const tok = (S.simTok = (S.simTok || 0) + 1);
+      bestCastleSim(own, (i, n) => { if (S.simTok !== tok) return; const b = $('#simbar'); if (b) b.style.width = (i / n * 100) + '%'; const t = $('#simp'); if (t) t.textContent = `Combats simulés : équipe ${i}/${n}…`; }).then(best => { if (S.simTok !== tok || !best) return; renderCastleReco(best, team, ok, own, mode, use); });
+      return; }
     const b = bestTeam(mode, own); if (!b) { $('#rec').innerHTML = ''; return; }
     const same = ok && b.team.every(c => team.some(x => x.id === c.id));
     const bt = b.team;
@@ -624,7 +660,7 @@ P.equipe = async (m, mode = 'chateau') => {
     const u = $('#use'); if (u) u.onclick = async () => { team = bt.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Équipe enregistrée'); };
   };
   const bind = () => $('.picks').querySelectorAll('select').forEach(sel => sel.onchange = async () => { const i = +sel.dataset.slot; team[i] = byId(sel.value); team = team.filter(Boolean); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); show(); });
-  $('#af').onclick = async () => { const b = bestTeam(mode, own); if (!b) return; team = b.team.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Meilleure équipe placée'); };
+  $('#af').onclick = async () => { const b = mode === 'chateau' ? await bestCastleSim(own) : bestTeam(mode, own); if (!b) return; team = b.team.slice(); S.mylr.teams[mode] = team.map(c => c.id); await saveMyLR(); $('.picks').innerHTML = teamPicker(team, own); bind(); show(); toast('Meilleure équipe placée'); };
   bind(); show();
 };
 
@@ -676,9 +712,9 @@ async function shrinkImage(file, max = 1024) {
 }
 async function kakashiCtx() {
   try { await loadMyLR(); const own = S.mylr.cards || {}; if (Object.keys(own).length < 3) return '';
-    const L = []; const bc = bestTeam('chateau', own); if (bc) { const e = castleEval(bc.team, own); L.push(`Meilleure équipe château calculée : ${bc.team.map(c => `${c.n} ${own[c.id] || 0}★`).join(', ')} → chambre max estimée ${e.room} (${e.aya ? (e.heal ? 'boucle Aya avec soin' : 'boucle Aya sans soin') : 'sans Aya, combat simulé en attaques simples'}).`); }
+    const L = []; const bc = await bestCastleSim(own); if (bc) L.push(`Meilleure équipe château (combats simulés) : ${bc.team.map(c => `${c.n} ${own[c.id] || 0}★`).join(', ')} → chambre sûre ${bc.r.sure} (gagnée 9 fois sur 10), jouable ${bc.r.play} (1 fois sur 2), max ${bc.r.max} (1 fois sur 5).`);
     const br = bestTeam('ranked', own); if (br) L.push(`Équipe ranked conseillée : ${br.team.map(c => `${c.n} ${own[c.id] || 0}★`).join(', ')}${br.meta ? ' (trio de la méta)' : ''}.`);
-    for (const md of ['chateau', 'ranked']) { const t = (S.mylr.teams?.[md] || []).map(id => LRS().find(c => c.id === +id)).filter(Boolean); if (t.length === 3) L.push(`Équipe ${md} actuelle du membre : ${t.map(c => c.n).join(', ')}${md === 'chateau' ? ` (chambre max ${castleEval(t, own).room})` : ''}.`); }
+    for (const md of ['chateau', 'ranked']) { const t = (S.mylr.teams?.[md] || []).map(id => LRS().find(c => c.id === +id)).filter(Boolean); if (t.length === 3) { const r = md === 'chateau' ? simCastle(t, own) : null; L.push(`Équipe ${md} actuelle du membre : ${t.map(c => c.n).join(', ')}${r ? ` (chambre sûre ${r.sure}, jouable ${r.play}, max ${r.max})` : ''}.`); } }
     return L.join('\n'); } catch { return ''; }
 }
 P.kakashi = m => {
