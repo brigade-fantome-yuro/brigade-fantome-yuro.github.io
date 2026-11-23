@@ -2,6 +2,7 @@
 // (même table que le simulateur du château). Les deux camps jouent une carte chacun leur tour ; le camp qui
 // commence est tiré au hasard. Chaque carte joue au mieux : technique dès qu'elle est utile, et sinon
 // achève une cible tuable, ou frappe la plus basse en évitant les cibles protégées (esquives, UI, Haki).
+// Une part de hasard (1 coup sur 4 vers une autre cible) imite les façons de jouer différentes.
 import { KIND } from './castle.js?v=17';
 
 const kindOf = id => KIND[id] || { k: 'hit', m: 1.8, cd: 3 };
@@ -32,6 +33,7 @@ export function duel(A, B, seed = 1) {
     const ok = e.filter(u => !u.banished); const pool = ok.length ? ok : e;
     const kill = pool.filter(u => !prot(u) && u.hp <= dmg).sort((a, b) => b.atk - a.atk)[0]; if (kill) return kill;
     const open = pool.filter(u => !prot(u)); const L = open.length ? open : pool;
+    if (R() < .25) return L[Math.floor(R() * L.length)]; // les joueurs ne jouent pas tous pareil
     return L.reduce((m, u) => u.hp < m.hp ? u : m, L[0]);
   };
   const stun = (e, world) => { if (e.hp <= 0) return; if (!world && e.guardStun > 0) return; e.frozen = 1; e.stunType = world ? 'world' : 'stun'; };
