@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=35';
+import * as CFG from './config.js?v=36';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=35';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=35';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=36';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=36';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=35';
-import * as SCAN from './scan.js?v=35';
+import { duelRate } from './ranked.js?v=36';
+import * as SCAN from './scan.js?v=36';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -37,7 +37,7 @@ const SPIDER = `<svg viewBox="0 0 48 48" aria-hidden="true"><g fill="none" strok
 
 const ROUTES = [
   ['accueil', 'Accueil', 'home'], ['kakashi', 'Kakashi Bot', 'bot'], ['meslr', 'Mes LR', 'users'],
-  ['sep', 'Château de l\'infini'], ['guide/chateau', 'Guide du château', 'book'], ['equipe/chateau', 'Meilleure équipe', 'layers'], ['calculs', 'Calculateurs', 'calc'],
+  ['sep', 'Château de l\'infini'], ['chateausim', 'Jouer une chambre (simulateur)', 'layers'], ['guide/chateau', 'Guide du château', 'book'], ['equipe/chateau', 'Meilleure équipe', 'layers'], ['calculs', 'Calculateurs', 'calc'],
   ['sep', 'Ranked'], ['guide/ranked', 'Guide ranked', 'book'], ['equipe/ranked', 'Meilleure équipe', 'layers'], ['simulateur', 'Jouer un match (simulateur)', 'layers'],
   ['sep', 'Salle du temps'], ['guide/temps', 'Guide et calculateur', 'calc'],
   ['sep', 'Collection et Prestige'], ['checklist', 'Collection Prestige', 'check'], ['guide/prestige', 'Guide Prestige', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'],
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='35';
+const APP_V='36';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -368,7 +368,7 @@ P.simulateur = m => {
     const A = team('a'), B = team('b');
     if (A.includes(null) || B.includes(null)) { $('#plErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
     $('#plErr').textContent = '';
-    const G = await import('./play.js?v=35');
+    const G = await import('./play.js?v=36');
     const sv = $('#plStart').value, starter = sv === 'r' ? null : +sv;
     const st0 = G.start(G.newGame(A, B, starter));
     PL = { G, A, B, mode: $('#plMode').value, n: +$('#plN').value, H: [{ st: st0 }], idx: 0, sel: null, busy: false };
@@ -482,6 +482,80 @@ P.simulateur = m => {
     return `<div class="pl-an"><b>Bilan</b><p class="small">${c('✅')} bons coups · ${c('⚠️')} imprécisions · ${c('❌')} erreurs.</p>${worst ? `<p class="small">Le coup qui a le plus pesé : <b>${esc(worst.txt.split(' · ')[0])}</b> (−${Math.round(worst.an.d)} points). <a href="#" data-j2="${PL.H.indexOf(worst)}">Y revenir</a></p>` : ''}</div>`;
   }
   $('#plGame').addEventListener('click', e => { const a = e.target.closest('[data-j2]'); if (a && PL) { e.preventDefault(); goTo(+a.dataset.j2 - 1); } if (e.target.id === 'plTry' && PL) goTo(PL.idx - 1); });
+};
+
+/* ---------- Simulateur du Château de l'infini : écran de combat et moteur du jeu, analyse de chaque coup ---------- */
+P.chateausim = m => {
+  const EXS = (S.kb.ex_cards || []).filter(c => c.r === 'Exclusive').map(c => ({ ...c, ex: true }));
+  const ALL = [...(S.kb.cards || []), ...EXS];
+  const cnt = {}; ALL.forEach(c => cnt[c.n] = (cnt[c.n] || 0) + 1);
+  const lab = c => cnt[c.n] > 1 ? `${c.n} (${c.ex ? 'Exclusive' : c.p ? 'prestige' : c.r || 'LR'} #${c.id})` : c.n;
+  const byName = new Map(ALL.map(c => [lab(c).toLowerCase(), c]));
+  const stOf = (c, st) => c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st);
+  const rar = c => c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret';
+  const slot = (i, id) => { const c = ALL.find(x => x.id === id) || ALL[0]; return `<div class="pl-slot"><label for="cs${i}">Carte ${i + 1}</label><input id="cs${i}" list="csCards" value="${esc(lab(c))}" autocomplete="off"><label for="css${i}">Étoiles</label><select id="css${i}">${[0, 1, 2, 3, 4, 5].map(s => `<option ${s === 5 ? 'selected' : ''}>${s}</option>`).join('')}</select></div>`; };
+  m.innerHTML = `<h1>Jouer une chambre du château</h1><p class="mute">Le vrai combat du jeu : même écran, mêmes techniques, mêmes gardiens et mêmes animations. Choisis ton équipe (n'importe quelles cartes, n'importe quelles étoiles) et la chambre, puis joue. Chaque coup est analysé : bon coup, imprécision ou erreur, avec la raison. Les flèches ‹ › te ramènent à n'importe quel coup pour en essayer un autre.</p>
+  <datalist id="csCards">${ALL.map(c => `<option value="${esc(lab(c))}">`).join('')}</datalist>
+  <div id="csSetup" class="card section"><div class="pl-row">${[953, 3248, 499].map((id, i) => slot(i, id)).join('')}</div>
+  <div class="pl-row"><div class="pl-slot"><label for="csRoom">Chambre</label><input id="csRoom" type="number" min="1" max="5000" value="500"></div><div class="pl-slot"><label for="csN">Précision de l'analyse</label><select id="csN"><option value="16">Rapide</option><option value="32" selected>Normale</option><option value="64">Fine (plus lent)</option></select></div></div>
+  <div class="row section"><button class="btn primary" id="csGo">Entrer dans la chambre</button><span id="csErr" class="red small"></span></div></div>
+  <div id="csGame" style="display:none"><div class="cs-wrap"><div class="cs-stage" id="csHost"></div><aside class="card cs-side"><div class="pl-nav"><button class="btn" id="csPrev" aria-label="Coup précédent">‹</button><span class="small mute" id="csPos">Coup 0</span><button class="btn" id="csNext" aria-label="Coup suivant">›</button></div><div id="csAn"></div><ol class="pl-hist" id="csHist"></ol><div class="row section"><button class="btn ghost" id="csNew">Changer d'équipe</button></div></aside></div></div>
+  <p class="small mute section">Comment l'IA juge : pour chaque coup possible (quelle carte, quelle action, quelle cible), elle rejoue la suite de la chambre des dizaines de fois (les gardiens visent au hasard, comme dans le jeu) et compare tes chances de victoire. Moins de 6 points d'écart = bon coup, 6 à 15 = imprécision, plus de 15 = erreur.</p>`;
+  if (!document.getElementById('csFonts')) { const l = document.createElement('link'); l.id = 'csFonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Condensed:wght@400;500;600;700&family=Caprasimo&family=Dela+Gothic+One&family=JetBrains+Mono:wght@500;600&family=Archivo:wdth,wght@125,900&family=Saira+Condensed:wght@500;600;700;800;900&family=Kanit:ital,wght@0,700;1,600;1,800;1,900&family=Chakra+Petch:wght@500;600;700&display=swap'; document.head.appendChild(l); }
+  const loadEngine = () => window.BFCastle ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=36'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+  let worker = null, techOf = {}, AN = new Map(), seq = 0, N = 32;
+  const pc = v => Math.round(v * 100) + ' %';
+  const actName = (name, a) => a === 'attack' ? 'Attaque' : a === 'purple' ? 'HOLLOW PURPLE' : a === 'rage' ? 'RAGE' : a === 'ultimate' ? 'FULL POWER' : (techOf[name] || 'Technique');
+  const mvTxt = (b, mv) => { const p = b.players[mv.i], t = b.enemies[mv.t]; return `${p?.name || '?'} : ${actName(p?.name, mv.a)}${t ? ' → ' + (t.shadowName || t.name) : ''}`; };
+  const same = (x, y) => x.i === y.i && x.a === y.a && x.t === y.t;
+  function reasons(b, mv, bm) {
+    const p = b.players[mv.i], q = b.players[bm.i], t = b.enemies[mv.t], bt = b.enemies[bm.t], out = [];
+    if (bm.a !== 'attack' && mv.a === 'attack') out.push(`${actName(q.name, bm.a)} de ${q.name} était disponible et rapportait plus qu'une attaque simple.`);
+    if (mv.a !== 'attack' && bm.a === 'attack') out.push(`Mieux valait garder ${actName(p.name, mv.a)} de ${p.name} pour plus tard.`);
+    if (!out.length && mv.i !== bm.i) out.push(`Il valait mieux faire jouer ${q.name} d'abord.`);
+    if (bt && t !== bt && (!out.length || mv.i === bm.i)) out.push(`Mieux valait viser ${bt.shadowName || bt.name} (${bt.hp} PV) plutôt que ${t ? (t.shadowName || t.name) + ' (' + t.hp + ' PV)' : 'cette cible'}.`);
+    return out;
+  }
+  function anHtml(h) {
+    const a = AN.get(h); if (!a) return h.from ? '<div class="pl-an mute small">Analyse du coup…</div>' : '';
+    const best = a.res[0], mine = a.res.find(r => same(r.m, h.mv)) || { p: 0 }, d = (best.p - mine.p) * 100;
+    const g = d < 6 ? '✅' : d <= 15 ? '⚠️' : '❌', l = d < 6 ? (same(best.m, h.mv) ? 'Meilleur coup' : 'Bon coup') : d <= 15 ? 'Imprécision' : 'Erreur';
+    a.grade = g; a.d = d;
+    return `<div class="pl-an ${g === '✅' ? 'g' : g === '⚠️' ? 'w' : 'b'}"><b>${g} ${l}</b> <span class="small mute">· tes chances ${pc(mine.p)}${d >= 1 ? ` (meilleur coup : ${pc(best.p)})` : ''}</span>
+      ${d >= 6 ? reasons(h.from, h.mv, best.m).map(w => `<p class="small">${esc(w)}</p>`).join('') + `<p class="small">Meilleur coup : <b>${esc(mvTxt(h.from, best.m))}</b>.</p>` : ''}
+      <details class="small"><summary>Les 3 meilleurs coups</summary><ol>${a.res.slice(0, 3).map(r => `<li>${esc(mvTxt(h.from, r.m))} — ${pc(r.p)}</li>`).join('')}</ol></details>
+      ${d >= 6 ? '<button class="btn ghost small" data-cs-try>‹ Revenir avant ce coup et essayer autre chose</button>' : ''}</div>`;
+  }
+  function side(info) {
+    const H = info.hist; $('#csPos').textContent = `Coup ${info.idx} / ${H.length - 1}`; $('#csPrev').disabled = info.idx <= 0; $('#csNext').disabled = info.idx >= H.length - 1;
+    $('#csHist').innerHTML = H.slice(1).map((h, j) => { const a = AN.get(h); return `<li class="${j + 1 === info.idx ? 'on' : ''} ${j + 1 > info.idx ? 'fut' : ''}" data-j="${j + 1}"><span class="pl-ic">${a ? (a.grade || '') : '…'}</span> ${esc(mvTxt(h.from, h.mv))}</li>`; }).join('') || '<li class="mute small">Aucun coup joué.</li>';
+    const cur = H[info.idx]; $('#csAn').innerHTML = cur && cur.from ? anHtml(cur) : '';
+    if (info.battle?.result && info.idx === H.length - 1) { const L = H.slice(1).map(h => AN.get(h)).filter(Boolean); const c = g => L.filter(a => a.grade === g).length; $('#csAn').innerHTML += `<div class="pl-an"><b>Bilan · ${info.battle.result === 'win' ? 'Victoire' : 'Défaite'}</b><p class="small">${c('✅')} bons coups · ${c('⚠️')} imprécisions · ${c('❌')} erreurs.</p></div>`; }
+  }
+  function onChange(info) {
+    const H = info.hist; for (const h of H) if (h.from && !h.mv) h.mv = { i: h.active, a: h.action, t: h.target };
+    const last = H[H.length - 1]; if (last.from && !AN.has(last) && !last.sent) { last.sent = ++seq; worker.postMessage({ id: last.sent, from: last.from, n: N }); }
+    side(info);
+  }
+  $('#csGo').onclick = async () => {
+    const team = [0, 1, 2].map(i => { const c = byName.get($('#cs' + i).value.trim().toLowerCase()); if (!c) return null; const s = stOf(c, +$('#css' + i).value); techOf[c.n] = c.t?.[0]?.[0] || 'Technique'; return { name: c.n, rarity: rar(c), image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; });
+    if (team.includes(null)) { $('#csErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
+    const room = Math.max(1, Math.min(5000, +$('#csRoom').value || 1)); N = +$('#csN').value;
+    $('#csErr').textContent = 'Chargement du combat…';
+    try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
+    $('#csErr').textContent = '';
+    if (!worker) { worker = new Worker('castle-worker.js?v=36'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
+    $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
+    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=36', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
+    AN = new Map(); BFCastle.start(room);
+  };
+  $('#csPrev').onclick = () => BFCastle.go(BFCastle.info().idx - 1);
+  $('#csNext').onclick = () => BFCastle.go(BFCastle.info().idx + 1);
+  $('#csNew').onclick = () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; };
+  $('#csHist').onclick = e => { const li = e.target.closest('[data-j]'); if (li) BFCastle.go(+li.dataset.j); };
+  $('#csAn').onclick = e => { if (e.target.closest('[data-cs-try]')) BFCastle.go(BFCastle.info().idx - 1); };
+  document.onkeydown = e => { if (!window.BFCastle || $('#csGame')?.style.display === 'none' || /input|select|textarea/i.test(e.target.tagName)) return; if (e.key === 'ArrowLeft') BFCastle.go(BFCastle.info().idx - 1); if (e.key === 'ArrowRight') BFCastle.go(BFCastle.info().idx + 1); };
 };
 
 async function loadEvents() {
