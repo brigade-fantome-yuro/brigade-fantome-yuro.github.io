@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=76';
+import * as CFG from './config.js?v=77';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=76';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=76';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=77';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=77';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=76';
-import * as SCAN from './scan.js?v=76';
+import { duelRate } from './ranked.js?v=77';
+import * as SCAN from './scan.js?v=77';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='76';
+const APP_V='77';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -470,10 +470,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=76'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=77'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=76'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=77'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -603,7 +603,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=76'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=77'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -795,13 +795,13 @@ P.collection = async (m, tab = '') => {
     m.innerHTML = `<h1>Collection SSR et UR</h1><p class="mute">Toutes les SSR et toutes les UR du jeu, pas seulement celles des univers Prestige. Importe tes captures, et le site en tire tes doublons, tes cartes manquantes (recherchées) et les échanges possibles avec la Brigade.</p>
       <div class="tabs" id="cr" style="max-width:420px">${Object.entries(R).map(([k, x]) => `<button data-k="${k}" class="${k === rk ? 'on' : ''}">${x.label} (${x.U.reduce((a, u) => a + u.c.length, 0)})</button>`).join('')}</div>
       <div class="card section"><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
-        <div class="row" style="margin-top:12px"><button class="btn primary" id="cimp">📷 Importer mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
+        <div class="row" style="margin-top:12px"><button class="btn primary" id="call">📦 Tout importer d'un coup (LR + SSR + UR)</button><button class="btn ghost" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
         ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans Collection Prestige → Ma collection pour apparaître dans les échanges.</p>'}</div>
       <div class="tabs" id="cv2" style="max-width:640px">${[['moi', 'Ma collection'], ['doublons', 'Mes doublons'], ['manquantes', 'Manquantes'], ['echanges', 'Échanges']].map(([k, l]) => `<button data-v="${k}" class="${k === view ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="cbody" style="margin-top:14px"></div>`;
     m.querySelectorAll('#cr button').forEach(b => b.onclick = () => { rk = b.dataset.k; draw(); });
     m.querySelectorAll('#cv2 button').forEach(b => b.onclick = () => { view = b.dataset.v; draw(); });
-    $('#cimp').onclick = () => rarImport(rk);
+    $('#cimp').onclick = () => rarImport(rk); $('#call').onclick = () => allImport();
     ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades })[view]($('#cbody'), X);
   };
   function vMine(el, X) {
@@ -864,7 +864,38 @@ P.collection = async (m, tab = '') => {
         if (onb) { location.hash = '#bienvenue'; return; } if (r === 'L') { rk = 'M'; } draw(); };
     }
   }
-  draw(); if (autoImp === 'import') rarImport(rk);
+  // Import de toute la collection en une fois (captures ou .zip mélangeant LR, SSR et UR) : chaque carte est rangée selon sa rareté.
+  function allImport() {
+    const keyOf = (n, s2) => nsp(n) + '|' + nsp(s2), tot = k => R[k].U.reduce((a, u) => a + u.c.length, 0);
+    const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
+    d.innerHTML = `<div class="mbox"><span class="chip red">LR + SSR + UR</span><h2 style="margin-top:10px">Importer toute ta collection</h2>
+      <ol class="list"><li>Dans le jeu : <b>Collection</b> → <b>Possédées</b>, puis prends des captures de tes LR, de tes SSR et de tes UR (un filtre après l'autre, en faisant défiler jusqu'en bas). Fais-les se chevaucher un peu.</li><li>Envoie tout d'un coup : les images, ou un <b>.zip</b> qui les regroupe. Le site range chaque carte selon sa rareté.</li><li>Note les nombres affichés par le jeu à côté des filtres SSR et UR (ex. « 402 / 414 » → 402).</li></ol>
+      <div class="grid"><div><label for="an1">SSR possédées (au plus ${tot('L')})</label><input id="an1" type="number" min="0" max="${tot('L')}" placeholder="ex. 402" oninput="if(+this.value>+this.max)this.value=this.max"></div><div><label for="an2">UR possédées (au plus ${tot('M')})</label><input id="an2" type="number" min="0" max="${tot('M')}" placeholder="ex. 153" oninput="if(+this.value>+this.max)this.value=this.max"></div></div>
+      <div class="row" style="margin-top:12px">${scanFiles('af2', 'Envoyer mes captures (ou un .zip)', async files => { const t = d.querySelector('#ast'); try { const res = await runScan(files, ['S', 'L', 'M'], true, t); const e1 = d.querySelector('#an1').value, e2 = d.querySelector('#an2').value; step(res, e1 === '' ? null : +e1, e2 === '' ? null : +e2); } catch (e) { t.textContent = 'La lecture a échoué : ' + e.message; } })}<button class="btn ghost" id="ax">Fermer</button></div><p class="small mute" id="ast"></p></div>`;
+    d.querySelector('#ax').onclick = () => d.remove();
+    function step(res, e1, e2) {
+      const lr = { ...res, cards: res.cards.filter(c => c.r === 'S') };
+      d.innerHTML = '<div class="mbox"><p class="mute">Vérifie d\'abord tes LR et leurs étoiles…</p></div>';
+      const goOn = async () => { d.remove(); summary(res, e1, e2); };
+      if (lr.cards.length) lrScanDialog(lr, S.mylr.cards, async n => { if (n) { S.mylr.teams = { ...(S.mylr.teams || {}), lr: true }; await saveMyLR(); } await goOn(); }); else goOn();
+    }
+    function summary(res, e1, e2) {
+      const out = { L: { exp: e1 }, M: { exp: e2 } };
+      for (const k of ['L', 'M']) { const cards = res.cards.filter(c => c.r === k), got = new Map(cards.map(c => [keyOf(c.name, c.series), c])), o = out[k];
+        o.n = cards.length; o.complete = o.exp != null && (o.exp === 0 ? cards.length === 0 : Math.abs(cards.length - o.exp) <= Math.max(1, o.exp * .01)); o.plan = []; o.own = 0; o.dup = 0; o.miss = 0;
+        for (const u of R[k].U) for (const c of u.c) { const g = got.get(keyOf(c[0], u.s)); if (g) { o.plan.push([u, c, true, g.qty >= 2, g.qty]); o.own++; if (g.qty >= 2) o.dup++; } else if (o.complete) { o.plan.push([u, c, false, false, 0]); o.miss++; } } }
+      const line = k => { const o = out[k]; return `<div class="card" style="margin:8px 0"><b>${R[k].label} : ${o.n} reconnue${o.n > 1 ? 's' : ''}${o.exp != null ? ` sur ${o.exp}` : ''}</b><p class="small ${o.complete ? 'up' : 'mute'}" style="margin:4px 0">${o.complete ? '✓ Le compte est bon' : o.exp != null ? '⚠️ Le compte ne correspond pas : rien n\'est marqué manquant, ajoute les captures oubliées et relance.' : 'Sans le nombre du jeu, rien n\'est marqué manquant.'}</p><span class="small mute">${o.own} possédées · ${o.dup} en double · ${o.miss} manquantes</span></div>`; };
+      const d2 = document.createElement('div'); d2.className = 'modal'; document.body.appendChild(d2);
+      d2.innerHTML = `<div class="mbox"><h2>Résultat de l'import</h2>${res.unknown ? `<p class="small mute">${res.unknown} carte${res.unknown > 1 ? 's' : ''} non reconnue${res.unknown > 1 ? 's' : ''} (coupées ou floues).</p>` : ''}${line('L')}${line('M')}<div class="row" style="margin-top:14px"><button class="btn primary" id="aok">Enregistrer</button><button class="btn ghost" id="ax2">Fermer</button></div></div>`;
+      d2.querySelector('#ax2').onclick = () => d2.remove();
+      d2.querySelector('#aok').onclick = async () => { const b = d2.querySelector('#aok'); b.disabled = true; b.textContent = 'Enregistrement…'; const touched = new Set();
+        for (const k of ['L', 'M']) for (const [u, c, h, du, qn] of out[k].plan) { const rr = uget(coll, u.s); if (h) { rr.owned.add(c[0]); if (du) { rr.dupes.add(c[0]); rr.qty[c[0]] = qn; } else { rr.dupes.delete(c[0]); delete rr.qty[c[0]]; } } else { rr.owned.delete(c[0]); rr.dupes.delete(c[0]); delete rr.qty[c[0]]; } touched.add(u); }
+        for (const u of touched) await save(u);
+        const f = { ...(S.mylr.teams || {}) }; if (out.L.complete) f.ssr = true; if (out.M.complete) f.ur = true; S.mylr.teams = f; await saveMyLR();
+        d2.remove(); toast('Collection enregistrée'); if (!S.mylr.teams.done) { location.hash = '#bienvenue'; return; } draw(); };
+    }
+  }
+  draw(); if (autoImp === 'import') rarImport(rk); if (autoImp === 'all') allImport();
 };
 
 /* ---------- Alertes marché : notification dès qu'une carte est mise en vente à ton prix ou moins ---------- */
@@ -971,9 +1002,12 @@ function scanButton(label, getCandidates, onAdd) {
 // Lecture des captures par l'illustration des cartes (voir scan.js) : étoiles et exemplaires compris.
 async function loadFeats() { if (S.feats) return S.feats; const { data } = await sb.from('content').select('data').eq('key', 'card_feats').maybeSingle(); S.feats = data?.data || { rows: [] }; SCAN.setFeats(S.feats.rows); return S.feats; }
 async function qtyOCR() { const w = await ocrWorker(() => {}); try { await w.setParameters({ tessedit_char_whitelist: 'x×X0123456789', tessedit_pageseg_mode: '7' }); } catch (e) { /* ancien moteur */ } return w; }
+let NAMEOCR = null;
+async function nameOCR() { if (NAMEOCR) return NAMEOCR; try { const T = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js'); const create = T.createWorker || T.default?.createWorker;
+  const w = await create('eng', 1, {}); await w.setParameters({ tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ-' .0123456789", tessedit_pageseg_mode: '6' }); NAMEOCR = w; } catch (e) { NAMEOCR = null; } return NAMEOCR; }
 async function runScan(files, rar, withQty, st) {
-  st.textContent = 'Chargement des cartes du jeu…'; await loadFeats(); const w = withQty ? await qtyOCR() : null;
-  const r = await SCAN.analyze(files, rar, w, (fi, nf, bi, nb) => { st.textContent = `Capture ${fi + 1}/${nf} · carte ${bi + 1}/${nb}`; });
+  st.textContent = 'Chargement des cartes du jeu…'; await loadFeats(); const w = withQty ? await qtyOCR() : null; st.textContent = 'Chargement de la lecture des noms…'; const nw = await nameOCR();
+  const r = await SCAN.analyze(files, rar, w, (fi, nf, bi, nb) => { st.textContent = `Capture ${fi + 1}/${nf} · carte ${bi + 1}/${nb}`; }, nw);
   if (w) { try { await w.setParameters({ tessedit_char_whitelist: '', tessedit_pageseg_mode: '3' }); } catch (e) { /* rien */ } }
   st.textContent = ''; return r;
 }
@@ -1016,7 +1050,8 @@ P.bienvenue = async m => {
   const steps = [['lr', 'Tes LR et leurs étoiles', 'Collection → filtre LR → Possédées', '#meslr'], ['ssr', 'Tes SSR (et tes doublons)', 'Collection → filtre SSR → Possédées', '#collection/L/moi/import'], ['ur', 'Tes UR (et tes doublons)', 'Collection → filtre UR → Possédées', '#collection/M/moi/import']];
   const all = steps.every(x => T[x[0]]);
   m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection</h1><p class="mute">Avant d'entrer, envoie les captures de ta collection du jeu. Le site lit tout seul tes cartes, leurs étoiles et tes doublons : meilleures équipes, chambre max, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil. Trois imports, quelques minutes.</p></section>
-    ${steps.map(([k, t, how, href], i) => `<div class="card section"><div class="row"><b>${T[k] ? '✅' : (i + 1) + '.'} ${t}</b><span class="sp"></span>${T[k] ? '<span class="small up">Importé</span>' : ''}<a class="btn ${T[k] ? 'ghost' : 'primary'}" href="${href}" style="min-height:40px">${T[k] ? 'Refaire' : '📷 Importer'}</a></div><p class="small mute" style="margin:6px 0 0">Dans le jeu : ${how}, puis des captures en faisant défiler jusqu'en bas.${k !== 'lr' ? ' Note aussi le nombre affiché par le jeu (ex. 402 / 414) : l\'import n\'est validé que si le compte est bon.' : ''}</p></div>`).join('')}
+    <div class="card section"><div class="row"><b>📦 Le plus simple : tout d'un coup</b><span class="sp"></span><a class="btn primary" href="#collection/L/moi/all" style="min-height:40px">Tout importer (LR + SSR + UR)</a></div><p class="small mute" style="margin:6px 0 0">Envoie toutes tes captures LR, SSR et UR en une fois (ou un .zip) : le site range chaque carte selon sa rareté. Ou fais les 3 étapes une par une :</p></div>
+    ${steps.map(([k, t, how, href], i) => `<div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">${T[k] ? '✅' : (i + 1) + '.'} ${t}</b>${T[k] ? '<span class="small up">Importé</span>' : ''}<a class="btn ${T[k] ? 'ghost' : 'primary'}" href="${href}" style="min-height:40px;flex-shrink:0;white-space:nowrap">${T[k] ? 'Refaire' : '📷 Importer'}</a></div><p class="small mute" style="margin:6px 0 0">Dans le jeu : ${how}, puis des captures en faisant défiler jusqu'en bas.${k !== 'lr' ? ' Note aussi le nombre affiché par le jeu (ex. 402 / 414) : l\'import n\'est validé que si le compte est bon.' : ''}</p></div>`).join('')}
     <div class="row section"><button class="btn primary" id="wgo" ${all ? '' : 'disabled'}>Entrer dans le repaire →</button>${all ? '' : '<span class="small mute">Les trois imports sont nécessaires pour entrer.</span>'}</div>`;
   const g = $('#wgo'); if (g && prev) g.onclick = () => toast('Aperçu : rien n\'est enregistré.'); else if (g) g.onclick = async () => { S.mylr.teams = { ...(S.mylr.teams || {}), done: true }; await saveMyLR(); location.hash = '#accueil'; };
 };
@@ -1063,7 +1098,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=76'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=77'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();

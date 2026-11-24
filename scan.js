@@ -57,11 +57,37 @@ function qtyCrop(src, b) {
 const hexToArr = h => { const a = new Uint8Array(h.length); for (let i = 0; i < h.length; i++) a[i] = parseInt(h[i], 16); return a; };
 let REF = null;
 function zn(a) { const n = a.length; let m = 0; for (const v of a) m += v; m /= n; let s = 0; for (const v of a) s += (v - m) * (v - m); s = Math.sqrt(s / n) || 1; return Array.from(a, v => (v - m) / s); }
-export function setFeats(rows) { REF = rows.map(r => ({ id: r[0], r: r[1], n: r[2], s: r[3], img: r[4], z: zn(hexToArr(r[5])) })); }
+const norm = t => String(t || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+export function setFeats(rows) { REF = rows.map(r => ({ id: r[0], r: r[1], n: r[2], s: r[3], img: r[4], z: zn(hexToArr(r[5])), nn: norm(r[2]), ws: String(r[2] || '').split(/\s+/).map(norm).filter(w => w.length >= 3) })); }
+// Nom imprimé sur la carte (bas de l'illustration) : lu par OCR, c'est le repère le plus sûr ; l'illustration départage les homonymes.
+function nameCrop(src, b) {
+  const sw = b.w * .9, sh = b.h * .175, c = document.createElement('canvas'); c.width = Math.round(sw * 4); c.height = Math.round(sh * 4);
+  const g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(src, b.x + b.w * .05, b.y + b.h * .70, sw, sh, 0, 0, c.width, c.height);
+  const id = g.getImageData(0, 0, c.width, c.height); const d = id.data;
+  for (let i = 0; i < d.length; i += 4) { const v = (d[i] + d[i + 1] + d[i + 2]) / 3; const o = v > 150 ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = o; }
+  g.putImageData(id, 0, 0); return c;
+}
+function lev(a, b) { let p = Array.from({ length: b.length + 1 }, (_, i) => i); for (let i = 1; i <= a.length; i++) { const c = [i]; for (let j = 1; j <= b.length; j++) c.push(Math.min(p[j] + 1, c[j - 1] + 1, p[j - 1] + (a[i - 1] !== b[j - 1]))); p = c; } return p[b.length]; }
+function nameSim(q, c) { if (q.length < 2) return 0; let r = 1 - lev(q, c.nn) / Math.max(q.length, c.nn.length); if (q.length >= 3) for (const w of c.ws) r = Math.max(r, .95 * (1 - lev(q, w) / Math.max(q.length, w.length))); return r; }
+function distAll(f, rar) { const z = zn(f); const out = []; for (const c of REF) { if (rar && !rar.includes(c.r)) continue; let d = 0; for (let i = 0; i < 240; i++) { const t = z[i] - c.z[i]; d += t * t; } out.push({ c, d }); } return out; }
+function pickCard(all, q) {
+  if (q && q.length >= 2) {
+    const sc = all.map(x => ({ ...x, s: nameSim(q, x.c) })).sort((a, b) => b.s - a.s); const top = sc[0];
+    if (top) { const sec = (sc.find(x => x.c.nn !== top.c.nn) || { s: 0 }).s;
+      if (top.s >= .7 && top.s - sec >= .1) { const same = sc.filter(x => x.c.nn === top.c.nn).sort((a, b) => a.d - b.d); return { ...same[0], via: 'nom' }; } }
+    const srt = [...all].sort((a, b) => a.d - b.d); const b1 = srt[0], b2 = srt[1];
+    if (b1 && b1.d <= 240 && (!b2 || b1.d <= .85 * b2.d)) return { ...b1, via: 'image' };
+    const cand = sc.slice(0, 8).filter(x => x.s >= .4).sort((a, b) => a.d - b.d)[0];
+    if (cand && cand.d < 260) return { ...cand, via: 'nom+image' };
+    return null;
+  }
+  const srt = [...all].sort((a, b) => a.d - b.d); const b1 = srt[0], b2 = srt[1];
+  return b1 && b1.d <= 240 && (!b2 || b1.d <= .85 * b2.d) ? { ...b1, via: 'image' } : null;
+}
 function match(f, rar) { const z = zn(f); let best = null, second = null; for (const c of REF) { if (rar && !rar.includes(c.r)) continue; let d = 0; for (let i = 0; i < 240; i++) { const t = z[i] - c.z[i]; d += t * t; } if (!best || d < best.d) { second = best; best = { c, d }; } else if (!second || d < second.d) second = { c, d }; } return { best, second }; }
 
 // Analyse plusieurs captures. rar : lettres de rareté autorisées ('S' = LR, 'M' = UR, 'L' = SSR).
-export async function analyze(files, rar, ocrWorker, onp) {
+export async function analyze(files, rar, ocrWorker, onp, nameWorker) {
   if (!REF) throw Error('empreintes des cartes non chargées');
   const found = new Map(); let nCards = 0, unknown = 0; const dbg = [];
   for (let fi = 0; fi < files.length; fi++) {
@@ -71,8 +97,9 @@ export async function analyze(files, rar, ocrWorker, onp) {
     const boxes = findCards(ctx, W, H);
     for (let bi = 0; bi < boxes.length; bi++) {
       onp?.(fi, files.length, bi, boxes.length); const b = boxes[bi]; nCards++;
-      const { best, second } = match(featOf(cv, b), rar); dbg.push([Math.round(b.x), Math.round(b.y), best?.c.n, best?.d, second?.c.n, second?.d]);
-      if (!best || best.d > 240 || (second && best.d > 0.85 * second.d)) { unknown++; continue; }
+      let q = ''; if (nameWorker) { try { const r = await nameWorker.recognize(nameCrop(cv, b)); q = norm(r.data.text); } catch (e) { /* on garde l'illustration */ } }
+      const best = pickCard(distAll(featOf(cv, b), rar), q); dbg.push([Math.round(b.x), Math.round(b.y), q, best?.c.n, best?.d, best?.via]);
+      if (!best) { unknown++; continue; }
       let qty = 1;
       if (ocrWorker) { try { const r = await ocrWorker.recognize(qtyCrop(cv, b)); const m = String(r.data.text).match(/(\d{1,2})/); if (m) qty = Math.max(1, +m[1]); } catch (e) { /* on garde 1 */ } }
       const prev = found.get(best.c.id);
