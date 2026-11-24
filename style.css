@@ -273,3 +273,4 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .pl-picks3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
 @media(max-width:820px){.pl-vs{grid-template-columns:1fr}.pl-vsmark{justify-self:center;font-size:24px;margin:-4px 0}}
 @media(max-width:420px){.pl-pick{grid-template-columns:44px minmax(0,1fr) 78px;gap:8px}.pl-thumb{width:44px;height:60px}}
+@media(max-width:700px){table.tbl{display:block;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}}
