@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=64');
+importScripts('castle-engine.js?v=65');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -23,8 +23,9 @@ function castleMove(b) {
     else if (isHeal(p)) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (al.some(u => u.hp <= gAtk && u.hp + Math.round(u.maxHp * .3) > gAtk) || miss >= tot * .3) order.push(['skill', low]); }
     else order.push(['skill', low]);
   }
-  // Garde d'Aya (testé sur 400 combats par chambre : +2 à +8 points de victoire près du plafond) : échange en recharge et un coup la tuerait → elle garde (dégâts ×0,45).
-  if (isAya(p) && !ready) { const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0); if (p.hp <= gAtk) order.push(['guard', low]); }
+  // Garde d'Aya (testé sur 400 combats par chambre) : échange en recharge et un coup la tuerait → elle garde (dégâts ×0,45).
+  // Seulement quand Aya se fait two-shot (PV max ≤ 2 coups) ou qu'un soigneur est en vie : sans soigneur et avant le seuil, garder fait perdre 10 à 18 points.
+  if (isAya(p) && !ready) { const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0); if (p.hp <= gAtk && (p.maxHp <= 2 * gAtk || b.players.some(u => u.hp > 0 && isHeal(u)))) order.push(['guard', low]); }
   order.push(['attack', low]);
   return { i, order };
 }
