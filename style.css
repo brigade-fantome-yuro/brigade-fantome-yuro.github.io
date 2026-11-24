@@ -263,3 +263,13 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .cs-stage{border-radius:var(--r);overflow:hidden;min-height:520px;background:#0d0d14}
 .cs-side{position:sticky;top:12px}
 .cs-why{margin:.2em 0 .6em;padding-left:1.1em}.cs-why li{margin:.25em 0}
+/* Choix des équipes (simulateurs) */
+.pl-vs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:16px;align-items:stretch}
+.pl-vsmark{align-self:center;font-family:"Cormorant Garamond",Georgia,serif;font-weight:700;font-size:30px;color:var(--blood2);letter-spacing:.05em}
+.pl-teamcard{display:flex;flex-direction:column;gap:12px}.pl-teamcard h2{margin:0 0 2px}
+.pl-pick{display:grid;grid-template-columns:52px minmax(0,1fr) 92px;gap:12px;align-items:end}
+.pl-thumb{width:52px;height:70px;object-fit:cover;object-position:top;border-radius:9px;background:#1b171c;border:1px solid var(--line)}
+.pl-pick-f input.bad{border-color:var(--blood2)}
+.pl-picks3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+@media(max-width:820px){.pl-vs{grid-template-columns:1fr}.pl-vsmark{justify-self:center;font-size:24px;margin:-4px 0}}
+@media(max-width:420px){.pl-pick{grid-template-columns:44px minmax(0,1fr) 78px;gap:8px}.pl-thumb{width:44px;height:60px}}
