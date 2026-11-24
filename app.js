@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=87';
+import * as CFG from './config.js?v=88';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=87';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=87';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=88';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=88';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=87';
-import * as SCAN from './scan.js?v=87';
+import { duelRate } from './ranked.js?v=88';
+import * as SCAN from './scan.js?v=88';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='87';
+const APP_V='88';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -101,7 +101,7 @@ function discordLogin() { try { if (location.search || (location.hash && !locati
 const isPreview = () => S.profile?.role === 'admin' && new URLSearchParams(location.search).has('apercu');
 // Didacticiel forcé : tant que la collection n'est pas importée (ou en aperçu admin), pas de menu, seulement les étapes d'import.
 const onbMode = () => !S.mylr?.teams?.done || isPreview();
-const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'meslr' || (base === 'collection' && /^[LM]\/moi\/(import|all)$/.test(arg || '')) || (base === 'collection' && arg === 'L/moi/all');
+const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'meslr' || base === 'basses' || (base === 'collection' && /^[LM]\/moi\/(import|all)$/.test(arg || '')) || (base === 'collection' && arg === 'L/moi/all');
 function shellOnb() {
   app.innerHTML = `<div class="onbtop"><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div><span class="sp"></span><span class="small mute">${esc(S.profile.discord)}</span><button class="btn ghost" id="lo" style="min-height:36px">Se déconnecter</button></div>
   <main id="mainw" class="onbmain"><div id="alertbar"></div><div id="onbback"></div><div id="main"></div></main>`;
@@ -448,10 +448,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=87'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=88'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=87'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=88'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -581,7 +581,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=87'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=88'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -774,7 +774,7 @@ P.collection = async (m, tab = '') => {
     coll = rk === 'S' ? lrColl() : realColl;
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
-    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">📷 Importer / mettre à jour mes ${X.label}</button><button class="btn ghost" id="call2" style="min-height:40px">📦 Tout réimporter</button>` : ''}</div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
+    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">📷 Importer / mettre à jour mes ${X.label}</button><button class="btn ghost" id="call2" style="min-height:40px">📦 Tout réimporter</button>` : ''}<a class="btn ghost" href="#basses/C" style="min-height:40px">✍️ Communes / Rares / SR</a></div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
       <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ L: '伝', M: '神', S: '秘' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
       <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
         <div class="row" style="margin-top:12px"><button class="btn primary" id="call">📦 Tout importer d'un coup (LR + SSR + UR)</button><button class="btn ghost" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
@@ -1071,13 +1071,57 @@ const LRS = () => S.kb.cards.filter(c => !c.r);
 P.bienvenue = async m => {
   await loadMyLR(); const prev = S.profile?.role === 'admin' && new URLSearchParams(location.search).has('apercu'); const T = prev ? {} : (S.mylr.teams || {});
   if (T.done) { location.hash = '#accueil'; return; }
-  const steps = [['lr', 'Tes LR et leurs étoiles', 'Collection → filtre LR → Possédées', '#meslr'], ['ssr', 'Tes SSR (et tes doublons)', 'Collection → filtre SSR → Possédées', '#collection/L/moi/import'], ['ur', 'Tes UR (et tes doublons)', 'Collection → filtre UR → Possédées', '#collection/M/moi/import']];
+  const steps = [['lr', 'Tes LR et leurs étoiles', 'Collection → filtre LR → Possédées', '#meslr'], ['ssr', 'Tes SSR (et tes doublons)', 'Collection → filtre SSR → Possédées', '#collection/L/moi/import'], ['ur', 'Tes UR (et tes doublons)', 'Collection → filtre UR → Possédées', '#collection/M/moi/import'], ['sr', 'Tes SR', 'Collection → filtre Épique → Possédées', '#basses/E'], ['r', 'Tes Rares', 'Collection → filtre Rare → Possédées', '#basses/R'], ['c', 'Tes Communes', 'Collection → filtre Commune → Possédées', '#basses/C']];
   const all = steps.every(x => T[x[0]]);
-  m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection</h1><p class="mute">Avant d'entrer, envoie les captures de ta collection du jeu. Le site lit tout seul tes cartes, leurs étoiles et tes doublons : meilleures équipes, chambre max, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil. Trois imports, quelques minutes.</p></section>
+  m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection</h1><p class="mute">Avant d'entrer, envoie les captures de ta collection du jeu. Le site lit tout seul tes cartes, leurs étoiles et tes doublons : meilleures équipes, chambre max, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil. LR, SSR et UR par captures, puis Communes, Rares et SR en donnant juste ton nombre de cartes.</p></section>
     <div class="card section"><div class="row"><b>📦 Le plus simple : tout d'un coup</b><span class="sp"></span><a class="btn primary" href="#collection/L/moi/all" style="min-height:40px">Tout importer (LR + SSR + UR)</a></div><p class="small mute" style="margin:6px 0 0">Envoie toutes tes captures LR, SSR et UR en une fois (ou un .zip) : le site range chaque carte selon sa rareté. Ou fais les 3 étapes une par une :</p></div>
-    ${steps.map(([k, t, how, href], i) => `<div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">${T[k] ? '✅' : (i + 1) + '.'} ${t}</b>${T[k] ? '<span class="small up">Importé</span>' : ''}<a class="btn ${T[k] ? 'ghost' : 'primary'}" href="${href}" style="min-height:40px;flex-shrink:0;white-space:nowrap">${T[k] ? 'Refaire' : '📷 Importer'}</a></div><p class="small mute" style="margin:6px 0 0">Dans le jeu : ${how}, puis des captures en faisant défiler jusqu'en bas.${k !== 'lr' ? ' Note aussi le nombre affiché par le jeu (ex. 402 / 414) : l\'import n\'est validé que si le compte est bon.' : ''}</p></div>`).join('')}
-    <div class="row section"><button class="btn primary" id="wgo" ${all ? '' : 'disabled'}>Entrer dans le repaire →</button>${all ? '' : '<span class="small mute">Les trois imports sont nécessaires pour entrer.</span>'}</div>`;
+    ${steps.map(([k, t, how, href], i) => `<div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">${T[k] ? '✅' : (i + 1) + '.'} ${t}</b>${T[k] ? '<span class="small up">Importé</span>' : ''}<a class="btn ${T[k] ? 'ghost' : 'primary'}" href="${href}" style="min-height:40px;flex-shrink:0;white-space:nowrap">${T[k] ? 'Refaire' : ['c', 'r', 'sr'].includes(k) ? '✍️ Remplir' : '📷 Importer'}</a></div><p class="small mute" style="margin:6px 0 0">Dans le jeu : ${how}${['c', 'r', 'sr'].includes(k) ? ', note le nombre affiché, puis cherche par nom les cartes qui te manquent (pas de captures).' : ', puis des captures en faisant défiler jusqu\'en bas.'}${['ssr', 'ur'].includes(k) ? ' Note aussi le nombre affiché par le jeu (ex. 402 / 414) : l\'import n\'est validé que si le compte est bon.' : ''}</p></div>`).join('')}
+    <div class="row section"><button class="btn primary" id="wgo" ${all ? '' : 'disabled'}>Entrer dans le repaire →</button>${all ? '' : '<span class="small mute">Toutes les étapes sont nécessaires pour entrer.</span>'}</div>`;
   const g = $('#wgo'); if (g && prev) g.onclick = () => toast('Aperçu : rien n\'est enregistré.'); else if (g) g.onclick = async () => { S.mylr.teams = { ...(S.mylr.teams || {}), done: true }; await saveMyLR(); location.hash = '#accueil'; };
+};
+
+// Communes / Rares / SR : pas de captures. Le membre donne son nombre de cartes, puis cherche par nom les quelques cartes qui lui manquent.
+const LOW = { C: { k: 'c', label: 'Communes', tag: 'Commune' }, R: { k: 'r', label: 'Rares', tag: 'Rare' }, E: { k: 'sr', label: 'SR', tag: 'Épique (SR)' } };
+P.basses = async (m, r = 'C') => {
+  if (!LOW[r]) r = 'C'; const X = LOW[r], prev = isPreview();
+  const cat = (S.kb.card_catalog?.cards || []).filter(c => c[3] === r && !c[5]);
+  if (!cat.length) { m.innerHTML = '<div class="empty">La liste des cartes du jeu n\'est pas encore disponible. Réessaie plus tard.</div>'; return; }
+  await loadCollections(); const coll = myColl(); const total = cat.length;
+  const had = cat.filter(c => coll[c[2]]?.owned.has(c[1])).length;
+  const missing = new Set(S.mylr.teams?.[X.k] && !prev ? cat.filter(c => !coll[c[2]]?.owned.has(c[1])).map(c => c[0]) : []);
+  const order = [['C', 'Communes'], ['R', 'Rares'], ['E', 'SR']];
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">${onbMode() ? 'Bienvenue · étape obligatoire' : 'Ma collection'}</span><h1 style="margin-top:12px">Tes ${X.label}</h1><p class="mute">Pas besoin de captures ici. Dans le jeu : <b>Collection</b> → filtre <b>${X.tag}</b> → <b>Possédées</b>, et note le nombre affiché (par ex. « 812 / ${total} » → 812). Ensuite cherche par leur nom les quelques cartes qui te manquent. Les doublons ne comptent pas pour cette rareté.</p></section>
+    <div class="rtabs section">${order.map(([k, l]) => `<a class="btn ${k === r ? 'primary' : 'ghost'}" href="#basses/${k}" style="min-height:40px">${S.mylr.teams?.[LOW[k].k] && !prev ? '✅ ' : ''}${l}</a>`).join('')}</div>
+    <div class="card section"><label for="bn">Nombre de ${X.label} possédées affiché par le jeu (sur ${total})</label><input id="bn" type="number" min="0" max="${total}" placeholder="ex. ${Math.round(total * .9)}" value="${S.mylr.teams?.[X.k] && !prev ? had : ''}">
+      <p class="small" id="bneed" style="margin:8px 0 0"></p></div>
+    <div class="card section" id="bsearch"><label for="bq">Cherche une carte qui te manque (nom du personnage)</label><input id="bq" placeholder="ex. Naruto" autocomplete="off"><div class="tiles" id="bres" style="margin-top:10px"></div>
+      <h3 style="margin:16px 0 6px">Cartes qui te manquent (<span id="bk">0</span>)</h3><div class="tiles" id="bmiss"></div></div>
+    <div class="row section"><button class="btn primary" id="bok" disabled>Enregistrer mes ${X.label}</button><span class="small mute" id="bst"></span></div>`;
+  const byId = new Map(cat.map(c => [c[0], c])), T = c => [c[1], r, c[4]];
+  const need = () => { const n = $('#bn').value === '' ? null : Math.max(0, Math.min(total, +$('#bn').value)); return n == null ? null : total - n; };
+  const upd = () => { const nd = need(), k = missing.size; $('#bk').textContent = k;
+    $('#bmiss').innerHTML = [...missing].map(id => byId.get(id)).filter(Boolean).map(c => tile(T(c), false, false, '<i class="small" style="position:absolute;top:4px;right:6px">✕</i>').replace('data-c=', `data-m="${c[0]}" data-c=`)).join('') || '<p class="small mute">Aucune pour l\'instant.</p>';
+    $('#bmiss').querySelectorAll('[data-m]').forEach(b => b.onclick = () => { missing.delete(+b.dataset.m); upd(); search(); });
+    const ok = $('#bok'), msg = $('#bneed');
+    if (nd == null) { msg.innerHTML = ''; ok.disabled = true; $('#bst').textContent = 'Indique d\'abord ton nombre de cartes.'; return; }
+    if (nd === 0) msg.innerHTML = '<span class="up">✓ Tu as toutes les ' + X.label + ' : rien à chercher.</span>';
+    else msg.innerHTML = k === nd ? `<span class="up">✓ ${nd} carte${nd > 1 ? 's' : ''} manquante${nd > 1 ? 's' : ''} trouvée${nd > 1 ? 's' : ''} : le compte est bon.</span>` : `Il te manque <b>${nd}</b> carte${nd > 1 ? 's' : ''}. Sélectionnées : <b>${k}</b>${k > nd ? ' (trop : retire celles en trop)' : ''}.`;
+    ok.disabled = k !== nd; $('#bst').textContent = k === nd ? '' : 'Le nombre de cartes manquantes sélectionnées doit être égal à ' + nd + '.'; };
+  const search = () => { const q = nsp($('#bq').value); const res = q.length < 2 ? [] : cat.filter(c => !missing.has(c[0]) && (nsp(c[1]).includes(q) || nsp(c[2]).includes(q))).slice(0, 24);
+    $('#bres').innerHTML = q.length < 2 ? '<p class="small mute">Tape au moins 2 lettres.</p>' : res.map(c => tile(T(c), true, false, `<i class="small" style="position:absolute;top:4px;right:6px">+</i>`).replace('data-c=', `data-a="${c[0]}" data-c=`)).join('') || '<p class="small mute">Aucune carte trouvée.</p>';
+    $('#bres').querySelectorAll('[data-a]').forEach(b => b.onclick = () => { missing.add(+b.dataset.a); upd(); search(); }); };
+  $('#bn').oninput = () => { if (+$('#bn').value > total) $('#bn').value = total; if (+$('#bn').value < 0) $('#bn').value = 0; upd(); }; $('#bq').oninput = search;
+  $('#bok').onclick = async () => {
+    if (prev) { toast('Aperçu : rien n\'est enregistré.'); return; }
+    const ok = $('#bok'); ok.disabled = true; ok.textContent = 'Enregistrement…'; const PSU = S.kb.prestige_series?.series || [], touched = new Set();
+    for (const c of cat) { const u = uget(coll, c[2]); if (missing.has(c[0])) u.owned.delete(c[1]); else u.owned.add(c[1]); touched.add(c[2]); }
+    const rows = [...touched].map(s2 => { const u = coll[s2], pu = PSU.find(x => x.s === s2); return { user_id: S.user.id, universe: s2, done: pu ? ownN(coll, pu) === pu.c.length : false, owned: [...u.owned], dupes: [...u.dupes], qty: u.qty || {}, missing: '' }; });
+    for (let i = 0; i < rows.length; i += 100) { const { error } = await sb.from('checklist').upsert(rows.slice(i, i + 100)); if (error) { toast('Enregistrement refusé : ' + error.message); ok.disabled = false; ok.textContent = 'Enregistrer mes ' + X.label; return; } }
+    S.mylr.teams = { ...(S.mylr.teams || {}), [X.k]: true }; await saveMyLR();
+    toast(`${total - missing.size} ${X.label} enregistrées`); const nx = order.find(([k]) => !S.mylr.teams[LOW[k].k]);
+    location.hash = onbMode() ? (nx ? '#basses/' + nx[0] : '#bienvenue') : (nx ? '#basses/' + nx[0] : '#checklist');
+  };
+  upd(); search();
 };
 
 P.meslr = async m => {
@@ -1122,7 +1166,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=87'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=88'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
