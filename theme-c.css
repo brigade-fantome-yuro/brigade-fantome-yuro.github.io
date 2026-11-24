@@ -80,3 +80,13 @@ body.th-c .mosaic{row-gap:46px;padding-top:40px}
 body.th-c .mosaic>.mcell,body.th-c .mosaic>.mcard{transform-origin:50% -34px}
 body.th-c .mosaic>.mcell::before,body.th-c .mosaic>.mcard::before{top:-34px;height:32px;z-index:-1}
 body.th-c .mosaic::before{height:34px}
+/* v106 : fil de toile continu sur chaque rangée (le fil reste fixe, seule la carte se balance) */
+body.th-c .mosaic{--cg:12px;column-gap:var(--cg)}
+@media (max-width:560px){body.th-c .mosaic{--cg:8px}}
+body.th-c .mosaic:has(>.mcell)::before{display:none}
+body.th-c .mosaic>.mcell{animation:none}
+body.th-c .mosaic>.mcell>.mcard{transform-origin:50% -34px;animation:thSway 5s ease-in-out infinite}
+body.th-c .mosaic>.mcell:nth-child(3n+1)>.mcard{animation-duration:4.4s;animation-delay:-.6s}
+body.th-c .mosaic>.mcell:nth-child(3n+2)>.mcard{animation-duration:5.6s;animation-delay:-1.9s}
+body.th-c .mosaic>.mcell::after{content:"";position:absolute;top:-40px;height:13px;left:calc(var(--cg) / -2 - 1px);right:calc(var(--cg) / -2 - 1px);pointer-events:none;z-index:-1;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 13' preserveAspectRatio='none'%3E%3Cpath d='M0 1.5 Q50 13 100 1.5' fill='none' stroke='white' stroke-width='1.1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat;opacity:.8}
+body.th-c .mosaic>.mcell::before{top:-33px;height:33px}
