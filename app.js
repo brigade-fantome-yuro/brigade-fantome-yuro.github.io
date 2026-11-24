@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=73';
+import * as CFG from './config.js?v=74';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=73';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=73';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=74';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=74';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=73';
-import * as SCAN from './scan.js?v=73';
+import { duelRate } from './ranked.js?v=74';
+import * as SCAN from './scan.js?v=74';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='73';
+const APP_V='74';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -454,10 +454,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=73'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=74'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=73'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=74'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -587,7 +587,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=73'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=74'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -1047,12 +1047,12 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=73'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=74'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
 function simCastle(team, own, n = 100) {
-  const key = team.map(c => c.id + ':' + (own[c.id] || 0)).sort().join(',') + '|' + n + '|e8';
+  const key = team.map(c => c.id + ':' + (own[c.id] || 0)).sort().join(',') + '|' + n + '|e9';
   if (!SIMC.has(key)) { let c = null; try { c = JSON.parse(localStorage.getItem('bfc:' + key) || 'null'); } catch {}
     SIMC.set(key, c ? Promise.resolve(c) : twCall({ kind: 'castle', team: team.map(x => engUnit(x, own[x.id] || 0)), catalog: castleCatalog(), n }).then(r => { try { localStorage.setItem('bfc:' + key, JSON.stringify(r)); } catch {} return r; })); }
   return SIMC.get(key);
@@ -1175,10 +1175,11 @@ function ayaCeiling(team, own) {
   return { last: r - 1, stop: r, heal, seuil1: s1, stars: own?.[953] || 0 };
 }
 function simBlock(r, team, own) {
-  const pc = v => Math.round(v * 100); const ce = team ? ayaCeiling(team, own) : null;
-  return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre sûre (9 fois sur 10)</div><div class="cd">${r.sure}</div></div><div><div class="mute small">Chambre jouable (1 fois sur 2)</div><div class="cd">${r.play}</div></div><div><div class="mute small">Chambre max (1 fois sur 5)</div><div class="cd">${r.max}</div></div><div><div class="mute small">Plafond réel</div><div class="cd">${r.ceil}</div><div class="small mute">${pc(r.ceilP) || '< 1'} % de victoire par essai</div></div></div>
-  <p class="small" style="margin-top:8px"><b>Plafond réel :</b> dernière chambre encore gagnable avec le hasard du jeu (au moins 3 victoires sur 100 essais). À la chambre ${r.ceil}, cette équipe gagne environ ${pc(r.ceilP) || 'moins de 1'} fois sur 100 ; au-delà, elle ne gagne plus.</p>
-  ${ce ? `<p class="small" style="margin-top:8px"><b>Plafond théorique de la boucle d'Aya ${ce.stars}★ : chambre ${ce.last}.</b> C'est la dernière chambre où Aya survit à 2 coups de gardien${ce.heal ? ' avec un soin de 30 %' : ''} : la boucle parfaite y est encore possible, et devient impossible dès la chambre ${ce.stop}. Entre ${r.ceil} et ${ce.last}, il faut que tout tombe bien (les gardiens visent au hasard : il faut qu'ils tapent Aya au bon moment et épargnent les autres), ce qui arrive moins de 3 fois sur 100.</p>` : ''}
+  const pc = v => Math.round(v * 100), ppc = v => v >= .01 ? String(Math.round(v * 100)) : v > 0 ? (Math.round(v * 1000) / 10).toString().replace('.', ',') : '0'; const ce = team ? ayaCeiling(team, own) : null;
+  return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre sûre (9 fois sur 10)</div><div class="cd">${r.sure}</div></div><div><div class="mute small">Chambre jouable (1 fois sur 2)</div><div class="cd">${r.play}</div></div><div><div class="mute small">Chambre max (1 fois sur 5)</div><div class="cd">${r.max}</div></div><div><div class="mute small">Plafond réel</div><div class="cd">${r.ceil}</div><div class="small mute">${ppc(r.ceilP)} % de victoire par essai</div></div></div>
+  <p class="small" style="margin-top:8px"><b>Plafond réel :</b> dernière chambre où cette équipe gagne encore, même rarement (au moins une victoire sur ${r.nc || r.n * 4} combats simulés par chambre). À la chambre ${r.ceil}, elle gagne environ ${ppc(r.ceilP)} fois sur 100 ; à la chambre ${r.ceil + 1}, plus aucune victoire.</p>
+  ${r.play === r.max || r.sure === r.play ? `<p class="small" style="margin-top:8px"><b>Pourquoi ${r.play === r.max ? 'jouable et max' : 'sûre et jouable'} sont identiques :</b> c'est un mur. Jusqu'à la chambre ${r.play === r.max ? r.max : r.play}, l'équipe gagne souvent ; juste après, ses chances chutent d'un coup (${ce && ce.seuil1 - 1 === r.max ? `c'est le 1er seuil d'Aya ${ce.stars}★ : à partir de la chambre ${ce.seuil1}, deux coups de gardien la tuent` : 'les gardiens tapent assez fort pour casser la boucle'}). Il n'y a donc pas de chambre intermédiaire à « 1 fois sur 2 » ou « 1 fois sur 5 ».</p>` : ''}
+  ${ce ? (ce.last >= r.ceil ? `<p class="small" style="margin-top:8px"><b>Plafond théorique de la boucle d'Aya ${ce.stars}★ : chambre ${ce.last}.</b> C'est la dernière chambre où Aya survit à 2 coups de gardien${ce.heal ? ' avec un soin de 30 %' : ''} : la boucle parfaite y est encore possible, et devient impossible dès la chambre ${ce.stop}. Entre ${r.ceil} et ${ce.last}, il faut que tout tombe bien (les gardiens visent au hasard : il faut qu'ils tapent Aya au bon moment et épargnent les autres), ce qui arrive moins d'une fois sur ${r.nc || r.n * 4} dans nos simulations.</p>` : `<p class="small" style="margin-top:8px"><b>Seuil de la boucle d'Aya ${ce.stars}★ : chambre ${ce.last}.</b> C'est la dernière chambre où Aya survit à 2 coups de gardien${ce.heal ? ' avec un soin de 30 %' : ''}. Au-delà, jusqu'au plafond réel (${r.ceil}), les victoires ne viennent plus de la boucle parfaite mais du hasard${ce.heal ? '' : ' et de la boucle de secours sans soigneur (voir le guide du château)'} : il faut que les gardiens épargnent Aya au bon moment.</p>`) : ''}
   <p class="small mute" style="margin-top:8px">${r.n} combats simulés par chambre avec le moteur de combat du jeu (le même que le simulateur « Jouer une chambre ») : vraies techniques, stats exactes à tes étoiles, gardiens qui visent au hasard comme dans le jeu. L'équipe joue ses techniques dès qu'elles sont prêtes, l'échange d'Aya quand elle est basse et le soin quand l'équipe en a besoin ; un joueur précis peut faire un peu mieux.</p>`;
 }
 async function renderCastleReco(best, team, ok, own, mode, use) {
