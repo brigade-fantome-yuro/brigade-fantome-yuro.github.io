@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=53');
+importScripts('castle-engine.js?v=54');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -41,8 +41,12 @@ function castleReport(team, catalog, n) {
   const wr = (room, k = n) => { const key = room + ':' + k; if (!cache.has(key)) { let w = 0; for (let s = 0; s < k; s++) if (castleFight(room, team, catalog, 1 + s * 7919 + room * 104729)) w++; cache.set(key, w / k); } return cache.get(key); };
   // Dernière chambre où le % de victoire reste au-dessus du seuil (recherche par dichotomie, le % baisse avec la chambre).
   const last = (th, k) => { if (wr(1, k) < th) return 0; let lo = 1, hi = 1; while (hi < 6000 && wr(hi, k) >= th) { lo = hi; hi *= 2; } hi = Math.min(hi, 6000); while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (wr(mid, k) >= th) lo = mid; else hi = mid; } return lo; };
-  const sure = last(.9, n), play = last(.5, n), max = last(.2, n), ceil = last(.02, n * 2);
-  return { sure, play, max, ceil, ceilP: wr(ceil, n * 2), n };
+  const sure = last(.9, n), play = last(.5, n), max = last(.2, n);
+  // Plafond réel : balayage de 10 en 10 au-delà de la chambre max (le % est trop bas pour une dichotomie fiable), puis affinage.
+  const k = n * 2; let ceil = max, zeros = 0;
+  for (let r = max + 10; r <= 6000 && zeros < 6; r += 10) { const p = wr(r, k); if (p >= .03) { ceil = r; zeros = 0; } else if (p === 0) zeros++; }
+  for (let r = ceil + 1; r < ceil + 10; r++) if (wr(r, k) >= .03) ceil = r;
+  return { sure, play, max, ceil, ceilP: wr(ceil, k), n };
 }
 
 // Ranked : les deux camps jouent avec le même jeu simple (techniques dès qu'elles sont prêtes, cible la plus basse).
