@@ -347,3 +347,17 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .mstep b.dlb small{font-size:9px;font-weight:600;opacity:.6;text-transform:uppercase;letter-spacing:.06em}
 .wzc{text-align:center;max-width:860px;margin:0 auto}.wzc ol.list{display:inline-block;text-align:left;max-width:760px}
 .wzc p,.wzc h3,.wzc .loops{margin-left:auto!important;margin-right:auto!important}.wzc p{max-width:760px}.wzc .loops{display:flex;justify-content:center}
+/* paris du tournoi */
+.bbets{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:10px;margin-top:8px}
+.bbet{border:1px solid var(--line);border-radius:12px;padding:10px;background:#0c0a0c}
+.bbet.closed{opacity:.85}
+.bopts{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin:8px 0}
+.bvs{font-weight:800;font-size:12px;opacity:.6}
+.bopt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:10px;border:1px solid var(--line);background:#161216;color:inherit;cursor:pointer;min-height:96px;text-align:center}
+.bopt .bn{font-weight:700;font-size:13px;word-break:break-word}.bopt small{font-size:11px;opacity:.7}
+.bopt:not(:disabled):hover,.bopt.sel{border-color:#e8433a;background:#2a1215}
+.bopt.mine{border-color:#f5ce65;box-shadow:0 0 0 1px #f5ce65 inset}
+.bopt.won{border-color:#7be3a4}.bopt.lost{opacity:.45}
+.bopt:disabled{cursor:default}
+body.th-c .bbet{border-radius:2px;background:#050505}body.th-c .bopt{border-radius:2px;background:#0b0b0b}
+body.th-c .bopt.sel,body.th-c .bopt:not(:disabled):hover{border-color:#fff;background:#151515}

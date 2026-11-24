@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=109';
+import * as CFG from './config.js?v=110';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=109';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=109';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=110';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=110';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=109';
-import * as SCAN from './scan.js?v=109';
+import { duelRate } from './ranked.js?v=110';
+import * as SCAN from './scan.js?v=110';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='109';
+const APP_V='110';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -455,10 +455,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=109'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=110'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=109'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=110'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -588,7 +588,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=109'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=110'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -1242,7 +1242,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=109'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=110'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
@@ -1699,7 +1699,8 @@ async function brSection(el) {
         <div class="row" style="margin:8px 0"><button class="btn ghost" id="ball" style="min-height:36px">Tout cocher</button><button class="btn ghost" id="bnone" style="min-height:36px">Tout décocher</button><span class="sp"></span><b id="bcount"></b></div>
         <div class="bpick">${members.map(p => `<label class="bpk"><input type="checkbox" value="${p.id}">${brAv({ name: p.discord, avatar: p.avatar })}<span>${esc(p.discord)}</span></label>`).join('')}</div>
         <label class="small" style="display:block;margin-top:10px">Autres joueurs (un @ Discord par ligne)<br><textarea id="bextra" rows="3" style="width:100%"></textarea></label>
-        <div class="row" style="margin-top:10px"><button class="btn primary" id="bgo">🎲 Tirer au sort le tableau</button>${t ? '<button class="btn ghost" id="bdel">Effacer le tableau</button>' : ''}</div></details>` : ''}</div>`;
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="bgo">🎲 Tirer au sort le tableau</button>${t ? '<button class="btn ghost" id="bdel">Effacer le tableau</button>' : ''}</div></details>` : ''}</div><div id="bets"></div>`;
+    if (t) betSection($('#bets'), t, admin, save);
     if (t && admin) el.querySelectorAll('[data-bw]').forEach(b => b.onclick = async () => { const [k, i, idx] = b.dataset.bw.split(':').map(Number); const m = t.rounds[k][i]; m.w = m.w === idx ? null : idx; brPropagate(t); draw(); await save(); });
     if (!admin) return;
     if ($('#brr')) $('#brr').onclick = async () => { const mode = $('#brm').value, k = +$('#brk2').value; if (t.rules && !confirm('Remplacer les règles déjà tirées ?')) return; t.rules = { mode, list: mode === 'all' ? [brDrawRules(k)] : t.rounds.map(() => brDrawRules(k)) }; draw(); await save(); toast('Règles tirées au sort'); };
@@ -1717,6 +1718,55 @@ async function brSection(el) {
     };
   };
   draw();
+}
+
+/* ---------- Paris du tournoi : jetons virtuels, mise définitive ---------- */
+async function betSection(el, t, admin, save) {
+  const tour = t.at, L = t.rounds.length, me = S.user?.id;
+  const [{ data: bets }, { data: bal }, { data: board }] = await Promise.all([
+    sb.from('tbets').select('user_id,k,i,pick,stake').eq('tour', tour),
+    sb.rpc('tb_balance', { uid: me, tr: tour }), sb.rpc('tb_board', { tr: tour })]);
+  const B = bets || [], lock = new Set(t.lock || []);
+  const myName = (S.profile.discord || '').toLowerCase().replace(/^@/, '');
+  const pn = idx => t.players[idx]?.name || '?';
+  const duels = []; t.rounds.forEach((r, k) => r.forEach((m, i) => { if (m.a != null && m.b != null) duels.push({ k, i, m }); }));
+  const card = ({ k, i, m }) => {
+    const mb = B.filter(b => b.k === k && b.i === i), tot = mb.reduce((x, b) => x + b.stake, 0);
+    const side = idx => mb.filter(b => b.pick === idx).reduce((x, b) => x + b.stake, 0);
+    const mine = mb.find(b => b.user_id === me), done = m.w != null, closed = done || lock.has(k + ':' + i);
+    const own = [m.a, m.b].some(x => pn(x).toLowerCase().replace(/^@/, '') === myName);
+    const cote = idx => { const s = side(idx); return s ? (tot / s).toFixed(2) : '—'; };
+    const opt = idx => `<button class="bopt${mine?.pick === idx ? ' mine' : ''}${done && m.w === idx ? ' won' : ''}${done && m.w !== idx ? ' lost' : ''}" data-bp="${k}:${i}:${idx}" ${closed || mine || own ? 'disabled' : ''}>${brAv(t.players[idx])}<span class="bn">${esc(pn(idx))}</span><small>cote ${cote(idx)} · ${fmt(side(idx))} 🕸</small></button>`;
+    let foot = '';
+    if (mine) { const gain = done ? (mine.pick === m.w ? Math.floor(mine.stake * tot / Math.max(1, side(m.w))) : 0) : null; foot = `<p class="small">🔒 Ta mise : <b>${fmt(mine.stake)} 🕸</b> sur <b>${esc(pn(mine.pick))}</b> · définitive${gain != null ? (gain ? ` · <b style="color:#7be3a4">+${fmt(gain)} 🕸 gagnés</b>` : ' · perdue') : ''}</p>`; }
+    else if (own) foot = '<p class="small mute">Tu joues ce duel : pas de pari possible.</p>';
+    else if (closed) foot = `<p class="small mute">${done ? 'Duel terminé.' : 'Paris fermés : le duel a commencé.'}</p>`;
+    else foot = `<div class="bform" data-bf="${k}:${i}" hidden><div class="row" style="gap:6px;flex-wrap:wrap"><input type="number" min="10" step="10" placeholder="Mise" class="bstake" style="width:110px">${[50, 100, 250].map(v => `<button class="btn ghost bq" data-v="${v}">${v}</button>`).join('')}<button class="btn ghost bq" data-v="all">Tout</button></div><button class="btn primary bok" style="margin-top:8px;width:100%">Valider la mise (définitive)</button></div>`;
+    return `<div class="bbet${closed ? ' closed' : ''}"><div class="row"><b class="small">${brRoundName(k, L)}</b><span class="sp"></span><span class="small mute">${fmt(tot)} 🕸 en jeu</span>${admin && !done ? `<button class="btn ghost blk" data-lk="${k}:${i}" style="min-height:28px;padding:0 8px">${lock.has(k + ':' + i) ? '🔓 Rouvrir' : '🔒 Fermer les paris'}</button>` : ''}</div><div class="bopts">${opt(m.a)}<span class="bvs">VS</span>${opt(m.b)}</div>${foot}</div>`;
+  };
+  const open = duels.filter(d => d.m.w == null), past = duels.filter(d => d.m.w != null).reverse();
+  el.innerHTML = `<div class="card section"><div class="row"><h2 style="margin:0">Paris</h2><span class="sp"></span><span class="chip red">Ton solde : <b>${fmt(bal ?? 1000)} 🕸</b></span></div>
+    <p class="small mute">Chaque membre reçoit <b>1 000 jetons de toile 🕸</b> par tournoi (jetons virtuels du site : ce n'est ni du KI ni de l'argent). Parie sur le vainqueur de chaque duel. <b>Une mise validée est définitive : impossible de la modifier ou de l'effacer.</b> Pari mutuel : les gagnants se partagent toutes les mises du duel, selon leur mise (cote = total ÷ mises sur ce joueur). Les paris ferment quand le duel commence.</p>
+    <h3>Duels ouverts</h3>${open.length ? `<div class="bbets">${open.map(card).join('')}</div>` : '<p class="mute small">Aucun duel ouvert pour l\'instant.</p>'}
+    ${past.length ? `<details style="margin-top:12px"><summary><b>Duels terminés (${past.length})</b></summary><div class="bbets">${past.map(card).join('')}</div></details>` : ''}
+    ${(board || []).length ? `<h3 style="margin-top:16px">Meilleurs parieurs</h3><table class="tbl"><tr><th>#</th><th>Membre</th><th>Solde</th><th>Paris</th></tr>${board.slice(0, 15).map((r, j) => `<tr><td>${j + 1}</td><td>${esc(r.discord)}</td><td><b>${fmt(r.bal)}</b> 🕸</td><td>${r.n}</td></tr>`).join('')}</table>` : ''}</div>`;
+  el.querySelectorAll('[data-bp]').forEach(b => b.onclick = () => {
+    const [k, i, idx] = b.dataset.bp.split(':').map(Number);
+    el.querySelectorAll(`[data-bp^="${k}:${i}:"]`).forEach(x => x.classList.toggle('sel', x === b));
+    const f = el.querySelector(`[data-bf="${k}:${i}"]`); if (!f) return; f.hidden = false; f.dataset.pick = idx; f.querySelector('.bstake').focus();
+  });
+  el.querySelectorAll('.bq').forEach(q => q.onclick = () => { const inp = q.closest('.bform').querySelector('.bstake'); inp.value = q.dataset.v === 'all' ? (bal ?? 1000) : q.dataset.v; });
+  el.querySelectorAll('.bok').forEach(ok => ok.onclick = async () => {
+    const f = ok.closest('.bform'), [k, i] = f.dataset.bf.split(':').map(Number), pick = +f.dataset.pick, stake = Math.floor(+f.querySelector('.bstake').value || 0);
+    if (!(stake >= 10)) { toast('Mise minimale : 10 jetons.'); return; }
+    if (stake > (bal ?? 1000)) { toast('Pas assez de jetons.'); return; }
+    if (!confirm(`Miser ${fmt(stake)} 🕸 sur ${pn(pick)} ?\n\nCette mise est DÉFINITIVE : tu ne pourras ni la modifier ni l'effacer.`)) return;
+    ok.disabled = true;
+    const { error } = await sb.from('tbets').insert({ tour, k, i, pick, stake });
+    if (error) { toast(error.message); ok.disabled = false; return; }
+    toast('Mise enregistrée 🔒'); betSection(el, t, admin, save);
+  });
+  el.querySelectorAll('[data-lk]').forEach(b => b.onclick = async () => { const key = b.dataset.lk; lock.has(key) ? lock.delete(key) : lock.add(key); t.lock = [...lock]; await save(); betSection(el, t, admin, save); });
 }
 
 P.tournoi = async m => {
