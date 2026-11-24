@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=81';
+import * as CFG from './config.js?v=83';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=81';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=81';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=83';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=83';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=81';
-import * as SCAN from './scan.js?v=81';
+import { duelRate } from './ranked.js?v=83';
+import * as SCAN from './scan.js?v=83';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -40,7 +40,7 @@ const ROUTES = [
   ['sep', 'Château de l\'infini'], ['chateausim', 'Jouer une chambre (simulateur)', 'layers'], ['guide/chateau', 'Guide du château', 'book'], ['equipe/chateau', 'Meilleure équipe', 'layers'], ['calculs', 'Calculateurs', 'calc'],
   ['sep', 'Ranked'], ['guide/ranked', 'Guide ranked', 'book'], ['equipe/ranked', 'Meilleure équipe', 'layers'], ['simulateur', 'Jouer un match (simulateur)', 'layers'],
   ['sep', 'Salle du temps'], ['guide/temps', 'Guide et calculateur', 'calc'],
-  ['sep', 'Collection et Prestige'], ['collection', 'Collection SSR et UR', 'check'], ['checklist', 'Collection Prestige', 'check'], ['guide/prestige', 'Guide Prestige', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'],
+  ['sep', 'Collection et Prestige'], ['collection', 'Ma collection', 'check'], ['checklist', 'Collection Prestige', 'check'], ['guide/prestige', 'Guide Prestige', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'],
   ['sep', 'Cartes'], ['persos', 'Fiches perso', 'users'],
   ['sep', 'Marché'], ['prix', 'Prix marché', 'chart'], ['alertes', 'Alertes marché', 'bell'],
   ['sep', 'Tournoi'], ['tournoi', 'Tournoi de clans', 'layers'],
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='81';
+const APP_V='83';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -62,37 +62,15 @@ function authView(mode = 'login', note = '') {
     <p class="mute">Guides, fiches, prix du marché et Kakashi Bot. Réservé aux membres de la Brigade sur Discord.</p>
 ${CFG.DISCORD_LOGIN ? `<button class="btn discord" id="dl" style="width:100%;margin-top:14px"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M20 4.6A18 18 0 0 0 15.6 3l-.6 1.2a16 16 0 0 0-6 0L8.4 3A18 18 0 0 0 4 4.6C1.2 8.8.5 12.8.8 16.8A18 18 0 0 0 6.3 19.6l1.2-1.9a11 11 0 0 1-1.8-.9l.4-.3a12.8 12.8 0 0 0 11.8 0l.4.3a11 11 0 0 1-1.8.9l1.2 1.9a18 18 0 0 0 5.5-2.8c.4-4.6-.7-8.6-3.2-12.2zM8.7 14.4c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2zm6.6 0c-1 0-1.9-1-1.9-2.2s.8-2.2 1.9-2.2 1.9 1 1.9 2.2-.8 2.2-1.9 2.2z"/></svg>Se connecter avec Discord</button>
     <p class="small mute" style="margin:8px 0 0">On vérifie automatiquement que tu es sur le serveur de la Brigade : accès immédiat, aucun mot de passe.</p>${/Discord|Instagram|FBAN|FBAV|Snapchat|Line\/|TikTok|; wv\)/i.test(navigator.userAgent) ? '<div class="msg" style="margin-top:10px">📱 Tu es dans le navigateur intégré de Discord : il oublie la connexion à chaque fois. Ouvre ce lien dans <b>Safari</b> ou <b>Chrome</b> (menu ⋯ → « Ouvrir dans le navigateur ») pour rester connecté.</div>' : ''}` : ''}
-    <details class="alt"${!CFG.DISCORD_LOGIN || mode === 'signup' || note ? ' open' : ''}><summary>Connexion avec mot de passe (anciens comptes)</summary>
-    <div class="tabs"><button data-m="login" class="${mode === 'login' ? 'on' : ''}">Se connecter</button><button data-m="signup" class="${mode === 'signup' ? 'on' : ''}">Demander l'accès</button></div>
-    <form id="af">
-      <label for="dc">Ton @ Discord</label><input id="dc" autocomplete="username" placeholder="@pseudo" required>
-      <label for="pw">Mot de passe</label><input id="pw" type="password" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}" minlength="6" required>
-      ${mode === 'signup' ? '<p class="small mute">Un admin vérifie que tu es bien sur le Discord de la Brigade, puis valide ton accès.</p>' : ''}
-      <button class="btn primary" style="width:100%;margin-top:16px">${mode === 'login' ? 'Entrer' : 'Envoyer ma demande'}</button>
-    </form></details>${note ? `<div class="msg">${esc(note)}</div>` : ''}</div></div>`;
+${note ? `<div class="msg">${esc(note)}</div>` : ''}</div></div>`;
   if ($('#dl')) $('#dl').onclick = () => discordLogin();
-  app.querySelectorAll('.tabs button').forEach(b => b.onclick = () => authView(b.dataset.m));
-  $('#af').onsubmit = async e => {
-    e.preventDefault(); const d = slug($('#dc').value), pw = $('#pw').value;
-    if (d.length < 2) return authView(mode, 'Pseudo Discord invalide.');
-    const email = `${d}@${EMAIL_DOMAIN}`;
-    if (mode === 'signup') {
-      const { error } = await sb.auth.signUp({ email, password: pw, options: { data: { discord: '@' + d } } });
-      if (error) return authView('signup', /registered|exists/i.test(error.message) ? 'Ce pseudo a déjà demandé l\'accès : connecte-toi.' : error.message);
-      const r = await sb.auth.signInWithPassword({ email, password: pw }); if (r.error) return authView('login', 'Demande envoyée. Connecte-toi une fois validé.');
-    } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password: pw });
-      if (error) return authView('login', 'Pseudo ou mot de passe incorrect.');
-    }
-    boot();
-  };
 }
 
 function pendingView(p) {
   app.innerHTML = `<div class="auth"><div class="auth-card"><div class="moon pulse"></div>
     <div class="brand" style="margin:0 0 6px">${SPIDER}<b>Brigade Fantôme</b></div>
     <h1>${p.status === 'refused' ? 'Accès refusé' : 'Demande envoyée'}</h1>
-    <p>${p.status === 'refused' ? (p.why === 'not_member' ? 'Tu n\'es pas membre de la guilde Brigade Fantôme sur Discord : accès refusé. Rejoins le serveur de la guilde puis reconnecte-toi.' : p.why === 'verif' ? 'La vérification avec Discord n\'a pas abouti. Reconnecte-toi avec Discord pour réessayer.' : 'Ta demande n\'a pas été acceptée. Parle à un admin sur le Discord.') : `Merci <b>${esc(p.discord)}</b>. Un admin vérifie que tu es sur le Discord de la Brigade. Cette page s'ouvrira dès que c'est validé.`}</p>
+    <p>${p.status === 'refused' ? (p.why === 'revoked' ? 'Ton accès au site a été révoqué par un admin de la Brigade. Contacte le Chef sur Discord si tu penses que c\'est une erreur.' : p.why === 'not_member' ? 'Tu n\'es pas membre de la guilde Brigade Fantôme sur Discord : accès refusé. Rejoins le serveur de la guilde puis reconnecte-toi.' : p.why === 'verif' ? 'La vérification avec Discord n\'a pas abouti. Reconnecte-toi avec Discord pour réessayer.' : 'Ta demande n\'a pas été acceptée. Parle à un admin sur le Discord.') : `Merci <b>${esc(p.discord)}</b>. Un admin vérifie que tu es sur le Discord de la Brigade. Cette page s'ouvrira dès que c'est validé.`}</p>
     <div class="row"><button class="btn" id="rf">${p.status === 'refused' ? 'Se reconnecter avec Discord' : 'Vérifier'}</button><button class="btn ghost" id="lo">Changer de compte</button></div></div></div>`;
   $('#rf').onclick = p.status === 'refused' ? async () => { await sb.auth.signOut(); discordLogin(); } : boot; $('#lo').onclick = async () => { await sb.auth.signOut(); authView(); };
   if (p.status === 'pending') S.timers.push(setTimeout(boot, 30000));
@@ -470,10 +448,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=81'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=83'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=81'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=83'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -603,7 +581,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=81'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=83'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -784,15 +762,19 @@ P.collection = async (m, tab = '') => {
   m.innerHTML = '<div class="empty">Chargement…</div>';
   await Promise.all([loadCollections(), loadFeats()]);
   const PSU = S.kb.prestige_series?.series || [];
-  const R = { L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') } };
+  const R = { L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true } };
+  await loadMyLR();
   let [rk, view, autoImp] = (tab || 'L/moi').split('/'); if (!R[rk]) rk = 'L'; if (!['moi', 'doublons', 'manquantes', 'echanges'].includes(view)) view = 'moi';
-  const coll = myColl();
+  const realColl = myColl(); let coll = realColl;
+  // Les LR (et leurs étoiles) vivent dans « Mes LR » : on les présente comme une collection pour l'affichage.
+  const lrColl = () => { const o = {}; for (const u of R.S.U) for (const c of u.c) if (S.mylr.cards[c[3]] != null) uget(o, u.s).owned.add(c[0]); return o; };
   const save = async u => { const r = uget(coll, u.s), pu = PSU.find(x => x.s === u.s); return sb.from('checklist').upsert({ user_id: S.user.id, universe: u.s, done: pu ? ownN(coll, pu) === pu.c.length : false, owned: [...r.owned], dupes: [...r.dupes], qty: r.qty || {}, missing: '' }); };
   const has = (cl, u, n) => !!cl[u.s]?.owned.has(n), dup = (cl, u, n) => cl[u.s]?.dupes.has(n) ? (cl[u.s].qty?.[n] || true) : false;
   const draw = () => {
+    coll = rk === 'S' ? lrColl() : realColl;
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
-    m.innerHTML = `<h1>Collection SSR et UR</h1><p class="mute">Toutes les SSR et toutes les UR du jeu, pas seulement celles des univers Prestige. Importe tes captures, et le site en tire tes doublons, tes cartes manquantes (recherchées) et les échanges possibles avec la Brigade.</p>
+    m.innerHTML = `<h1>Ma collection</h1><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
       <div class="tabs" id="cr" style="max-width:420px">${Object.entries(R).map(([k, x]) => `<button data-k="${k}" class="${k === rk ? 'on' : ''}">${x.label} (${x.U.reduce((a, u) => a + u.c.length, 0)})</button>`).join('')}</div>
       <div class="card section"><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
         <div class="row" style="margin-top:12px"><button class="btn primary" id="call">📦 Tout importer d'un coup (LR + SSR + UR)</button><button class="btn ghost" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
@@ -801,7 +783,7 @@ P.collection = async (m, tab = '') => {
       <div id="cbody" style="margin-top:14px"></div>`;
     m.querySelectorAll('#cr button').forEach(b => b.onclick = () => { rk = b.dataset.k; draw(); });
     m.querySelectorAll('#cv2 button').forEach(b => b.onclick = () => { view = b.dataset.v; draw(); });
-    $('#cimp').onclick = () => rarImport(rk); $('#call').onclick = () => allImport();
+    $('#cimp').onclick = () => rk === 'S' ? (location.hash = '#meslr') : rarImport(rk); $('#call').onclick = () => allImport();
     ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades })[view]($('#cbody'), X);
   };
   function vMine(el, X) {
@@ -809,11 +791,11 @@ P.collection = async (m, tab = '') => {
     const total = X.U.reduce((a, u) => a + u.c.length, 0), got = X.U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0);
     if (!got) {
       el.innerHTML = `<div class="card section" style="text-align:center"><h2>Ta collection ${X.label} est vide pour l'instant</h2><p class="mute">Tu n'as rien à cocher toi-même : envoie tes captures du jeu et le site remplit tout seul tes ${X.label} possédées, tes doublons avec leur nombre (×2, ×3…) et les cartes qui te manquent.</p><button class="btn primary" id="cimp2" style="margin-top:8px">📷 Importer mes ${X.label}</button></div>`;
-      el.querySelector('#cimp2').onclick = () => rarImport(rk); return;
+      el.querySelector('#cimp2').onclick = () => rk === 'S' ? (location.hash = '#meslr') : rarImport(rk); return;
     }
     const st = u => ({ n: u.c.filter(c => has(coll, u, c[0])).length, t: u.c.length });
     const full = X.U.filter(u => st(u).n === u.c.length), part = X.U.filter(u => st(u).n < u.c.length);
-    el.innerHTML = `<p class="small mute" style="margin-top:0">Comme dans le jeu, rangées par numéro : en couleur tes ${X.label} (×N = exemplaires), en gris celles qui te manquent. <b>Touche une carte</b> pour corriger son nombre d'exemplaires si l'import s'est trompé.</p>
+    el.innerHTML = `<p class="small mute" style="margin-top:0">Comme dans le jeu, rangées par numéro : en couleur tes ${X.label} (×N = exemplaires), en gris celles qui te manquent. Sous chaque carte, <b>− / +</b> règle le nombre d'exemplaires (ou les étoiles pour une LR) : c'est comme ça que tu tiens ta collection à jour quand elle change dans le jeu.</p>
       <div class="cfilters"><input id="cq" placeholder="Rechercher une carte ou un univers">
         <div class="tabs" id="cs" style="margin:0">${[['all', `Toutes ${total}`], ['own', `Possédées ${got}`], ['miss', `Manquantes ${total - got}`]].map(([k, l]) => `<button data-s="${k}" class="${k === show ? 'on' : ''}">${l}</button>`).join('')}</div>
         <select id="cuf"><option value="">✅ Univers complets (${full.length})</option>${full.map(u => `<option value="${esc(u.s)}">${esc(u.s)} · ${u.c.length}/${u.c.length}</option>`).join('')}</select>
@@ -835,29 +817,24 @@ P.collection = async (m, tab = '') => {
     el.querySelectorAll('#cs button').forEach(b => b.onclick = () => { show = b.dataset.s; el.querySelectorAll('#cs button').forEach(x => x.classList.toggle('on', x === b)); list(); });
     el.querySelector('#cq').oninput = e => { q = e.target.value.toLowerCase().trim(); list(); }; list();
   }
-  // Correction à la main : on touche une carte, on règle son nombre d'exemplaires (0 = je ne l'ai pas, 1 = je l'ai, 2+ = en double).
+  // Correction à la main, carte par carte : − / + règle le nombre d'exemplaires (SSR, UR), les étoiles règlent une LR.
   function bindEdit(box, X, after) {
-    box.querySelectorAll('.mcard[data-u]').forEach(fg => fg.onclick = () => {
-      const u = X.U.find(x => x.s === fg.dataset.u), c = u?.c.find(x => x[0] === fg.dataset.c); if (!c) return;
-      const r = uget(coll, u.s); let n = r.owned.has(c[0]) ? (r.dupes.has(c[0]) ? (r.qty[c[0]] || 2) : 1) : 0;
-      const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
-      const lab = () => n === 0 ? 'Je ne l\'ai pas (manquante)' : n === 1 ? 'Je l\'ai (1 exemplaire)' : `Je l'ai en double : ${n} exemplaires (${n - 1} à échanger)`;
-      const paint = () => { d.querySelector('#en').textContent = n; d.querySelector('#el').textContent = lab(); };
-      d.innerHTML = `<div class="mbox" style="max-width:360px;text-align:center">${c[2] ? `<img src="${img(c[2])}" alt="" style="width:140px;aspect-ratio:.716;object-fit:cover;border-radius:12px">` : ''}<h2 style="margin:10px 0 2px">${esc(c[0])}</h2><p class="small mute" style="margin:0">${esc(u.s)}</p>
-        <p class="small" style="margin:14px 0 6px">Combien d'exemplaires as-tu dans le jeu ?</p>
-        <div class="row" style="justify-content:center;gap:14px"><button class="btn" id="em" style="min-width:52px;font-size:22px">−</button><b id="en" style="font-size:30px;min-width:40px">${n}</b><button class="btn" id="ep" style="min-width:52px;font-size:22px">+</button></div>
-        <p class="small mute" id="el" style="margin:8px 0 0"></p>
-        <div class="row" style="justify-content:center;margin-top:16px"><button class="btn primary" id="eok">Enregistrer</button><button class="btn ghost" id="ex">Annuler</button></div></div>`;
-      paint();
-      d.querySelector('#em').onclick = () => { n = Math.max(0, n - 1); paint(); }; d.querySelector('#ep').onclick = () => { n = Math.min(99, n + 1); paint(); };
-      d.querySelector('#ex').onclick = () => d.remove(); d.onclick = e => { if (e.target === d) d.remove(); };
-      d.querySelector('#eok').onclick = async () => { if (n === 0) { r.owned.delete(c[0]); r.dupes.delete(c[0]); delete r.qty[c[0]]; } else { r.owned.add(c[0]); if (n >= 2) { r.dupes.add(c[0]); r.qty[c[0]] = n; } else { r.dupes.delete(c[0]); delete r.qty[c[0]]; } }
-        await save(u); d.remove(); toast('Carte corrigée'); after(); };
+    box.querySelectorAll('.mstep').forEach(bar => bar.onclick = async e => {
+      const bt = e.target.closest('button'); if (!bt || bt.disabled) return;
+      const u = X.U.find(x => x.s === bar.dataset.u), c = u?.c.find(x => x[0] === bar.dataset.c); if (!c) return;
+      if (c[1] === 'S') { if (bt.dataset.x != null) delete S.mylr.cards[c[3]]; else S.mylr.cards[c[3]] = +bt.dataset.st; await saveMyLR(); after(); return; }
+      const r = uget(realColl, u.s); let n = r.owned.has(c[0]) ? (r.dupes.has(c[0]) ? (r.qty[c[0]] || 2) : 1) : 0; n = Math.max(0, Math.min(999, n + (+bt.dataset.d)));
+      if (n === 0) { r.owned.delete(c[0]); r.dupes.delete(c[0]); delete r.qty[c[0]]; } else { r.owned.add(c[0]); if (n >= 2) { r.dupes.add(c[0]); r.qty[c[0]] = n; } else { r.dupes.delete(c[0]); delete r.qty[c[0]]; } }
+      bar.querySelector('b') && (bar.querySelector('b').textContent = n ? '×' + n : 'Manquante');
+      clearTimeout(bindEdit.t); bindEdit.t = setTimeout(async () => { await save(u); after(); }, 500);
     });
   }
-  const mosaic = (L, empty, color) => `<div class="mosaic">${L.map(([u, c, n, own]) => { const sn = S.serial?.get(c[3]); const o = color ? own : true; return `<figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}" title="Touche pour corriger">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] === 'Légendaire' ? 'SSR' : RN[c[1]] || ''}${o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
+  const mosaic = (L, empty, color) => `<div class="mosaic">${L.map(([u, c, n, own]) => { const sn = S.serial?.get(c[3]); const o = color ? own : true; const lr = c[1] === 'S'; const st = lr ? S.mylr.cards[c[3]] : null;
+    const ctl = !color ? '' : lr ? `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${own ? `<button data-x="0" title="Je ne l'ai pas">✕</button>${[0, 1, 2, 3, 4, 5].map(k => `<button data-st="${k}" class="${st === k ? 'on' : ''}">${k}★</button>`).join('')}` : '<button data-st="0" class="add">+ Je l\'ai</button>'}</div>`
+      : `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}"><button data-d="-1" ${own ? '' : 'disabled'}>−</button><b>${own ? '×' + n : 'Manquante'}</b><button data-d="1">+</button></div>`;
+    return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] === 'Légendaire' ? 'SSR' : lr ? 'LR' : RN[c[1]] || ''}${lr && own ? ` · ${st}★` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
   function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2, true])); const extra = L.reduce((a, x) => a + x[2] - 1, 0); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>` + mosaic(L, 'Aucun doublon. Importe tes captures : les cartes à ×2 et plus y sont ajoutées avec leur nombre.', true); bindEdit(el, X, () => vDupes(el, X)); }
-  function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c])); el.innerHTML = `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade.</p>` + mosaic(L, 'Rien ne te manque 🎉'); bindEdit(el, X, () => vMiss(el, X)); }
+  function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c, 0, false])); el.innerHTML = `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade.</p>` + mosaic(L, 'Rien ne te manque 🎉', true); bindEdit(el, X, () => vMiss(el, X)); }
   function vTrades(el, X) {
     const out = [];
     for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; const give = [], get = [];
@@ -1038,7 +1015,7 @@ function scanButton(label, getCandidates, onAdd) {
 async function loadFeats() { if (S.feats) return S.feats; const { data } = await sb.from('content').select('data').eq('key', 'card_feats').maybeSingle(); S.feats = data?.data || { rows: [] }; SCAN.setFeats(S.feats.rows);
   try { const { data: sr } = await sb.from('content').select('data').eq('key', 'card_serials').maybeSingle(); SCAN.setSerials(sr?.data?.order || []); S.serial = new Map((sr?.data?.order || []).map((id, i) => [Number(id), i + 1])); } catch (e) { /* sans numéros : reconnaissance carte par carte */ }
   return S.feats; }
-async function qtyOCR() { const w = await ocrWorker(() => {}); try { await w.setParameters({ tessedit_char_whitelist: 'x×X0123456789', tessedit_pageseg_mode: '7' }); } catch (e) { /* ancien moteur */ } return w; }
+async function qtyOCR() { const w = await ocrWorker(() => {}); try { await w.setParameters({ tessedit_char_whitelist: '0123456789', tessedit_pageseg_mode: '7' }); } catch (e) { /* ancien moteur */ } return w; }
 let NAMEOCR = null;
 async function nameOCR() { if (NAMEOCR) return NAMEOCR; try { const T = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js'); const create = T.createWorker || T.default?.createWorker;
   const w = await create('eng', 1, {}); await w.setParameters({ tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ-' .0123456789", tessedit_pageseg_mode: '6' }); NAMEOCR = w; } catch (e) { NAMEOCR = null; } return NAMEOCR; }
@@ -1141,7 +1118,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=81'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=83'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
@@ -1507,7 +1484,9 @@ P.admin = async m => {
    <div class="card"><h2>Nouveauté</h2><form id="nf"><label>Titre</label><input id="nt" required><label>Texte</label><textarea id="nb" required></textarea><button class="btn primary" style="margin-top:10px">Publier</button></form></div>
    <div class="card"><h2>Questions sans réponse</h2><div id="qa"></div></div>
   </div>`;
-  const loadP = async () => { const { data } = await sb.from('profiles').select('*').order('created_at', { ascending: false }); $('#pd').innerHTML = `<div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Statut</th><th>Demande</th><th></th></tr></thead><tbody>${(data || []).map(p => `<tr><td><b>${esc(p.discord)}</b>${p.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td><span class="chip ${p.status === 'approved' ? 'ok' : p.status === 'refused' ? 'red' : 'warn'}">${{ approved: 'validé', refused: 'refusé', pending: 'en attente' }[p.status]}</span></td><td class="small mute">${new Date(p.created_at).toLocaleString('fr-FR')}</td><td class="n">${p.role === 'admin' ? '' : `<button class="btn" data-a="${p.id}" data-s="approved" style="min-height:36px">Valider</button> <button class="btn ghost" data-a="${p.id}" data-s="refused" style="min-height:36px">Refuser</button>`}</td></tr>`).join('')}</tbody></table></div>`; $('#pd').querySelectorAll('[data-a]').forEach(b => b.onclick = async () => { await sb.from('profiles').update({ status: b.dataset.s }).eq('id', b.dataset.a); loadP(); }); };
+  const loadP = async () => { const { data } = await sb.from('profiles').select('*').order('created_at', { ascending: false }); $('#pd').innerHTML = `<div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Statut</th><th>Demande</th><th></th></tr></thead><tbody>${(data || []).map(p => `<tr><td><b>${esc(p.discord)}</b>${p.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td><span class="chip ${p.status === 'approved' ? 'ok' : p.status === 'refused' ? 'red' : 'warn'}">${p.status === 'refused' && p.revoked ? 'révoqué' : { approved: 'validé', refused: 'refusé', pending: 'en attente' }[p.status]}</span></td><td class="small mute">${new Date(p.created_at).toLocaleString('fr-FR')}</td><td class="n">${p.role === 'admin' || p.id === S.user.id ? '' : p.status === 'approved' ? `<button class="btn ghost" data-a="${p.id}" data-s="revoke" style="min-height:36px">🚫 Révoquer l'accès</button>` : p.status === 'refused' ? `<button class="btn" data-a="${p.id}" data-s="approved" style="min-height:36px">Rétablir l'accès</button>` : `<button class="btn" data-a="${p.id}" data-s="approved" style="min-height:36px">Valider</button> <button class="btn ghost" data-a="${p.id}" data-s="refused" style="min-height:36px">Refuser</button>`}</td></tr>`).join('')}</tbody></table></div>`; $('#pd').querySelectorAll('[data-a]').forEach(b => b.onclick = async () => { const p = (data || []).find(x => x.id === b.dataset.a); let patch;
+    if (b.dataset.s === 'revoke') { if (!confirmBox(`Révoquer l'accès de ${p.discord} ? Il sera déconnecté du site et ne pourra plus entrer, même s'il reste sur le Discord.`)) return; patch = { status: 'refused', revoked: true }; } else patch = { status: b.dataset.s, revoked: b.dataset.s === 'refused' };
+    const r = await sb.from('profiles').update(patch).eq('id', b.dataset.a); if (r.error) toast(r.error.message); else toast(b.dataset.s === 'revoke' ? 'Accès révoqué' : 'Fait'); loadP(); }); };
   const loadE = async () => { const { data } = await sb.from('events').select('*').order('ends_at'); $('#el').innerHTML = (data || []).map(e => `<div class="row small" style="border-top:1px solid var(--line);padding:8px 0"><span>${esc(e.title)} · ${new Date(e.ends_at).toLocaleString('fr-FR')}${e.repeat_days ? ` · tous les ${e.repeat_days} j` : ''}</span><span class="sp"></span><button class="chip" data-x="${e.id}" style="cursor:pointer">Supprimer</button></div>`).join(''); $('#el').querySelectorAll('[data-x]').forEach(b => b.onclick = async () => { await sb.from('events').delete().eq('id', b.dataset.x); loadE(); }); };
   const loadQA = async () => { const { data } = await sb.from('questions').select('*').is('answer', null).order('at'); $('#qa').innerHTML = (data || []).map(q => `<div style="border-top:1px solid var(--line);padding:8px 0"><div>${esc(q.body)}</div><div class="row" style="margin-top:6px"><input data-qa="${q.id}" placeholder="Réponse" style="flex:1;min-height:38px"><button class="btn" data-qs="${q.id}" style="min-height:38px">OK</button></div></div>`).join('') || '<div class="small mute">Rien à répondre.</div>'; $('#qa').querySelectorAll('[data-qs]').forEach(b => b.onclick = async () => { const v = $(`[data-qa="${b.dataset.qs}"]`).value; await sb.from('questions').update({ answer: v }).eq('id', b.dataset.qs); loadQA(); }); };
   $('#ef').onsubmit = async e => { e.preventDefault(); const r = await sb.from('events').insert({ title: $('#et').value, detail: $('#ed').value || null, kind: $('#ek').value, ends_at: new Date($('#ee').value).toISOString(), repeat_days: +$('#er').value || null }); if (r.error) return toast(r.error.message); e.target.reset(); loadE(); };
@@ -1689,6 +1668,9 @@ async function boot() {
   S.profile = p;
   try { const av = S.user.user_metadata?.avatar_url; if (av && av !== p.avatar) sb.rpc('set_my_avatar', { url: av }); } catch (e) {}
   const viaDiscord = (S.user.identities || []).some(i => i.provider === 'discord') || S.user.app_metadata?.provider === 'discord';
+  // Seule la connexion Discord donne accès au site.
+  if (!viaDiscord) { await sb.auth.signOut(); return authView('login', 'La connexion se fait uniquement avec Discord.'); }
+  if (p.status === 'refused' && p.revoked) return pendingView({ ...p, why: 'revoked' });
   if (p.status !== 'approved' && viaDiscord) {
     // Vérification automatique et immédiate : le compte Discord doit être sur le serveur de la Brigade.
     if (!session.provider_token) { await sb.auth.signOut(); return authView('login', 'Reconnecte-toi avec Discord pour vérifier ton accès.'); }
