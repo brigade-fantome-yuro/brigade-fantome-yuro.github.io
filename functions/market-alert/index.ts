@@ -76,6 +76,10 @@ Deno.serve(async (req) => {
     const listings: { id: string; card: string; price: number; created_at: string | number }[] = (input.listings || []).filter((l: { id: unknown; card: unknown; price: unknown }) => l && l.id && l.card && Number(l.price) > 0).slice(0, 200);
     if (!listings.length) return json({ ok: true, sent: 0 });
     const { data: alerts } = await admin.from('alerts').select('user_id,card,max_price').not('max_price', 'is', null);
+    // Repère du guide des prix (ventes réelles des 7 derniers jours) : bon prix = 1er quartile arrondi au millier.
+    const q = (v: number[], f: number) => { if (!v.length) return null; const t = v.slice().sort((x, y) => x - y); const i = (t.length - 1) * f, lo = Math.floor(i), hi = Math.ceil(i); return Math.round(t[lo] + (t[hi] - t[lo]) * (i - lo)); };
+    const goodCache: Record<string, number | null> = {};
+    const good = async (card: string) => { if (card in goodCache) return goodCache[card]; const { data } = await admin.from('sales').select('price').eq('card', card).gte('sold_at', new Date(Date.now() - 7 * 864e5).toISOString()).limit(500); const v = q((data || []).map((x: { price: number }) => Number(x.price)), .25); return (goodCache[card] = v == null ? null : Math.round(v / 1000) * 1000); };
     let sent = 0, matched = 0;
     for (const l of listings) {
       const who = (alerts || []).filter((a: { card: string; max_price: number }) => norm(a.card) === norm(l.card) && Number(l.price) <= Number(a.max_price));
@@ -83,7 +87,8 @@ Deno.serve(async (req) => {
         const { error } = await admin.from('alert_sent').insert({ listing_id: String(l.id), user_id: a.user_id, card: l.card, price: Math.round(Number(l.price)) });
         if (error) continue; // déjà prévenu pour cette annonce
         matched++;
-        sent += await deliver([a.user_id], { title: 'ALERTE marché', body: `ALERTE : ${l.card} a été listé sur le marché à ${fmt(Number(l.price))} ki (ton prix : ${fmt(Number(a.max_price))} ki)`, tag: 'bf-' + l.id, url: '#alertes' });
+        const g = await good(l.card); const ref = g ? (Number(l.price) <= g ? ` · 🔥 sous le bon prix (${fmt(g)} ki)` : ` · bon prix ${fmt(g)} ki`) : '';
+        sent += await deliver([a.user_id], { title: 'ALERTE marché', body: `ALERTE : ${l.card} a été listé sur le marché à ${fmt(Number(l.price))} ki (ton prix : ${fmt(Number(a.max_price))} ki)${ref}`, tag: 'bf-' + l.id, url: '#alertes' });
       }
     }
     return json({ ok: true, matched, sent });

@@ -316,3 +316,10 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .mcard .mtag .st{color:#f5ce65}
 .cfilters select{flex:0 0 auto!important;width:auto!important;max-width:100%}
 .btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
+/* v98 : entonnoir d'accueil, prix sous les cartes, doublons LR */
+.funrow{display:grid;grid-template-columns:minmax(120px,1.4fr) 3fr 40px 52px;gap:10px;align-items:center;padding:5px 0}
+.tile i.price{position:absolute;left:4px;right:4px;bottom:20px;font-style:normal;font-size:10px;font-weight:800;background:rgba(7,6,7,.82);color:#f3e6c8;border-radius:6px;padding:1px 3px;text-align:center}
+.mstep.ldup{margin-top:4px}.mstep.ldup b{font-size:11px;white-space:nowrap}
+.lr .mstep.ldup{display:flex;justify-content:center;gap:6px;align-items:center;margin-top:6px}
+.lr .mstep.ldup button{min-width:30px;min-height:30px}
+@media (max-width:600px){.funrow{grid-template-columns:1fr 2fr 30px 44px;gap:6px}}
