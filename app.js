@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=102';
+import * as CFG from './config.js?v=103';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=102';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=102';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=103';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=103';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=102';
-import * as SCAN from './scan.js?v=102';
+import { duelRate } from './ranked.js?v=103';
+import * as SCAN from './scan.js?v=103';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='102';
+const APP_V='103';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -455,10 +455,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=102'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=103'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=102'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=103'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -588,7 +588,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=102'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=103'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -793,7 +793,10 @@ P.collection = async (m, tab = '') => {
   m.innerHTML = '<div class="empty">Chargement…</div>';
   await Promise.all([loadCollections(), loadFeats()]);
   const PSU = S.kb.prestige_series?.series || [];
-  const R = { L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true } };
+  // Communes, Rares et SR : construites depuis le catalogue (comme dans le jeu), remplies par « ✍️ Communes / Rares / SR ».
+  const catU = r => { const by = new Map(); for (const c of S.kb.card_catalog?.cards || []) { if (c[3] !== r || c[5]) continue; const s2 = c[2] || '—'; if (!by.has(s2)) by.set(s2, { s: s2, c: [] }); by.get(s2).c.push([c[1], r, c[4] || '', Number(c[0])]); } return [...by.values()].sort((a, b) => a.s.localeCompare(b.s)); };
+  const R = { C: { label: 'C', tag: 'Commune', U: catU('C'), low: true }, R: { label: 'R', tag: 'Rare', U: catU('R'), low: true }, E: { label: 'SR', tag: 'Épique', U: catU('E'), low: true }, L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true } };
+  const impFor = k => k === 'S' ? (location.hash = '#meslr') : R[k]?.low ? (location.hash = '#basses/' + k) : rarImport(k);
   await loadMyLR();
   let [rk, view, autoImp] = (tab || 'L/moi').split('/'); if (!R[rk]) rk = 'L'; if (!['moi', 'doublons', 'manquantes', 'echanges'].includes(view)) view = 'moi';
   const realColl = myColl(); let coll = realColl;
@@ -809,9 +812,9 @@ P.collection = async (m, tab = '') => {
     coll = rk === 'S' ? lrColl() : realColl;
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
-    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">📷 Importer / mettre à jour mes ${X.label}</button><button class="btn ghost" id="call2" style="min-height:40px">📦 Tout réimporter</button>` : ''}<a class="btn ghost" href="#basses/C" style="min-height:40px">✍️ Communes / Rares / SR</a></div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
+    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">${X.low ? '✍️ Mettre à jour' : '📷 Importer / mettre à jour'} mes ${X.label}</button><button class="btn ghost" id="call2" style="min-height:40px">📦 Tout réimporter</button>` : ''}<a class="btn ghost" href="#basses/C" style="min-height:40px">✍️ Communes / Rares / SR</a></div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
       <div id="chist"></div>
-      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ L: '伝', M: '神', S: '秘' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
+      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', S: '秘' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
       <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
         <div class="row" style="margin-top:12px"><button class="btn primary" id="call">📦 Tout importer d'un coup (LR + SSR + UR)</button><button class="btn ghost" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
         ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans Collection Prestige → Ma collection pour apparaître dans les échanges.</p>'}</div>
@@ -819,7 +822,7 @@ P.collection = async (m, tab = '') => {
       <div id="cbody" style="margin-top:14px"></div>`;
     m.querySelectorAll('#cr button').forEach(b => b.onclick = () => { rk = b.dataset.k; draw(); });
     m.querySelectorAll('#cv2 button').forEach(b => b.onclick = () => { view = b.dataset.v; draw(); });
-    $('#cimp').onclick = () => rk === 'S' ? (location.hash = '#meslr') : rarImport(rk); const cu = $('#cupd'); if (cu) cu.onclick = () => rk === 'S' ? (location.hash = '#meslr') : rarImport(rk); const ca = $('#call2'); if (ca) ca.onclick = () => allImport(); $('#call').onclick = () => allImport();
+    $('#cimp').onclick = () => impFor(rk); const cu = $('#cupd'); if (cu) cu.onclick = () => impFor(rk); const ca = $('#call2'); if (ca) ca.onclick = () => allImport(); $('#call').onclick = () => allImport();
     ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades })[view]($('#cbody'), X);
     drawHist();
   };
@@ -844,7 +847,7 @@ P.collection = async (m, tab = '') => {
     const total = X.U.reduce((a, u) => a + u.c.length, 0), got = X.U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0);
     if (!got) {
       el.innerHTML = `<div class="card section" style="text-align:center"><h2>Ta collection ${X.label} est vide pour l'instant</h2><p class="mute">Tu n'as rien à cocher toi-même : envoie tes captures du jeu et le site remplit tout seul tes ${X.label} possédées, tes doublons avec leur nombre (×2, ×3…) et les cartes qui te manquent.</p><button class="btn primary" id="cimp2" style="margin-top:8px">📷 Importer mes ${X.label}</button></div>`;
-      el.querySelector('#cimp2').onclick = () => rk === 'S' ? (location.hash = '#meslr') : rarImport(rk); return;
+      el.querySelector('#cimp2').onclick = () => impFor(rk); return;
     }
     const st = u => ({ n: u.c.filter(c => has(coll, u, c[0])).length, t: u.c.length });
     const full = X.U.filter(u => st(u).n === u.c.length), part = X.U.filter(u => st(u).n < u.c.length);
@@ -875,7 +878,7 @@ P.collection = async (m, tab = '') => {
     box.querySelectorAll('.mstep').forEach(bar => bar.onclick = async e => {
       const bt = e.target.closest('button'); if (!bt || bt.disabled) return;
       const u = X.U.find(x => x.s === bar.dataset.u), c = u?.c.find(x => x[0] === bar.dataset.c); if (!c) return;
-      if (c[1] === 'S') { S.mylr.dupes = S.mylr.dupes || {}; if (bt.dataset.ld != null) { const x = Math.max(0, Math.min(99, (+S.mylr.dupes[c[3]] || 0) + (+bt.dataset.ld))); if (x) S.mylr.dupes[c[3]] = x; else delete S.mylr.dupes[c[3]]; } else if (bt.dataset.x != null) { delete S.mylr.cards[c[3]]; delete S.mylr.dupes[c[3]]; } else S.mylr.cards[c[3]] = +bt.dataset.st; await saveMyLR(); after(); return; }
+      if (c[1] === 'S') { S.mylr.dupes = S.mylr.dupes || {}; if (bt.dataset.ld != null) { const x = Math.max(0, Math.min(99, (+S.mylr.dupes[c[3]] || 0) + (+bt.dataset.ld))); if (x) S.mylr.dupes[c[3]] = x; else delete S.mylr.dupes[c[3]]; } else if (bt.dataset.x != null) { delete S.mylr.cards[c[3]]; delete S.mylr.dupes[c[3]]; } else if (bt.dataset.sk != null) { const k = +bt.dataset.sk, cur = +(S.mylr.cards[c[3]] || 0); S.mylr.cards[c[3]] = cur === k ? k - 1 : k; } else S.mylr.cards[c[3]] = +bt.dataset.st; await saveMyLR(); after(); return; }
       const r = uget(realColl, u.s); let n = r.owned.has(c[0]) ? (r.dupes.has(c[0]) ? (r.qty[c[0]] || 2) : 1) : 0; n = Math.max(0, Math.min(999, n + (+bt.dataset.d)));
       if (n === 0) { r.owned.delete(c[0]); r.dupes.delete(c[0]); delete r.qty[c[0]]; } else { r.owned.add(c[0]); if (n >= 2) { r.dupes.add(c[0]); r.qty[c[0]] = n; } else { r.dupes.delete(c[0]); delete r.qty[c[0]]; } }
       bar.querySelector('b') && (bar.querySelector('b').textContent = n ? '×' + n : 'Manquante');
@@ -883,9 +886,9 @@ P.collection = async (m, tab = '') => {
     });
   }
   const mosaic = (L, empty, color) => `<div class="mosaic">${L.map(([u, c, n, own]) => { const sn = S.serial?.get(c[3]); const o = color ? own : true; const lr = c[1] === 'S'; const st = lr ? S.mylr.cards[c[3]] : null;
-    const ctl = !color ? '' : lr ? `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${own ? `<button data-x="0" title="Je ne l'ai pas">✕</button>${[0, 1, 2, 3, 4, 5].map(k => `<button data-st="${k}" class="${st === k ? 'on' : ''}">${k}★</button>`).join('')}` : '<button data-st="0" class="add">+ Je l\'ai</button>'}</div>${own ? `<div class="mstep ldup" data-u="${esc(u.s)}" data-c="${esc(c[0])}" title="Exemplaires en plus de ta carte (après les montées d'étoiles)"><button data-ld="-1" ${n > 1 ? '' : 'disabled'}>−</button><b>Doublons ${n - 1}</b><button data-ld="1">+</button></div>` : ''}`
+    const ctl = !color ? '' : lr ? `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${own ? `<span class="stars5" role="group" aria-label="Étoiles">${[1, 2, 3, 4, 5].map(k => `<button data-sk="${k}" class="${st >= k ? 'on' : ''}" aria-label="${k} étoile${k > 1 ? 's' : ''}">★</button>`).join('')}</span><button data-x="0" class="rm" title="Je ne l'ai pas" aria-label="Je ne l'ai pas">✕</button>` : '<button data-st="0" class="add">+ Je l\'ai</button>'}</div>${own ? `<div class="mstep ldup" data-u="${esc(u.s)}" data-c="${esc(c[0])}" title="Exemplaires en plus de ta carte (après les montées d'étoiles)"><button data-ld="-1" ${n > 1 ? '' : 'disabled'}>−</button><b>Doublons ${n - 1}</b><button data-ld="1">+</button></div>` : ''}`
       : `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}"><button data-d="-1" ${own ? '' : 'disabled'}>−</button><b>${own ? '×' + n : 'Manquante'}</b><button data-d="1">+</button></div>`;
-    return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] === 'Légendaire' ? 'SSR' : lr ? 'LR' : RN[c[1]] || ''}${lr && own ? ` · <span class="st">${st}★</span>${n > 1 ? ` · ×${n}` : ''}` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
+    return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${({ M: 'UR', L: 'SSR', S: 'LR', E: 'SR', R: 'R', C: 'C' })[c[1]] || RN[c[1]] || ''}${lr && own ? ` · <span class="st">${st}★</span>${n > 1 ? ` · ×${n}` : ''}` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
   function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2, true])); const extra = L.reduce((a, x) => a + x[2] - 1, 0); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>` + mosaic(L, 'Aucun doublon. Importe tes captures : les cartes à ×2 et plus y sont ajoutées avec leur nombre.', true); bindEdit(el, X, () => vDupes(el, X)); }
   function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c, 0, false])); el.innerHTML = `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade.</p>` + mosaic(L, 'Rien ne te manque 🎉', true); bindEdit(el, X, () => vMiss(el, X)); }
   function vTrades(el, X) {
@@ -1201,14 +1204,14 @@ P.meslr = async m => {
   const onb = onbMode();
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">${onb ? 'Bienvenue · étape obligatoire' : 'Indispensable'}</span><h1 style="margin-top:12px">${onb ? 'Avant d\'entrer : tes LR' : 'Mes LR'}</h1><p class="mute">${onb ? 'Pour que le site te conseille (meilleure équipe au château et en ranked, chambre max, Kakashi), indique tes LR et leurs étoiles : à la main en touchant les cartes, ou en envoyant des captures de ta collection.' : 'Indique les LR que tu possèdes et leurs étoiles. C\'est la base de « Meilleure équipe » au château et en ranked.'}</p>${onb ? '<button class="btn primary" id="obd" style="margin-top:12px">Mes LR sont importées → étape suivante</button>' : ''}</section>
     <div class="card section" id="lsum"></div><div class="lrgrid" id="lg"></div>`;
-  const sum = () => { const n = Object.keys(own).length; $('#lsum').innerHTML = `<div class="row"><b>${n} / ${LRS().length} LR possédées</b><span class="sp"></span>${onb ? '' : '<a class="btn primary" href="#equipe/chateau" style="min-height:40px">Meilleure équipe château</a><a class="btn" href="#equipe/ranked" style="min-height:40px">Meilleure équipe ranked</a>'}</div><p class="small mute" style="margin:8px 0 0">Touche une carte pour l'ajouter, puis choisis ses étoiles et, avec − / +, ses doublons (exemplaires en plus, après tes montées d'étoiles).</p>
+  const sum = () => { const n = Object.keys(own).length; $('#lsum').innerHTML = `<div class="row"><b>${n} / ${LRS().length} LR possédées</b><span class="sp"></span>${onb ? '' : '<a class="btn primary" href="#equipe/chateau" style="min-height:40px">Meilleure équipe château</a><a class="btn" href="#equipe/ranked" style="min-height:40px">Meilleure équipe ranked</a>'}</div><p class="small mute" style="margin:8px 0 0">Touche une carte pour l'ajouter, puis touche ses étoiles (retouche la dernière pour en enlever une) et, avec − / +, ses doublons (exemplaires en plus, après tes montées d'étoiles).</p>
     <div class="row" style="margin-top:10px">${scanFiles('lrscan', 'Importer depuis des captures de ma collection', async files => { const st = $('#lrst'); try { const r = await runScan(files, ['S'], true, st); lrScanDialog(r, own, async n => { if (n) S.mylr.teams = { ...(S.mylr.teams || {}), lr: true }; await saveMyLR(); draw(); sum(); toast(n + ' LR enregistrées avec leurs étoiles'); if (onb && n) location.hash = '#bienvenue'; }); } catch (e) { st.textContent = 'La lecture a échoué : ' + e.message; } })}<span class="small mute" id="lrst"></span></div>
     <p class="small mute" style="margin:6px 0 0">Dans le jeu : Collection → filtre LR → Possédées, puis une ou plusieurs captures (fais défiler pour tout montrer). Le site reconnaît chaque carte et lit ses étoiles : tu vérifies avant de valider.</p>`; };
   const draw = () => { $('#lg').innerHTML = LRS().map(c => { const st = own[c.id]; const has = st != null; const dp = +(S.mylr.dupes?.[c.id] || 0);
     return `<div class="lr ${has ? 'on' : ''}" data-id="${c.id}"><button class="lrimg" data-t="${c.id}" aria-pressed="${has}">${lrImg(c) ? `<img loading="lazy" src="${lrImg(c)}" alt="">` : ''}<span>${esc(c.n)}</span></button>
-      ${has ? `<div class="stars">${[0, 1, 2, 3, 4, 5].map(k => `<button data-s="${k}" class="${st === k ? 'on' : ''}" aria-label="${k} étoiles">${k}★</button>`).join('')}</div><div class="mstep ldup"><button data-ld="-1" ${dp ? '' : 'disabled'} aria-label="Un doublon de moins">−</button><b>Doublons ${dp}</b><button data-ld="1" aria-label="Un doublon de plus">+</button></div>` : ''}</div>`; }).join('');
+      ${has ? `<div class="stars stars5">${[1, 2, 3, 4, 5].map(k => `<button data-s="${k}" class="${st >= k ? 'on' : ''}" aria-label="${k} étoile${k > 1 ? 's' : ''}">★</button>`).join('')}</div><div class="mstep ldup"><button data-ld="-1" ${dp ? '' : 'disabled'} aria-label="Un doublon de moins">−</button><b>Doublons ${dp}</b><button data-ld="1" aria-label="Un doublon de plus">+</button></div>` : ''}</div>`; }).join('');
     $('#lg').querySelectorAll('.lrimg').forEach(b => b.onclick = async () => { const id = b.dataset.t; if (own[id] != null) { delete own[id]; if (S.mylr.dupes) delete S.mylr.dupes[id]; } else own[id] = 0; draw(); sum(); await saveMyLR(); });
-    $('#lg').querySelectorAll('.stars button').forEach(b => b.onclick = async () => { const id = b.closest('.lr').dataset.id; own[id] = +b.dataset.s; draw(); await saveMyLR(); });
+    $('#lg').querySelectorAll('.stars button').forEach(b => b.onclick = async () => { const id = b.closest('.lr').dataset.id, k = +b.dataset.s; own[id] = (+own[id] || 0) === k ? k - 1 : k; draw(); await saveMyLR(); });
     $('#lg').querySelectorAll('.ldup button').forEach(b => b.onclick = async () => { const id = b.closest('.lr').dataset.id; S.mylr.dupes = S.mylr.dupes || {}; const x = Math.max(0, Math.min(99, (+S.mylr.dupes[id] || 0) + (+b.dataset.ld))); if (x) S.mylr.dupes[id] = x; else delete S.mylr.dupes[id]; draw(); await saveMyLR(); }); };
   sum(); draw();
   const ob = $('#obd'); if (ob) ob.onclick = async () => { if (!Object.keys(own).length && !confirmBox('Aucune LR importée. Tu n\'as vraiment aucune LR ?')) return; S.mylr.teams = { ...(S.mylr.teams || {}), lr: true }; await saveMyLR(); location.hash = '#bienvenue'; };
@@ -1239,7 +1242,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=102'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=103'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();

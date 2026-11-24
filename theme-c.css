@@ -75,3 +75,8 @@ body.th-c .auth-card .moon,body.th-c .boot .moon{border-radius:42% 58% 63% 37%/4
 body.th-c .btn.discord{border-radius:2px}
 body.th-c .mstep button{border-radius:2px}body.th-c .mstep button.on{background:#fff;border-color:#fff;color:#030303}
 body.th-c .tile{border-radius:3px;border-color:#333}
+/* v103 : les fils passent dans l'espace entre les rangées, jamais sur les boutons */
+body.th-c .mosaic{row-gap:46px;padding-top:40px}
+body.th-c .mosaic>.mcell,body.th-c .mosaic>.mcard{transform-origin:50% -34px}
+body.th-c .mosaic>.mcell::before,body.th-c .mosaic>.mcard::before{top:-34px;height:32px;z-index:-1}
+body.th-c .mosaic::before{height:34px}
