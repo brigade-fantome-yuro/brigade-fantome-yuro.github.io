@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=59';
+import * as CFG from './config.js?v=60';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=59';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=59';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=60';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=60';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=59';
-import * as SCAN from './scan.js?v=59';
+import { duelRate } from './ranked.js?v=60';
+import * as SCAN from './scan.js?v=60';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='59';
+const APP_V='60';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -448,10 +448,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=59'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=60'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=59'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=60'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -540,9 +540,31 @@ P.chateausim = m => {
     if (T.includes(null)) { $('#csErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
     $('#csErr').textContent = ''; const btn = $('#csCeilB'); btn.disabled = true; $('#csCeil').innerHTML = '<p class="mute small" style="margin-top:12px">Combats simulés chambre par chambre avec le moteur du jeu (quelques secondes)…</p>';
     const r = await twCall({ kind: 'castle', team: T, catalog: castleCatalog(), n: 100 }); btn.disabled = false;
-    if ($('#csCeil')) $('#csCeil').innerHTML = `<h3 style="margin-top:16px">Ce que cette équipe peut atteindre</h3>${simBlock(r, [0, 1, 2].map(i => byName.get($('#cs' + i).value.trim().toLowerCase())), Object.fromEntries([0, 1, 2].map(i => [byName.get($('#cs' + i).value.trim().toLowerCase())?.id, +$('#css' + i).value])))}<button class="btn ghost small" id="csAtCeil" style="margin-top:6px">Jouer la chambre ${r.ceil} (plafond)</button>`;
+    if ($('#csCeil')) $('#csCeil').innerHTML = `<h3 style="margin-top:16px">Ce que cette équipe peut atteindre</h3>${simBlock(r, [0, 1, 2].map(i => byName.get($('#cs' + i).value.trim().toLowerCase())), Object.fromEntries([0, 1, 2].map(i => [byName.get($('#cs' + i).value.trim().toLowerCase())?.id, +$('#css' + i).value])))}<div class="card" style="margin-top:12px"><h3 style="margin:0">Comment dépasser la chambre max (${r.max}) jusqu'au plafond (${r.ceil})</h3>
+      <ul class="list small" style="margin-top:8px"><li><b>Jusqu'à la chambre max</b>, la boucle normale gagne au moins 1 fois sur 5 : Aya encaisse, échange ses PV avec le gardien le plus plein, le soin remonte l'équipe.</li>
+      <li><b>Au-delà</b>, les gardiens tapent assez fort pour casser la boucle s'ils visent mal pour toi. Une victoire demande que le hasard tombe bien : les coups doivent se répartir pour qu'<b>Aya ne prenne jamais plus de 2 coups avant son échange</b>, que <b>le soin passe entre deux coups</b> sur la carte basse, et qu'aucune autre carte ne tombe avant que l'échange ait vidé un gardien.</li>
+      <li><b>Ce que tu contrôles :</b> n'échange qu'après 2 coups encaissés (jamais avant), échange sur le gardien qui a le plus de PV, garde le soin pour le moment où une carte mourrait au prochain coup, et achève toujours un gardien tuable.</li>
+      <li><b>Le reste, c'est la répétition :</b> une défaite ne coûte rien. À ${Math.round((r.ceilP || .03) * 100)} % par essai à la chambre ${r.ceil}, compte en moyenne ${Math.round(1 / Math.max(.01, r.ceilP || .03))} essais.</li></ul>
+      <p class="small mute" style="margin:6px 0 0">Le mieux : regarde une vraie victoire, coup par coup.</p></div>
+      <div class="row" style="margin-top:8px"><button class="btn primary small" data-spec="${r.ceil}">👁 Voir une victoire à la chambre ${r.ceil} (plafond)</button><button class="btn ghost small" data-spec="${r.max}">👁 Voir une victoire à la chambre ${r.max} (max)</button><button class="btn ghost small" id="csAtCeil">Jouer la chambre ${r.ceil} moi-même</button></div>`;
     const a = $('#csAtCeil'); if (a) a.onclick = () => { $('#csRoom').value = r.ceil; $('#csGo').click(); };
+    $('#csCeil').querySelectorAll('[data-spec]').forEach(b => b.onclick = () => spectate(+b.dataset.spec, T));
   };
+  // Spectateur : le moteur rejoue la chambre jusqu'à une victoire, puis on la regarde (×2, flèches ‹ ›), sans pouvoir la modifier.
+  async function spectate(room, T) {
+    $('#csErr').textContent = `Recherche d'une victoire à la chambre ${room}…`;
+    const catalog = castleCatalog(); const r = await twCall({ kind: 'castleWin', room, team: T, catalog, tries: 800 });
+    if (!r.ok) { $('#csErr').textContent = `Aucune victoire trouvée en ${r.tries} essais à la chambre ${room} : cette chambre est hors de portée de cette équipe.`; return; }
+    try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
+    $('#csErr').textContent = ''; [0, 1, 2].forEach(i => { const c = byName.get($('#cs' + i).value.trim().toLowerCase()); if (c) techOf[c.n] = c.t?.[0]?.[0] || 'Technique'; });
+    $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
+    const sideS = info => { const H = info.hist; $('#csPos').textContent = `Coup ${info.idx} / ${H.length - 1}`; $('#csPrev').disabled = info.idx <= 0; $('#csNext').disabled = info.idx >= H.length - 1;
+      $('#csHist').innerHTML = H.slice(1).map((h, j) => `<li class="${j + 1 === info.idx ? 'on' : ''} ${j + 1 > info.idx ? 'fut' : ''}" data-j="${j + 1}">${esc(mvTxt(h.from, { i: h.active, a: h.action, t: h.target }))}</li>`).join('');
+      $('#csAn').innerHTML = `<div class="pl-an"><b>👁 Mode spectateur · chambre ${room}</b><p class="small">Victoire trouvée au ${r.tries}${r.tries === 1 ? 'er' : 'e'} essai (le hasard des gardiens change à chaque essai). ${r.swaps} échange${r.swaps > 1 ? 's' : ''} d'Aya, ${r.heals} soin${r.heals > 1 ? 's' : ''}, ${r.turns} tours.</p><p class="small mute">Combat joué par le moteur du jeu : tu regardes, tu ne peux pas le modifier. ‹ › pour revenir coup par coup.</p><button class="btn ghost small" id="csPlay">${info.playing ? '⏸ Pause' : '▶ Lecture'}</button></div>`;
+      const pb = $('#csPlay'); if (pb) pb.onclick = () => BFCastle.play(); };
+    BFCastle.mount(null, { frame: true, team: T, catalog, room, onChange: sideS, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
+    BFCastle.spectate(r.steps, room);
+  }
   $('#csGo').onclick = async () => {
     const team = [0, 1, 2].map(i => { const c = byName.get($('#cs' + i).value.trim().toLowerCase()); if (!c) return null; const s = stOf(c, +$('#css' + i).value); techOf[c.n] = c.t?.[0]?.[0] || 'Technique'; return { name: c.n, rarity: rar(c), image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; });
     if (team.includes(null)) { $('#csErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
@@ -550,7 +572,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=59'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=60'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -584,12 +606,12 @@ const SHARE_TXT = 'En activant le partage, les membres de la Brigade connectés 
 const RN = { S: 'LR', M: 'Mythique', L: 'SSR', E: 'Épique', R: 'Rare', C: 'Commune', T: 'Transcendante' };
 const img = h => !h ? '' : /^https?:/.test(h) ? h : `${S.kb.prestige_series?.base || 'https://yurocollection.fr/card-art/'}${h}.webp`;
 async function loadCollections() {
-  const [{ data: rows }, { data: profs }] = await Promise.all([sb.from('checklist').select('user_id,universe,owned,dupes'), sb.from('profiles').select('id,discord,share,status').eq('status', 'approved')]);
-  const C = {}; for (const r of rows || []) { const u = (C[r.user_id] = C[r.user_id] || {}); u[r.universe] = { owned: new Set(r.owned || []), dupes: new Set(r.dupes || []) }; }
+  const [{ data: rows }, { data: profs }] = await Promise.all([sb.from('checklist').select('user_id,universe,owned,dupes,qty'), sb.from('profiles').select('id,discord,share,status').eq('status', 'approved')]);
+  const C = {}; for (const r of rows || []) { const u = (C[r.user_id] = C[r.user_id] || {}); u[r.universe] = { owned: new Set(r.owned || []), dupes: new Set(r.dupes || []), qty: r.qty || {} }; }
   S.coll = C; S.members = profs || []; return C;
 }
 const myColl = () => (S.coll[S.user.id] = S.coll[S.user.id] || {});
-const uget = (coll, u) => coll[u] || (coll[u] = { owned: new Set(), dupes: new Set() });
+const uget = (coll, u) => { const r = coll[u] || (coll[u] = { owned: new Set(), dupes: new Set(), qty: {} }); if (!r.qty) r.qty = {}; return r; };
 const ownN = (coll, u) => { const r = coll[u.s]; return r ? u.c.filter(c => r.owned.has(c[0])).length : 0; };
 
 P.checklist = async (m, tab = 'moi') => {
@@ -680,7 +702,7 @@ function viewMine(el, U, PS) {
   };
   $('#q').oninput = list; $('#fl').oninput = list; sum(); list();
 }
-const tile = (c, own, dupe, extra = '') => `<button class="tile r${c[1]} ${own ? 'on' : ''}" data-c="${esc(c[0])}" title="${esc(c[0])} · ${RN[c[1]] || ''}">${c[2] ? `<img loading="lazy" decoding="async" src="${img(c[2])}" alt="">` : '<div class="noimg"></div>'}${dupe ? '<b class="dup">×2</b>' : ''}<span>${esc(c[0])}</span>${extra}</button>`;
+const tile = (c, own, dupe, extra = '') => `<button class="tile r${c[1]} ${own ? 'on' : ''}" data-c="${esc(c[0])}" title="${esc(c[0])} · ${RN[c[1]] || ''}">${c[2] ? `<img loading="lazy" decoding="async" src="${img(c[2])}" alt="">` : '<div class="noimg"></div>'}${dupe ? `<b class="dup">×${typeof dupe === 'number' && dupe > 1 ? dupe : 2}</b>` : ''}<span>${esc(c[0])}</span>${extra}</button>`;
 
 function memberStats(id, U) { const coll = S.coll[id] || {}; const done = U.filter(u => ownN(coll, u) === u.c.length).length; const got = U.reduce((a, u) => a + ownN(coll, u), 0); const du = U.reduce((a, u) => a + (coll[u.s]?.dupes.size || 0), 0); return { done, got, du }; }
 function viewMembers(el, U) {
@@ -734,8 +756,8 @@ P.collection = async (m, tab = '') => {
   const R = { L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') } };
   let [rk, view] = (tab || 'L/moi').split('/'); if (!R[rk]) rk = 'L'; if (!['moi', 'doublons', 'manquantes', 'echanges'].includes(view)) view = 'moi';
   const coll = myColl();
-  const save = async u => { const r = uget(coll, u.s), pu = PSU.find(x => x.s === u.s); return sb.from('checklist').upsert({ user_id: S.user.id, universe: u.s, done: pu ? ownN(coll, pu) === pu.c.length : false, owned: [...r.owned], dupes: [...r.dupes], missing: '' }); };
-  const has = (cl, u, n) => !!cl[u.s]?.owned.has(n), dup = (cl, u, n) => !!cl[u.s]?.dupes.has(n);
+  const save = async u => { const r = uget(coll, u.s), pu = PSU.find(x => x.s === u.s); return sb.from('checklist').upsert({ user_id: S.user.id, universe: u.s, done: pu ? ownN(coll, pu) === pu.c.length : false, owned: [...r.owned], dupes: [...r.dupes], qty: r.qty || {}, missing: '' }); };
+  const has = (cl, u, n) => !!cl[u.s]?.owned.has(n), dup = (cl, u, n) => cl[u.s]?.dupes.has(n) ? (cl[u.s].qty?.[n] || true) : false;
   const draw = () => {
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
@@ -752,18 +774,25 @@ P.collection = async (m, tab = '') => {
     ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades })[view]($('#cbody'), X);
   };
   function vMine(el, X) {
-    let mode = 'own', q = '';
+    let mode = null, q = '';
+    const total = X.U.reduce((a, u) => a + u.c.length, 0), got = X.U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0);
+    if (!got) {
+      el.innerHTML = `<div class="card section" style="text-align:center"><h2>Ta collection ${X.label} est vide pour l'instant</h2><p class="mute">Tu n'as rien à cocher toi-même : envoie tes captures du jeu et le site remplit tout seul tes ${X.label} possédées, tes doublons avec leur nombre (×2, ×3…) et les cartes qui te manquent.</p><button class="btn primary" id="cimp2" style="margin-top:8px">📷 Importer mes ${X.label}</button></div>`;
+      el.querySelector('#cimp2').onclick = () => rarImport(rk); return;
+    }
     const list = () => { const rows = X.U.map(u => ({ u, c: u.c.filter(c => !q || c[0].toLowerCase().includes(q) || u.s.toLowerCase().includes(q)) })).filter(x => x.c.length);
       el.querySelector('#cl').innerHTML = rows.map(({ u, c }) => `<div class="card" style="margin:8px 0"><div class="row"><b>${esc(u.s)}</b><span class="sp"></span><span class="small mute">${u.c.filter(x => has(coll, u, x[0])).length}/${u.c.length}</span></div><div class="tiles" style="margin-top:8px" data-u="${esc(u.s)}">${c.map(x => tile(x, has(coll, u, x[0]), dup(coll, u, x[0]))).join('')}</div></div>`).join('') || '<div class="empty">Aucune carte.</div>';
-      el.querySelectorAll('[data-u]').forEach(box => { const u = X.U.find(x => x.s === box.dataset.u); box.querySelectorAll('.tile').forEach(b => b.onclick = async () => { const r = uget(coll, u.s), n = b.dataset.c;
-        if (mode === 'own') { if (r.owned.has(n)) { r.owned.delete(n); r.dupes.delete(n); } else r.owned.add(n); } else { if (r.dupes.has(n)) r.dupes.delete(n); else { r.dupes.add(n); r.owned.add(n); } }
+      el.querySelectorAll('[data-u]').forEach(box => { const u = X.U.find(x => x.s === box.dataset.u); box.querySelectorAll('.tile').forEach(b => b.onclick = async () => { if (!mode) return; const r = uget(coll, u.s), n = b.dataset.c;
+        if (mode === 'own') { if (r.owned.has(n)) { r.owned.delete(n); r.dupes.delete(n); delete r.qty[n]; } else r.owned.add(n); } else { if (r.dupes.has(n)) { r.dupes.delete(n); delete r.qty[n]; } else { r.dupes.add(n); r.owned.add(n); } }
         await save(u); list(); }); }); };
-    el.innerHTML = `<div class="row"><div class="tabs" id="cm" style="margin:0"><button data-m="own" class="on">Je l'ai</button><button data-m="dupe">Doublon à échanger</button></div><input id="cq" placeholder="Rechercher une carte ou un univers" style="flex:1;min-width:200px"></div><p class="small mute" style="margin-top:8px">Touche une carte pour la cocher à la main (en gris : celles qui te manquent). L'import par captures fait tout ça automatiquement.</p><div id="cl"></div>`;
-    el.querySelectorAll('#cm button').forEach(b => b.onclick = () => { mode = b.dataset.m; el.querySelectorAll('#cm button').forEach(x => x.classList.toggle('on', x === b)); });
+    el.innerHTML = `<p class="small mute">Rempli automatiquement par l'import de tes captures : en couleur tes ${X.label} (×N = nombre d'exemplaires), en gris celles qui te manquent. Pour mettre à jour, refais simplement l'import.</p>
+      <input id="cq" placeholder="Rechercher une carte ou un univers" style="width:100%">
+      <details class="small" style="margin-top:8px"><summary>Une carte mal lue ? Corriger à la main</summary><div class="row" style="margin-top:8px"><div class="tabs" id="cm" style="margin:0"><button data-m="own">Je l'ai / je ne l'ai pas</button><button data-m="dupe">En double / pas en double</button></div></div><p class="mute" style="margin:6px 0 0">Choisis un mode puis touche la carte à corriger.</p></details><div id="cl"></div>`;
+    el.querySelectorAll('#cm button').forEach(b => b.onclick = () => { mode = mode === b.dataset.m ? null : b.dataset.m; el.querySelectorAll('#cm button').forEach(x => x.classList.toggle('on', x.dataset.m === mode)); });
     el.querySelector('#cq').oninput = e => { q = e.target.value.toLowerCase().trim(); list(); }; list();
   }
-  const mosaic = (L, empty) => `<div class="mosaic">${L.map(([u, c]) => `<figure class="mcard r${c[1]}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] || ''}</span><figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>`).join('') || `<div class="empty">${empty}</div>`}</div>`;
-  function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c])); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double (×2 ou plus) : ce sont tes cartes à échanger.</p>` + mosaic(L, 'Aucun doublon déclaré. Importe tes captures : les cartes à ×2 et plus y sont ajoutées.'); }
+  const mosaic = (L, empty) => `<div class="mosaic">${L.map(([u, c, n]) => `<figure class="mcard r${c[1]}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] || ''}${n > 1 ? ` · ×${n}` : ''}</span><figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>`).join('') || `<div class="empty">${empty}</div>`}</div>`;
+  function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2])); const extra = L.reduce((a, x) => a + x[2] - 1, 0); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>` + mosaic(L, 'Aucun doublon. Importe tes captures : les cartes à ×2 et plus y sont ajoutées avec leur nombre.'); }
   function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c])); el.innerHTML = `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade.</p>` + mosaic(L, 'Rien ne te manque 🎉'); }
   function vTrades(el, X) {
     const out = [];
@@ -781,7 +810,7 @@ P.collection = async (m, tab = '') => {
     const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
     d.innerHTML = `<div class="mbox"><span class="chip red">${r === 'L' ? 'Étape 1 / 2 · SSR' : 'Étape 2 / 2 · UR'}</span><h2 style="margin-top:10px">Importer tes ${X.label}</h2>
       <ol class="list"><li>Dans le jeu : <b>Collection</b> → filtre <b>${X.tag}</b> → <b>Possédées</b>.</li><li>Fais défiler et prends des captures jusqu'à voir <b>toutes</b> tes ${X.label}. Fais-les se chevaucher un peu : une carte coupée en haut ou en bas est ignorée, et une carte vue deux fois n'est comptée qu'une fois.</li><li>Note le nombre affiché par le jeu à côté du filtre (par ex. « 392 / 414 » → 392).</li></ol>
-      <label for="rn">Nombre de ${X.label} possédées affiché par le jeu</label><input id="rn" type="number" min="0" placeholder="ex. 392">
+      <label for="rn">Nombre de ${X.label} possédées affiché par le jeu (au plus ${X.U.reduce((a, u) => a + u.c.length, 0)})</label><input id="rn" type="number" min="0" max="${X.U.reduce((a, u) => a + u.c.length, 0)}" placeholder="ex. 392" oninput="if(+this.value>+this.max)this.value=this.max;if(+this.value<0)this.value=0">
       <div class="row" style="margin-top:12px">${scanFiles('rf', `Envoyer mes captures ${X.label}`, async files => { const t = d.querySelector('#rst'); try { const res = await runScan(files, [r], true, t); res.expected = +d.querySelector('#rn').value || null; summary(res); } catch (e) { t.textContent = 'La lecture a échoué : ' + e.message; } })}<button class="btn ghost" id="rx">Fermer</button></div><p class="small mute" id="rst"></p></div>`;
     d.querySelector('#rx').onclick = () => d.remove();
     function summary(res) {
@@ -798,7 +827,7 @@ P.collection = async (m, tab = '') => {
         <div class="row" style="margin-top:14px">${plan.length ? '<button class="btn primary" id="rok">Enregistrer</button>' : ''}<button class="btn ghost" id="rx">Fermer</button></div></div>`;
       d.querySelector('#rx').onclick = () => d.remove();
       const ok = d.querySelector('#rok'); if (ok) ok.onclick = async () => { ok.disabled = true; ok.textContent = 'Enregistrement…'; const touched = new Set();
-        for (const [u, c, h, du] of plan) { const rr = uget(coll, u.s); if (h) { rr.owned.add(c[0]); if (du) rr.dupes.add(c[0]); else rr.dupes.delete(c[0]); } else { rr.owned.delete(c[0]); rr.dupes.delete(c[0]); } touched.add(u); }
+        for (const [u, c, h, du, qn] of plan) { const rr = uget(coll, u.s); if (h) { rr.owned.add(c[0]); if (du) { rr.dupes.add(c[0]); rr.qty[c[0]] = qn; } else { rr.dupes.delete(c[0]); delete rr.qty[c[0]]; } } else { rr.owned.delete(c[0]); rr.dupes.delete(c[0]); delete rr.qty[c[0]]; } touched.add(u); }
         for (const u of touched) await save(u); d.remove(); toast(`${X.label} enregistrées`); if (r === 'L') { rk = 'M'; } draw(); };
     }
   }
@@ -977,7 +1006,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=59'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=60'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();

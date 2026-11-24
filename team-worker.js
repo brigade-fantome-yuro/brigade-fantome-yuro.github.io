@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=59');
+importScripts('castle-engine.js?v=60');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -38,6 +38,23 @@ function castleFight(room, team, catalog, seed) {
     return b.result === 'win';
   } finally { Math.random = RND; }
 }
+// Combat gagnant à regarder en spectateur : on rejoue la chambre avec des tirages différents jusqu'à une victoire, en gardant chaque état du combat.
+function castleWin(room, team, catalog, tries) {
+  for (let s = 0; s < tries; s++) {
+    const seed = 7 + s * 7919 + room * 104729; Math.random = seeded(seed);
+    try {
+      let b = C.towerCreateBattle(room, team.map(mk), catalog); b.players = team.map(mk); const steps = [{ b }]; let swaps = 0, heals = 0;
+      for (let g = 0; g < 500 && !b.result; g++) {
+        const m = castleMove(b); if (!m) break; let nb = null, act = null, tg = null;
+        for (const [a, t] of m.order) { try { nb = C.advance(b, a, m.i, t); act = a; tg = t; break; } catch (e) { } }
+        if (!nb) break; if (act === 'skill' && isAya(b.players[m.i])) swaps++; if (act === 'skill' && isHeal(b.players[m.i])) heals++;
+        steps.push({ b: nb, action: act, active: m.i, target: tg }); b = nb;
+      }
+      if (b.result === 'win') return { ok: true, steps, tries: s + 1, swaps, heals, turns: b.turn };
+    } finally { Math.random = RND; }
+  }
+  return { ok: false, tries };
+}
 function castleReport(team, catalog, n) {
   const cache = new Map();
   const wr = (room, k = n) => { const key = room + ':' + k; if (!cache.has(key)) { let w = 0; for (let s = 0; s < k; s++) if (castleFight(room, team, catalog, 1 + s * 7919 + room * 104729)) w++; cache.set(key, w / k); } return cache.get(key); };
@@ -62,6 +79,7 @@ function duelRate(A, B, n) { let w = 0, t = 0; for (let s = 0; s < n; s++) for (
 
 onmessage = ({ data }) => {
   const { id, kind } = data;
+  if (kind === 'castleWin') { postMessage({ id, r: castleWin(data.room, data.team, data.catalog, data.tries || 400) }); return; }
   if (kind === 'castle') { postMessage({ id, r: castleReport(data.team, data.catalog, data.n || 100) }); return; }
   if (kind === 'ranked') { const res = data.opps.map(o => ({ name: o.name, w: duelRate(data.A, o.B, data.n || 6) })); postMessage({ id, r: { avg: res.reduce((a, x) => a + x.w, 0) / Math.max(1, res.length), res } }); return; }
   if (kind === 'rankedMany') { const out = data.teams.map(A => { const res = data.opps.map(o => duelRate(A, o.B, data.n || 3)); return res.reduce((a, x) => a + x, 0) / Math.max(1, res.length); }); postMessage({ id, r: out }); }

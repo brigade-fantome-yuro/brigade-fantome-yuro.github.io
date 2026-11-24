@@ -2109,12 +2109,13 @@ function legendBolt(seed){let x=0,y=0,d='M0 0';for(let i=1;i<=6;i++){y-=9+((seed
 var LEGEND_ART='https://yurocollection.fr/assets/broly-legendaire.webp';
 
 // ---- Pilote Brigade Fantôme : branche l'écran de combat du jeu sur le moteur du jeu ----
-var __host=null,__opts=null,__hist=[],__hidx=0;
+var __host=null,__opts=null,__hist=[],__hidx=0,__spect=false,__spTimer=null,__spPlay=false;
 function renderInfinity(){
   if(!__R||!(__R===document||__R.host))return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
   var b=infinityUI.data.me.battle;if(!b)return;
   __R.getElementById('bfStage').innerHTML='<section class="combat-page infinity-page"><div class="infinity-layout is-fighting">'+infinityBattleHTML(b)+'</div></section>';
   try{positionStoryEffects();}catch(e){}try{infinityRefreshControls();}catch(e){}
+  if(__spect)__R.querySelectorAll('[data-infinity-action],[data-infinity-active],[data-infinity-target],[data-infinity-autoplay],[data-infinity-replay],[data-infinity-start]').forEach(function(x){if(x.matches('[data-infinity-action],[data-infinity-autoplay],[data-infinity-replay],[data-infinity-start]'))x.style.display='none';x.disabled=true;x.style.pointerEvents='none';});
   if(__opts&&__opts.onChange)__opts.onChange(api.info());
 }
 function infinityScheduleAuto(){clearTimeout(infinityPlayback.timer);infinityPlayback.timer=null;var b=infinityUI.data.me.battle;if(!infinityPlayback.auto||!b||infinityPlayback.animating||b.result)return;
@@ -2132,6 +2133,7 @@ function performInfinityAction(action){
 }
 function __click(e){
   var el=e.target.closest('button,[data-infinity-active],[data-infinity-target]');if(!el||el.disabled)return;var d=el.dataset;
+  if(__spect&&!el.hasAttribute('data-infinity-speed')&&!el.hasAttribute('data-combat-fullscreen')&&!el.hasAttribute('data-infinity-lobby'))return;
   if(d.infinityAction){performInfinityAction(d.infinityAction);return;}
   if(d.infinityActive!==undefined&&!el.closest('[data-infinity-target]')){var u=infinityUI.data.me.battle.players[+d.infinityActive];if(u&&u.hp>0&&!u.acted&&!infinityPlayback.animating){infinityPlayback.active=+d.infinityActive;renderInfinity();}return;}
   if(d.infinityTarget!==undefined){infinityPlayback.target=+d.infinityTarget;renderInfinity();return;}
@@ -2142,15 +2144,21 @@ function __click(e){
   if(el.hasAttribute('data-infinity-lobby')){if(__opts.onQuit)__opts.onQuit();return;}
   if(el.hasAttribute('data-combat-fullscreen')){var h=__host;(document.fullscreenElement?document.exitFullscreen():h.requestFullscreen&&h.requestFullscreen());return;}
 }
-function __stop(){clearTimeout(infinityPlayback.timer);clearTimeout(infinityPlayback.animationTimer);infinityPlayback.animating=false;storyAnimating=false;storyImpact=null;storyEntering=false;}
+function __spStep(){clearTimeout(__spTimer);if(!__spect||!__spPlay)return;if(infinityPlayback.animating){__spTimer=setTimeout(__spStep,120);return;}if(__hidx>=__hist.length-1){__spPlay=false;if(__opts&&__opts.onChange)__opts.onChange(api.info());return;}
+  __spTimer=setTimeout(function(){if(!__spect||!__spPlay||infinityPlayback.animating){__spStep();return;}var h=__hist[__hidx+1];__hidx++;infinityUI.data.me.battle=h.b;infinityPlayback.active=Math.max(0,h.active|0);infinityPlayback.target=h.target|0;infinityAnimate(h.action,h.from);renderInfinity();__spStep();},500/storySpeed);}
+function __stop(){clearTimeout(__spTimer);clearTimeout(infinityPlayback.timer);clearTimeout(infinityPlayback.animationTimer);infinityPlayback.animating=false;storyAnimating=false;storyImpact=null;storyEntering=false;}
 var api={
   mount:function(host,opts){__mode='castle';__opts=opts;if(opts.frame){__host=document.documentElement;__R=document;if(!document.__bfc){document.addEventListener('click',__click);document.__bfc=1;}return;}__host=host;var sr=host.shadowRoot||host.attachShadow({mode:'open'});
     sr.innerHTML='<link rel="stylesheet" href="'+opts.css+'"><div id="bfStage" class="bf-castle"></div>';__R=sr;sr.addEventListener('click',__click);},
-  start:function(room){__mode='castle';__stop();__opts.room=room;var cat=__opts.catalog;var team=__opts.team.map(function(u){return {key:u.name,name:u.name,image:u.image,rarity:u.rarity,maxHp:u.hp,hp:u.hp,attack:u.atk,cooldown:0};});
+  // Mode spectateur : rejoue un combat déjà simulé (états du moteur), sans pouvoir le modifier.
+  spectate:function(steps,room){__mode='castle';__stop();__spect=true;__opts.room=room;state.story.preferences.speed=2;storySpeed=2;infinityPlayback.auto=false;
+    __hist=steps.map(function(x,k){return {b:x.b,action:x.action,active:x.active,target:x.target,from:k?steps[k-1].b:null};});__hidx=0;infinityUI.data.me.battle=__hist[0].b;infinityPlayback.active=0;infinityPlayback.target=0;infinityAnimate('start',null);renderInfinity();__spPlay=true;__spTimer=setTimeout(__spStep,900);},
+  play:function(on){__spPlay=on==null?!__spPlay:!!on;if(__spPlay)__spStep();else clearTimeout(__spTimer);if(__opts&&__opts.onChange)__opts.onChange(api.info());},
+  start:function(room){__mode='castle';__stop();__spect=false;__opts.room=room;var cat=__opts.catalog;var team=__opts.team.map(function(u){return {key:u.name,name:u.name,image:u.image,rarity:u.rarity,maxHp:u.hp,hp:u.hp,attack:u.atk,cooldown:0};});
     var b=towerCreateBattle(room,team,cat);b.players=team.map(function(u){return Object.assign({},u);});
     __hist=[{b:b,from:null}];__hidx=0;infinityUI.data.me.battle=b;infinityPlayback.active=0;infinityPlayback.target=0;infinityAnimate('start',null);renderInfinity();},
-  go:function(i){if(i<0||i>=__hist.length)return;__stop();__hidx=i;infinityUI.data.me.battle=__hist[i].b;infinityPlayback.active=Math.max(0,__hist[i].b.players.findIndex(function(p){return p.hp>0&&!p.acted;}));renderInfinity();},
-  info:function(){return {hist:__hist,idx:__hidx,room:__opts&&__opts.room,battle:infinityUI.data.me.battle};},
+  go:function(i){if(i<0||i>=__hist.length)return;__stop();__spPlay=false;__hidx=i;infinityUI.data.me.battle=__hist[i].b;infinityPlayback.active=Math.max(0,__hist[i].b.players.findIndex(function(p){return p.hp>0&&!p.acted;}));renderInfinity();},
+  info:function(){return {hist:__hist,idx:__hidx,room:__opts&&__opts.room,battle:infinityUI.data.me.battle,spect:__spect,playing:__spPlay};},
   stop:__stop,
   engine:{towerCreateBattle:towerCreateBattle,advance:function(b,a,i,t){return towerAdvanceBattleCore(b,a,i,t);},canFullPower:canFullPower,canHollowPurple:canHollowPurple,canRage:canRage,combatSpentSpecial:combatSpentSpecial,atomicLocked:atomicLocked,towerRoomStats:towerRoomStats}
 };
