@@ -1,6 +1,6 @@
 // Mode « Jouer un match » : moteur de match ranked pas à pas (mêmes règles que ranked.js), IA adverse,
 // et analyse de chaque coup par simulations (on rejoue la suite du match des dizaines de fois pour chaque coup possible).
-import { KIND } from './castle.js?v=111';
+import { KIND } from './castle.js?v=112';
 
 const kindOf = id => KIND[id] || { k: 'hit', m: 1.8, cd: 3 };
 const R0 = s => { let x = s >>> 0 || 1; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; };
