@@ -34,10 +34,12 @@ Deno.serve(async (req) => {
     const ADMINS = (Deno.env.get('ADMIN_DISCORD_IDS') || '').split(',').map((x) => x.trim()).filter(Boolean);
     const patch: Record<string, unknown> = { status: 'approved', discord: name };
     if (ADMINS.includes(String(me.id))) patch.role = 'admin';
+    // Ancien compte « mot de passe » avec le même @ Discord : on lui laisse la place (le pseudo est unique),
+    // puis on récupère ses LR, sa collection et ses alertes.
+    const { data: olds } = await admin.from('profiles').select('id,role').eq('discord', name).neq('id', user.id);
+    for (const o of olds || []) await admin.from('profiles').update({ discord: name + ' (ancien ' + String(o.id).slice(0, 6) + ')' }).eq('id', o.id);
     const { error: e2 } = await admin.from('profiles').update(patch).eq('id', user.id);
     if (e2) return json({ ok: false, reason: 'db' }, 500);
-    // Ancien compte « mot de passe » avec le même @ Discord : on récupère ses LR, sa collection et ses alertes.
-    const { data: olds } = await admin.from('profiles').select('id,role').eq('discord', name).neq('id', user.id);
     for (const o of olds || []) {
       if (o.role === 'admin') await admin.from('profiles').update({ role: 'admin' }).eq('id', user.id);
       const { data: mine } = await admin.from('my_lr').select('user_id').eq('user_id', user.id).maybeSingle();
@@ -46,6 +48,7 @@ Deno.serve(async (req) => {
       if (!ck?.length) await admin.from('checklist').update({ user_id: user.id }).eq('user_id', o.id);
       const { data: al } = await admin.from('alerts').select('card').eq('user_id', user.id).limit(1);
       if (!al?.length) await admin.from('alerts').update({ user_id: user.id }).eq('user_id', o.id);
+      await admin.from('push_subs').update({ user_id: user.id }).eq('user_id', o.id);
     }
     return json({ ok: true, discord: name });
   } catch (_e) {
