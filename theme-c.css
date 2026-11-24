@@ -1,0 +1,77 @@
+/* Thème C « La toile » (24/11) : noir profond, blanc, un seul rouge. Actif partout sauf dans les simulateurs (body sans .th-c). */
+body.th-c{--bg:#030303;--bg2:#0a0a0a;--card:#0d0d0d;--card2:#161616;--line:#2a2a2a;--ink:#f2f2f2;--mute:#9a9a9a;--blood:#e3123a;--blood2:#ff3355;--bone:#ffffff;font-family:"Space Grotesk",Manrope,system-ui,sans-serif}
+body.th-c,body.th-c .shell{background:#030303}
+body.th-c h1,body.th-c h2,body.th-c h3{font-family:"Bodoni Moda","Cormorant Garamond",Georgia,serif;font-weight:900;letter-spacing:-.01em}
+body.th-c h1 em,body.th-c h2 em{font-weight:700}
+body.th-c .card .v{font-family:"Bodoni Moda",serif;font-weight:900}
+body.th-c .brand b{font-family:"Bodoni Moda",serif;font-weight:900}
+body.th-c .brand svg{color:#fff}
+/* boutons : blanc plein / contour blanc, angles nets */
+body.th-c .btn{border-radius:2px;background:#0d0d0d;border-color:#3a3a3a;font-weight:700}
+body.th-c .btn:hover{border-color:#fff}
+body.th-c .btn.primary{background:#fff;color:#030303;border-color:#fff;box-shadow:none}
+body.th-c .btn.primary:hover{background:#e6e6e6}
+body.th-c .btn.ghost{background:transparent}
+body.th-c input,body.th-c select,body.th-c textarea{border-radius:2px;background:#000;border-color:#3a3a3a}
+body.th-c .tabs{border-radius:2px;background:#000;border-color:#2a2a2a}
+body.th-c .tabs button{border-radius:0;border-bottom:2px solid transparent}
+body.th-c .tabs button.on{background:transparent;color:#fff;border-bottom-color:var(--blood)}
+body.th-c .chip{border-radius:2px;background:#000;border-color:#3a3a3a}
+body.th-c .chip.red{color:#fff;background:var(--blood);border-color:var(--blood)}
+/* menu latéral */
+body.th-c .side{background:#000;border-right-color:#1f1f1f}
+body.th-c .nav a{border-radius:0}
+body.th-c .nav a:hover{background:#0f0f0f;color:#fff}
+body.th-c .nav a.on{background:linear-gradient(90deg,rgba(255,255,255,.07),transparent);color:#fff;box-shadow:inset 2px 0 0 var(--blood)}
+body.th-c .nav .sep{color:#5c5c5c;letter-spacing:.18em;text-transform:uppercase;font-size:11px}
+/* cartes : encre, pivot 3D au survol */
+body.th-c .card{border-radius:2px;background:radial-gradient(circle at 15% 0%,#1a1a1a,#060606 70%);border-color:#2a2a2a}
+body.th-c a.card,body.th-c .grid>.card{transition:transform .55s cubic-bezier(.2,.8,.2,1),border-color .3s,box-shadow .4s}
+body.th-c a.card:hover,body.th-c .grid>.card:hover{transform:perspective(900px) rotateY(-10deg) rotateX(4deg) translateZ(14px);border-color:#fff;box-shadow:-16px 24px 50px rgba(0,0,0,.9)}
+body.th-c .card.fire{border-color:var(--blood)}
+/* bandeau d'accueil : flaque d'encre + toile qui se tisse */
+body.th-c .hero{border-radius:2px;border-color:#2a2a2a;background:#050505}
+body.th-c .hero .moon{border-radius:42% 58% 63% 37%/45% 38% 62% 55%;background:radial-gradient(circle at 32% 28%,#3a3a3a,#0c0c0c 40%,#000 72%);box-shadow:inset 18px 12px 40px rgba(255,255,255,.08);animation:thInk 14s ease-in-out infinite;opacity:1}
+body.th-c .hero::after{content:"";position:absolute;right:-60px;top:-60px;width:380px;height:380px;pointer-events:none;opacity:.5;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cg fill='none' stroke='white' stroke-width='1'%3E%3Cpath d='M200 0V400M0 200H400M60 60 340 340M340 60 60 340'/%3E%3Cpath d='M200 40 313 87 360 200 313 313 200 360 87 313 40 200 87 87Z'/%3E%3Cpath d='M200 100 271 129 300 200 271 271 200 300 129 271 100 200 129 129Z'/%3E%3Cpath d='M200 160 228 172 240 200 228 228 200 240 172 228 160 200 172 172Z'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
+@keyframes thInk{0%,100%{border-radius:42% 58% 63% 37%/45% 38% 62% 55%;transform:rotate(0) scale(1)}33%{border-radius:61% 39% 35% 65%/58% 61% 39% 42%;transform:rotate(40deg) scale(1.07)}66%{border-radius:36% 64% 52% 48%/39% 52% 48% 61%;transform:rotate(-25deg) scale(.95)}}
+/* coin de toile en fond du site */
+body.th-c #mainw{position:relative}
+body.th-c #mainw::before{content:"";position:absolute;right:0;top:0;width:260px;height:260px;pointer-events:none;opacity:.22;transform:scaleX(-1);background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cg fill='none' stroke='white' stroke-width='.8'%3E%3Cpath d='M0 0 200 200M0 0 200 70M0 0 70 200M0 0 200 0M0 0 0 200'/%3E%3Cpath d='M60 0Q48 48 0 60M120 0Q96 96 0 120M180 0Q144 144 0 180'/%3E%3C/g%3E%3C/svg%3E") no-repeat}
+/* entrée de page : la page pivote comme une page qu'on tourne */
+body.th-c #main.th-in{animation:thPage .7s cubic-bezier(.2,.8,.2,1) both;transform-origin:left center}
+@keyframes thPage{from{opacity:0;transform:perspective(1600px) rotateY(-18deg) translateZ(-120px) translateX(40px)}to{opacity:1;transform:none}}
+/* araignée qui descend au bout de son fil à chaque page */
+.th-spider{position:absolute;right:40px;top:0;width:36px;height:150px;pointer-events:none;z-index:5;animation:thDescend 1.5s cubic-bezier(.3,1.3,.5,1) both}
+.th-spider i{position:absolute;left:17px;top:-60px;width:1px;height:180px;background:linear-gradient(#fff0,#fff)}
+.th-spider svg{position:absolute;left:0;top:112px;width:36px;height:36px;animation:thLegs 1.2s ease-in-out infinite}
+@keyframes thDescend{0%{transform:translateY(-150px)}55%{transform:translateY(10px)}75%{transform:translateY(-5px)}100%{transform:translateY(0)}}
+@keyframes thLegs{50%{transform:scaleY(.86)}}
+/* collection : un brin de toile et chaque carte pendue à son fil, qui se balance */
+body.th-c .mosaic{position:relative;padding-top:34px;perspective:1400px}
+body.th-c .mosaic::before{content:"";position:absolute;left:0;right:0;top:0;height:30px;pointer-events:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 30' preserveAspectRatio='none'%3E%3Cpath d='M0 3 Q300 26 600 6 T1200 3' fill='none' stroke='white' stroke-width='1.2' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat;opacity:.85}
+body.th-c .mosaic>.mcell,body.th-c .mosaic>.mcard{transform-origin:50% -26px;animation:thSway 5s ease-in-out infinite}
+body.th-c .mosaic>*:nth-child(3n+1){animation-duration:4.4s;animation-delay:-.6s}
+body.th-c .mosaic>*:nth-child(3n+2){animation-duration:5.6s;animation-delay:-1.9s}
+body.th-c .mosaic>.mcell::before,body.th-c .mosaic>.mcard::before{content:"";display:block;position:absolute;left:50%;top:-26px;width:1px;height:26px;background:rgba(255,255,255,.75)}
+body.th-c .mosaic>.mcell{position:relative}
+body.th-c .mcard{border-radius:3px;border-color:#3a3a3a;transition:transform .5s cubic-bezier(.2,.8,.2,1),box-shadow .4s}
+body.th-c .mcard:hover{transform:perspective(800px) rotateY(-16deg) rotateX(5deg) translateZ(20px);box-shadow:-18px 26px 50px rgba(0,0,0,.9)}
+@keyframes thSway{0%,100%{transform:rotate(-1.8deg)}50%{transform:rotate(1.8deg)}}
+/* classement : fil vertical et nœuds de soie */
+body.th-c table.webrank tbody tr{position:relative;animation:thRow .6s cubic-bezier(.2,.8,.2,1) both;transform-origin:top center}
+body.th-c table.webrank tbody tr:nth-child(2){animation-delay:.1s}body.th-c table.webrank tbody tr:nth-child(3){animation-delay:.2s}body.th-c table.webrank tbody tr:nth-child(n+4){animation-delay:.3s}
+body.th-c table.webrank td:first-child{position:relative;padding-left:26px}
+body.th-c table.webrank td:first-child::before{content:"";position:absolute;left:9px;top:0;bottom:0;width:1px;background:rgba(255,255,255,.6)}
+body.th-c table.webrank td:first-child::after{content:"";position:absolute;left:5px;top:50%;width:9px;height:9px;margin-top:-4px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px #030303}
+@keyframes thRow{from{opacity:0;transform:perspective(900px) rotateX(-70deg)}to{opacity:1;transform:none}}
+body.th-c .bar{border-radius:0;height:4px;background:#1c1c1c}body.th-c .bar i{background:#fff}
+body.th-c table th{color:#9a9a9a;letter-spacing:.06em}
+body.th-c .alertbar{background:var(--blood);color:#fff}
+@media (prefers-reduced-motion:reduce){body.th-c *,.th-spider{animation:none!important;transition:none!important}}
+@media (max-width:600px){body.th-c .hero::after{width:220px;height:220px}.th-spider{right:14px}}
+body.th-c .auth{background:#030303}
+body.th-c .auth-card{border-radius:2px;background:radial-gradient(circle at 15% 0%,#1a1a1a,#050505 70%);border-color:#2a2a2a}
+body.th-c .auth-card .moon,body.th-c .boot .moon{border-radius:42% 58% 63% 37%/45% 38% 62% 55%;background:radial-gradient(circle at 32% 28%,#3a3a3a,#0c0c0c 40%,#000 72%);box-shadow:inset 18px 12px 40px rgba(255,255,255,.08);animation:thInk 14s ease-in-out infinite}
+body.th-c .btn.discord{border-radius:2px}
+body.th-c .mstep button{border-radius:2px}body.th-c .mstep button.on{background:#fff;border-color:#fff;color:#030303}
+body.th-c .tile{border-radius:3px;border-color:#333}
