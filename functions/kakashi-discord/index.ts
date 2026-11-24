@@ -117,12 +117,82 @@ async function work(i: any) {
   } catch (e) { await edit('Erreur : ' + (e as Error).message); }
 }
 
+// ---------- Inscriptions au tournoi : bouton « Entrer » + achat d'une carte à 5 000 KI mise en vente par l'organisateur ----------
+// deno-lint-ignore no-explicit-any
+async function tournoiState(admin: any) {
+  const { data: rows } = await admin.from('content').select('key,data').in('key', ['tournoi_inscriptions', 'tournoi_paid']);
+  // deno-lint-ignore no-explicit-any
+  const c: Record<string, any> = {}; for (const r of rows || []) c[r.key] = r.data;
+  const ins = c.tournoi_inscriptions || null;
+  const paid = new Map<string, number>();
+  for (const [bid, at, price] of (c.tournoi_paid?.list || [])) if (ins && at >= ins.at && Number(price) === Number(ins.price || 5000)) paid.set(String(bid), at);
+  return { ins, paid };
+}
+// deno-lint-ignore no-explicit-any
+function tournoiMsg(ins: any, n: number) {
+  const fin = ins.end ? `\n\n**Fin des inscriptions :** ${ins.end}` : '';
+  return {
+    embeds: [{
+      color: 0xc0392b,
+      title: `🕸️ ${ins.title || 'TOURNOI DE LA BRIGADE'}`,
+      description: `**Récompense :** ${ins.reward || 'la cagnotte des inscriptions, redistribuée aux meilleurs (détail sur le site, onglet Tournoi)'}\n\n**Pour entrer (les 2 sont obligatoires) :**\n1️⃣ Clique sur **🎉 Entrer dans le tournoi**\n2️⃣ Achète sur le marché YURO **une carte à ${(ins.price || 5000).toLocaleString('fr-FR')} KI** mise en vente par **${ins.org || 'l\'organisateur'}**\n\nL'achat est vérifié automatiquement (environ 1 min). Si tu cliques avant d'avoir acheté, reclique après ton achat.${fin}\n\n**Inscrits validés : ${n}**`,
+      footer: { text: 'Brigade Fantôme · tableau, règles et paris sur le site' },
+    }],
+    components: [{ type: 1, components: [
+      { type: 2, style: 1, custom_id: 'tj', label: 'Entrer dans le tournoi', emoji: { name: '🎉' } },
+      { type: 2, style: 2, custom_id: 'tp', label: `Participants (${n})`, emoji: { name: '👥' } },
+    ] }],
+    allowed_mentions: { parse: [] },
+  };
+}
+// deno-lint-ignore no-explicit-any
+async function tournoiInteraction(i: any) {
+  const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const eph = (content: string) => Response.json({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] } } });
+  const user = i.member?.user || i.user || {}; const did = String(user.id || '');
+  if (i.type === 2) { // /tournoi : réservé aux admins
+    const admins = (Deno.env.get('ADMIN_DISCORD_IDS') || '').split(',').map((x) => x.trim());
+    if (!admins.includes(did)) return eph('Commande réservée aux organisateurs.');
+    // deno-lint-ignore no-explicit-any
+    const o: Record<string, any> = {}; for (const x of (i.data.options || [])) o[x.name] = x.value;
+    const ins = { at: Date.now(), title: o.titre || 'TOURNOI DE LA BRIGADE', reward: o.recompense || '', end: o.fin || '', price: Number(o.prix || 5000), org: o.vendeur || 'OnlyWIZZOX', channel: i.channel_id };
+    await admin.from('tourn_entries').delete().neq('discord_id', '');
+    await admin.from('content').upsert({ key: 'tournoi_inscriptions', data: ins, updated_at: new Date().toISOString() });
+    return Response.json({ type: 4, data: tournoiMsg(ins, 0) });
+  }
+  const { ins, paid } = await tournoiState(admin);
+  if (!ins) return eph('Aucune inscription ouverte.');
+  const { data: ents } = await admin.from('tourn_entries').select('discord_id,username,joined_at').order('joined_at');
+  const valid = (ents || []).filter((e: { discord_id: string }) => paid.has(e.discord_id));
+  if (i.data.custom_id === 'tp') {
+    return eph(valid.length ? `**Inscrits validés (${valid.length}) :**\n${valid.map((e: { username: string }, k: number) => `${k + 1}. ${e.username}`).join('\n')}` : 'Personne n\'est encore inscrit.');
+  }
+  if (i.data.custom_id === 'tj') {
+    if (ins.closed) return eph('Les inscriptions sont fermées.');
+    const uname = String(user.global_name || user.username || '?');
+    const already = (ents || []).some((e: { discord_id: string }) => e.discord_id === did);
+    if (!already) await admin.from('tourn_entries').insert({ discord_id: did, username: uname, handle: '@' + String(user.username || '').toLowerCase() });
+    if (!paid.has(did)) return eph(`📝 Clic enregistré. Il te reste à acheter **une carte à ${(ins.price || 5000).toLocaleString('fr-FR')} KI** mise en vente par **${ins.org}** sur le marché YURO, puis à recliquer sur **Entrer** (vérification en ~1 min). Ton compte YURO doit être celui de ton Discord.`);
+    if (already && valid.some((e: { discord_id: string }) => e.discord_id === did)) return eph('✅ Tu es déjà inscrit au tournoi.');
+    const n = valid.length + (valid.some((e: { discord_id: string }) => e.discord_id === did) ? 0 : 1);
+    // met à jour le compteur du message, puis confirmation privée
+    const tok = i.token;
+    // deno-lint-ignore no-explicit-any
+    const later = async () => { await new Promise((r) => setTimeout(r, 400)); await fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${tok}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: '✅ Achat vérifié : tu es inscrit au tournoi ! Bonne chance 🕸️', flags: 64 }) }); };
+    // deno-lint-ignore no-explicit-any
+    (globalThis as any).EdgeRuntime?.waitUntil ? (globalThis as any).EdgeRuntime.waitUntil(later()) : later();
+    return Response.json({ type: 7, data: tournoiMsg(ins, n) });
+  }
+  return eph('Action inconnue.');
+}
+
 Deno.serve(async (req) => {
   const sig = req.headers.get('X-Signature-Ed25519'), ts = req.headers.get('X-Signature-Timestamp');
   const raw = await req.text();
   if (!sig || !ts || !nacl.sign.detached.verify(new TextEncoder().encode(ts + raw), hex(sig), hex(Deno.env.get('DISCORD_PUBLIC_KEY')!))) return new Response('signature invalide', { status: 401 });
   const i = JSON.parse(raw);
   if (i.type === 1) return Response.json({ type: 1 });
+  if ((i.type === 2 && i.data?.name === 'tournoi') || (i.type === 3 && ['tj', 'tp'].includes(i.data?.custom_id))) return await tournoiInteraction(i);
   if (i.type === 2 && i.data?.name === 'kakashi') {
     const eph = (content: string) => Response.json({ type: 4, data: { content, flags: 64 } });
     const GUILD = Deno.env.get('BRIGADE_GUILD_ID') || '1572049244339183616';
