@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=69');
+importScripts('castle-engine.js?v=70');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -11,8 +11,10 @@ const mk = u => ({ key: u.name, name: u.name, image: u.image || '', rarity: u.ra
 // Jeu du château : techniques dès qu'elles sont prêtes, sauf l'échange d'Aya (quand elle est basse) et le soin (quand l'équipe en a besoin).
 // Sans soigneur et au-delà du 1er seuil (Aya meurt en 2 coups) : elle échange avec le gardien le MOINS plein qui lui laisse de quoi encaisser un coup de plus, et garde les gardiens pleins pour un échange plus rentable ensuite (technique de Wingz ; testé : ×3 à ×4 de victoires sans soigneur après le seuil).
 function ayaTarget(b, p, T, gAtk, high) { if (p.maxHp > 2 * gAtk || b.players.some(u => u.hp > 0 && isHeal(u))) return high; const pc = j => b.enemies[j].hp / b.enemies[j].maxHp; const ok = T.filter(j => Math.round(pc(j) * p.maxHp) > gAtk); return ok.length ? ok.reduce((x, j) => pc(j) < pc(x) ? j : x, ok[0]) : high; }
+let ORD = 0;
 function castleMove(b) {
-  const i = b.players.findIndex(p => p.hp > 0 && !p.acted); if (i < 0) return null;
+  // Ordre de jeu : ORD=1 → Aya joue en dernier dans le tour, ORD=0 → ordre de l'équipe. Selon l'équipe et la chambre, l'un ou l'autre gagne bien plus souvent : les calculs gardent le meilleur des deux (un joueur peut choisir).
+  let i = ORD ? b.players.findIndex(p => p.hp > 0 && !p.acted && !isAya(p)) : -1; if (i < 0) i = b.players.findIndex(p => p.hp > 0 && !p.acted); if (i < 0) return null;
   const p = b.players[i], T = b.enemies.map((e, j) => j).filter(j => b.enemies[j].hp > 0 && !b.enemies[j].banished); if (!T.length) return null;
   const low = T.reduce((x, j) => b.enemies[j].hp < b.enemies[x].hp ? j : x, T[0]), high = T.reduce((x, j) => b.enemies[j].hp > b.enemies[x].hp ? j : x, T[0]);
   const ready = !(p.cooldown > 0) && !C.combatSpentSpecial(p) && !C.atomicLocked(p, p, b);
@@ -28,8 +30,8 @@ function castleMove(b) {
   order.push(['attack', low]);
   return { i, order };
 }
-function castleFight(room, team, catalog, seed) {
-  Math.random = seeded(seed);
+function castleFight(room, team, catalog, seed, ord = 0) {
+  Math.random = seeded(seed); ORD = ord;
   try {
     let b = C.towerCreateBattle(room, team.map(mk), catalog); b.players = team.map(mk);
     for (let g = 0; g < 500 && !b.result; g++) {
@@ -43,7 +45,7 @@ function castleFight(room, team, catalog, seed) {
 // Combat gagnant à regarder en spectateur : on rejoue la chambre avec des tirages différents jusqu'à une victoire, en gardant chaque état du combat.
 function castleWin(room, team, catalog, tries) {
   for (let s = 0; s < tries; s++) {
-    const seed = 7 + s * 7919 + room * 104729; Math.random = seeded(seed);
+    const seed = 7 + (s >> 1) * 7919 + room * 104729; Math.random = seeded(seed); ORD = s & 1;
     try {
       let b = C.towerCreateBattle(room, team.map(mk), catalog); b.players = team.map(mk); const steps = [{ b }]; let swaps = 0, heals = 0;
       for (let g = 0; g < 500 && !b.result; g++) {
@@ -59,7 +61,7 @@ function castleWin(room, team, catalog, tries) {
 }
 function castleReport(team, catalog, n) {
   const cache = new Map();
-  const wr = (room, k = n) => { const key = room + ':' + k; if (!cache.has(key)) { let w = 0; for (let s = 0; s < k; s++) if (castleFight(room, team, catalog, 1 + s * 7919 + room * 104729)) w++; cache.set(key, w / k); } return cache.get(key); };
+  const wr = (room, k = n) => { const key = room + ':' + k; if (!cache.has(key)) { let best = 0; for (const ord of [0, 1]) { let w = 0; for (let s = 0; s < k; s++) if (castleFight(room, team, catalog, 1 + s * 7919 + room * 104729, ord)) w++; best = Math.max(best, w / k); } cache.set(key, best); } return cache.get(key); };
   // Dernière chambre où le % de victoire reste au-dessus du seuil (recherche par dichotomie, le % baisse avec la chambre).
   const last = (th, k) => { if (wr(1, k) < th) return 0; let lo = 1, hi = 1; while (hi < 6000 && wr(hi, k) >= th) { lo = hi; hi *= 2; } hi = Math.min(hi, 6000); while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (wr(mid, k) >= th) lo = mid; else hi = mid; } return lo; };
   const sure = last(.9, n), play = last(.5, n), max = last(.2, n);
