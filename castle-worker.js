@@ -1,7 +1,7 @@
 // Analyse des coups du simulateur du château.
 // Pour chaque coup possible (carte, action, cible), on rejoue la suite de la chambre avec les mêmes tirages au sort
 // pour tous les coups (comparaison juste), puis on rejoue beaucoup plus de fois les meilleurs pour départager.
-importScripts('castle-engine.js?v=63');
+importScripts('castle-engine.js?v=64');
 const E = self.BFCastle.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -10,7 +10,7 @@ function options(b) {
   const out = [], T = alive(b);
   b.players.forEach((p, i) => {
     if (!(p.hp > 0) || p.acted) return;
-    const acts = ['attack'];
+    const acts = ['attack', 'guard'];
     if (!(p.cooldown > 0) && !E.combatSpentSpecial(p) && !E.atomicLocked(p, p, b)) acts.push('skill');
     if (E.canHollowPurple(p)) acts.push('purple'); if (E.canRage(p)) acts.push('rage'); if (E.canFullPower(p)) acts.push('ultimate');
     for (const a of acts) for (const t of T) out.push({ i, a, t });
@@ -22,9 +22,17 @@ function rollout(b) {
   for (let g = 0; g < 400 && !b.result; g++) {
     const i = b.players.findIndex(p => p.hp > 0 && !p.acted); if (i < 0) break;
     const p = b.players[i], T = alive(b); if (!T.length) break;
-    const t = T.reduce((x, j) => b.enemies[j].hp < b.enemies[x].hp ? j : x, T[0]);
-    const order = [E.canFullPower(p) && 'ultimate', E.canHollowPurple(p) && 'purple', E.canRage(p) && 'rage', !(p.cooldown > 0) && !E.combatSpentSpecial(p) && 'skill', 'attack'].filter(Boolean);
-    let nb = null; for (const a of order) { nb = tryMove(b, { i, a, t }); if (nb) break; }
+    // Même jeu que les calculs de plafond : échange d'Aya quand elle est basse (sur le gardien le plus plein), garde d'Aya si l'échange est en recharge et qu'un coup la tuerait, soin quand l'équipe en a besoin.
+    const t = T.reduce((x, j) => b.enemies[j].hp < b.enemies[x].hp ? j : x, T[0]), high = T.reduce((x, j) => b.enemies[j].hp / b.enemies[j].maxHp > b.enemies[x].hp / b.enemies[x].maxHp ? j : x, T[0]);
+    const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0), ready = !(p.cooldown > 0) && !E.combatSpentSpecial(p) && !E.atomicLocked(p, p, b);
+    const aya = /ayanokouji/i.test(p.name), heal = /seiichi|rimuru/i.test(p.name), order = [];
+    if (E.canFullPower(p)) order.push(['ultimate', t]); if (E.canHollowPurple(p)) order.push(['purple', t]); if (E.canRage(p)) order.push(['rage', t]);
+    if (ready) { if (aya) { if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', high]); }
+      else if (heal) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (al.some(u => u.hp <= gAtk && u.hp + Math.round(u.maxHp * .3) > gAtk) || miss >= tot * .3) order.push(['skill', t]); }
+      else order.push(['skill', t]); }
+    if (aya && !ready && p.hp <= gAtk) order.push(['guard', t]);
+    order.push(['attack', t]);
+    let nb = null; for (const [a, tt] of order) { nb = tryMove(b, { i, a, t: tt }); if (nb) break; }
     if (!nb) break; b = nb;
   }
   return b;
