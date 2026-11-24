@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=83';
+import * as CFG from './config.js?v=85';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=83';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=83';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=85';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=85';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=83';
-import * as SCAN from './scan.js?v=83';
+import { duelRate } from './ranked.js?v=85';
+import * as SCAN from './scan.js?v=85';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='83';
+const APP_V='85';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -448,10 +448,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=83'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=85'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=83'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=85'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -581,7 +581,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=83'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=85'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -774,16 +774,16 @@ P.collection = async (m, tab = '') => {
     coll = rk === 'S' ? lrColl() : realColl;
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
-    m.innerHTML = `<h1>Ma collection</h1><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
-      <div class="tabs" id="cr" style="max-width:420px">${Object.entries(R).map(([k, x]) => `<button data-k="${k}" class="${k === rk ? 'on' : ''}">${x.label} (${x.U.reduce((a, u) => a + u.c.length, 0)})</button>`).join('')}</div>
-      <div class="card section"><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
+    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">📷 Importer / mettre à jour mes ${X.label}</button><button class="btn ghost" id="call2" style="min-height:40px">📦 Tout réimporter</button>` : ''}</div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
+      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ L: '伝', M: '神', S: '秘' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
+      <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
         <div class="row" style="margin-top:12px"><button class="btn primary" id="call">📦 Tout importer d'un coup (LR + SSR + UR)</button><button class="btn ghost" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
         ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans Collection Prestige → Ma collection pour apparaître dans les échanges.</p>'}</div>
       <div class="tabs" id="cv2" style="max-width:640px">${[['moi', 'Ma collection'], ['doublons', 'Mes doublons'], ['manquantes', 'Manquantes'], ['echanges', 'Échanges']].map(([k, l]) => `<button data-v="${k}" class="${k === view ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="cbody" style="margin-top:14px"></div>`;
     m.querySelectorAll('#cr button').forEach(b => b.onclick = () => { rk = b.dataset.k; draw(); });
     m.querySelectorAll('#cv2 button').forEach(b => b.onclick = () => { view = b.dataset.v; draw(); });
-    $('#cimp').onclick = () => rk === 'S' ? (location.hash = '#meslr') : rarImport(rk); $('#call').onclick = () => allImport();
+    $('#cimp').onclick = () => rk === 'S' ? (location.hash = '#meslr') : rarImport(rk); const cu = $('#cupd'); if (cu) cu.onclick = () => rk === 'S' ? (location.hash = '#meslr') : rarImport(rk); const ca = $('#call2'); if (ca) ca.onclick = () => allImport(); $('#call').onclick = () => allImport();
     ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades })[view]($('#cbody'), X);
   };
   function vMine(el, X) {
@@ -832,7 +832,7 @@ P.collection = async (m, tab = '') => {
   const mosaic = (L, empty, color) => `<div class="mosaic">${L.map(([u, c, n, own]) => { const sn = S.serial?.get(c[3]); const o = color ? own : true; const lr = c[1] === 'S'; const st = lr ? S.mylr.cards[c[3]] : null;
     const ctl = !color ? '' : lr ? `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${own ? `<button data-x="0" title="Je ne l'ai pas">✕</button>${[0, 1, 2, 3, 4, 5].map(k => `<button data-st="${k}" class="${st === k ? 'on' : ''}">${k}★</button>`).join('')}` : '<button data-st="0" class="add">+ Je l\'ai</button>'}</div>`
       : `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}"><button data-d="-1" ${own ? '' : 'disabled'}>−</button><b>${own ? '×' + n : 'Manquante'}</b><button data-d="1">+</button></div>`;
-    return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] === 'Légendaire' ? 'SSR' : lr ? 'LR' : RN[c[1]] || ''}${lr && own ? ` · ${st}★` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
+    return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] === 'Légendaire' ? 'SSR' : lr ? 'LR' : RN[c[1]] || ''}${lr && own ? ` · <span class="st">${st}★</span>` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
   function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2, true])); const extra = L.reduce((a, x) => a + x[2] - 1, 0); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>` + mosaic(L, 'Aucun doublon. Importe tes captures : les cartes à ×2 et plus y sont ajoutées avec leur nombre.', true); bindEdit(el, X, () => vDupes(el, X)); }
   function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c, 0, false])); el.innerHTML = `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade.</p>` + mosaic(L, 'Rien ne te manque 🎉', true); bindEdit(el, X, () => vMiss(el, X)); }
   function vTrades(el, X) {
@@ -1118,7 +1118,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=83'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=85'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
