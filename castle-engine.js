@@ -2206,7 +2206,7 @@ infinityResultHTML=function(b){if(__mode!=='duel')return __cResult(b);var D=__D,
   return '<section class="story-end-screen '+(won?'won':'lost')+'"><div class="story-end-panel"><div class="story-result-trophy">'+storyResultEmblem(won)+'</div><h2 id="storyResultTitle" tabindex="-1">'+(draw?'ÉGALITÉ':won?'VICTOIRE':'DÉFAITE')+'</h2><p>'+escapeHTML(n[0])+' contre '+escapeHTML(n[1])+' · '+(D.b.turn)+' tours.</p><p>Simulation : aucun Elo n’est en jeu.</p><div class="story-end-actions"><button class="btn primary" data-infinity-replay>Rejouer le match</button><button class="btn ghost" data-infinity-lobby>Changer les équipes</button></div></div></section>';};
 function duelView(){var D=__D,anim=infinityPlayback.animating&&D.animB,side=anim?D.animSide:(D.winner!=null?0:D.s);var pb=anim?D.animB:duelPersp(D.b,side);pb=Object.assign({},pb);
   pb.room=1;pb.result=D.winner==null||anim&&!D.animB.result?null:(D.winner===side?'win':'loss');return {pb:pb,side:side,anim:!!anim};}
-renderInfinity=function(){if(__mode!=='duel')return __cRender();if(!__R||!__R.host||!__D)return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
+renderInfinity=function(){if(__mode!=='duel'){__cRender();__animToggle();return;}if(!__R||!__R.host||!__D)return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
   var D=__D,v=duelView(),pb=v.pb,n=__opts.names||['Toi','Adversaire'];infinityUI.data.me.battle=pb;
   if(!v.anim&&!duelReady(pb.players[infinityPlayback.active])){var k=pb.players.findIndex(duelReady);infinityPlayback.active=k<0?0:k;}
   if(!pb.enemies[infinityPlayback.target]||pb.enemies[infinityPlayback.target].hp<=0){var t=pb.enemies.findIndex(function(u){return u.hp>0;});infinityPlayback.target=t<0?0:t;}
@@ -2219,7 +2219,7 @@ renderInfinity=function(){if(__mode!=='duel')return __cRender();if(!__R||!__R.ho
   var ai=!v.anim&&D.winner==null&&__opts.ai&&__opts.ai[D.s];var me=pb.players[infinityPlayback.active];
   __R.querySelectorAll('[data-infinity-active]').forEach(function(b){var u=pb.players[+b.dataset.infinityActive];if(ai||!duelReady(u))b.disabled=true;});
   __R.querySelectorAll('[data-infinity-action]').forEach(function(b){var a=b.dataset.infinityAction;if(a==='replay'||a==='start')return;if(ai||v.anim||(me&&me.frozen>0&&a!=='skill'))b.disabled=true;});
-  if(__opts.onChange)__opts.onChange(duelApi.info());};
+  __animToggle();if(__opts.onChange)__opts.onChange(duelApi.info());};
 infinityScheduleAuto=function(){if(__mode!=='duel')return __cAuto();clearTimeout(infinityPlayback.timer);infinityPlayback.timer=null;var D=__D;if(!D||D.winner!=null||infinityPlayback.animating||__di!==__dh.length-1)return;
   var ai=__opts.ai&&__opts.ai[D.s];if(!ai&&!infinityPlayback.auto)return;
   infinityPlayback.timer=setTimeout(function(){infinityPlayback.timer=null;if(infinityPlayback.animating||__D!==D)return;var m=duelPolicy(D);if(!m)return;infinityPlayback.active=m.i;infinityPlayback.target=m.t;for(const a of m.order){if(duelPerform(a,true))return;}},(ai?900:400)/storySpeed);};
@@ -2243,6 +2243,15 @@ var duelApi={
   engine:{start:duelStart,step:duelStep,options:duelOptions,policy:duelPolicy,policyStep:duelPolicyStep,persp:duelPersp,ready:duelReady}
 };
 (typeof window!=="undefined"?window:self).BFDuel=duelApi;
+
+// Case à cocher « Animations des techniques » : quand elle est décochée, les techniques s'appliquent sans leur cinématique.
+var __noSkillAnim=false;try{__noSkillAnim=typeof localStorage!=='undefined'&&localStorage.getItem('bf-noSkillAnim')==='1';}catch(e){}
+var __cAnimate=infinityAnimate,__cReduced=reducedMotion;
+infinityAnimate=function(action,previous){var off=__noSkillAnim&&action&&['attack','start','replay','guard'].indexOf(action)<0;if(!off)return __cAnimate(action,previous);reducedMotion=function(){return true;};try{return __cAnimate(action,previous);}finally{reducedMotion=__cReduced;}};
+function __animToggle(){if(!__R||!__R.querySelector)return;var host=__R.querySelector('.story-playback')||__R.querySelector('.story-actions');if(!host||__R.getElementById('bfAnimTg'))return;
+  var l=document.createElement('label');l.id='bfAnimTg';l.style.cssText='display:flex;align-items:center;gap:8px;margin-top:10px;font:600 12px/1.2 Outfit,system-ui,sans-serif;letter-spacing:.04em;color:#e9e3ff;cursor:pointer;user-select:none;justify-content:center';
+  l.innerHTML='<input type="checkbox" style="width:16px;height:16px;accent-color:#b297f5;cursor:pointer"'+(__noSkillAnim?'':' checked')+'><span>Animations des techniques</span>';
+  l.querySelector('input').addEventListener('change',function(e){__noSkillAnim=!e.target.checked;try{localStorage.setItem('bf-noSkillAnim',__noSkillAnim?'1':'0');}catch(_){}});host.appendChild(l);}
 
 /*__DUEL_END*/
 })();
