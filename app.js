@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=41';
+import * as CFG from './config.js?v=42';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=41';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=41';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=42';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=42';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=41';
-import * as SCAN from './scan.js?v=41';
+import { duelRate } from './ranked.js?v=42';
+import * as SCAN from './scan.js?v=42';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -42,14 +42,14 @@ const ROUTES = [
   ['sep', 'Salle du temps'], ['guide/temps', 'Guide et calculateur', 'calc'],
   ['sep', 'Collection et Prestige'], ['collection', 'Collection SSR et UR', 'check'], ['checklist', 'Collection Prestige', 'check'], ['guide/prestige', 'Guide Prestige', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'],
   ['sep', 'Cartes'], ['persos', 'Fiches perso', 'users'],
-  ['sep', 'Marché'], ['prix', 'Prix marché', 'chart'], ['alertes', 'Alertes prix', 'bell'],
+  ['sep', 'Marché'], ['prix', 'Prix marché', 'chart'], ['alertes', 'Alertes marché', 'bell'],
   ['sep', 'Tournoi'], ['tournoi', 'Tournoi de clans', 'layers'],
   ['sep', 'Guilde'], ['guilde', 'Profils de la guilde', 'users'], ['discord', 'Espace Discord', 'chat'],
   ['sep', 'Brigade'], ['calendrier', 'Calendrier', 'cal'], ['nouveautes', 'Nouveautés', 'bell'], ['lexique', 'Lexique', 'text']
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='41';
+const APP_V='42';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -364,7 +364,7 @@ P.simulateur = m => {
   <div id="plGame" style="display:none"><div class="cs-wrap"><div class="cs-stage" id="plHost"></div><aside class="card cs-side"><div class="pl-nav"><button class="btn" id="plPrev" aria-label="Coup précédent">‹</button><span class="small mute" id="plPos">Coup 0</span><button class="btn" id="plNext" aria-label="Coup suivant">›</button></div><div id="plAn"></div><ol class="pl-hist" id="plHist"></ol><div class="row section"><button class="btn ghost" id="plNew">Changer les équipes</button></div></aside></div></div>
   <p class="small mute section">Comment le coach juge : pour chaque coup possible (quelle carte, quelle action, quelle cible), il rejoue la suite du match des dizaines de fois avec le moteur du jeu et compare les chances de victoire. Les mêmes tirages au sort servent pour tous les coups, et les meilleurs sont rejoués 6 fois plus pour les départager. Un coup reste « bon » tant qu'il n'y avait pas nettement mieux : moins de 8 points d'écart (ou dans la marge des tirages) = bon coup, 8 à 20 = imprécision, plus de 20 = vraie erreur. Les coups de l'ordinateur ne sont pas notés.</p>`;
   if (!document.getElementById('csFonts')) { const l = document.createElement('link'); l.id = 'csFonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Condensed:wght@400;500;600;700&family=Caprasimo&family=Dela+Gothic+One&family=JetBrains+Mono:wght@500;600&family=Archivo:wdth,wght@125,900&family=Saira+Condensed:wght@500;600;700;800;900&family=Kanit:ital,wght@0,700;1,600;1,800;1,900&family=Chakra+Petch:wght@500;600;700&display=swap'; document.head.appendChild(l); }
-  const loadEngine = () => window.BFDuel ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=41'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+  const loadEngine = () => window.BFDuel ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=42'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
   let worker = null, techOf = {}, AN = new Map(), seq = 0, N = 24, names = ['Toi', 'Adversaire'], ai = [false, true];
   const pc = v => Math.round(v * 100) + ' %';
   const fmt = v => Math.round(v).toLocaleString('fr-FR');
@@ -426,10 +426,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=41'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=42'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    BFDuel.mount($('#plHost'), { css: 'castle-battle.css?v=41', A, B, names, ai, onChange, onQuit: quit });
+    BFDuel.mount($('#plHost'), { css: 'castle-battle.css?v=42', A, B, names, ai, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
   };
   $('#plPrev').onclick = () => BFDuel.go(BFDuel.info().idx - 1);
@@ -458,7 +458,7 @@ P.chateausim = m => {
   <div id="csGame" style="display:none"><div class="cs-wrap"><div class="cs-stage" id="csHost"></div><aside class="card cs-side"><div class="pl-nav"><button class="btn" id="csPrev" aria-label="Coup précédent">‹</button><span class="small mute" id="csPos">Coup 0</span><button class="btn" id="csNext" aria-label="Coup suivant">›</button></div><div id="csAn"></div><ol class="pl-hist" id="csHist"></ol><div class="row section"><button class="btn ghost" id="csNew">Changer d'équipe</button></div></aside></div></div>
   <p class="small mute section">Comment l'IA juge : pour chaque coup possible (quelle carte, quelle action, quelle cible), elle rejoue la suite de la chambre des dizaines de fois (les gardiens visent au hasard, comme dans le jeu) et compare tes chances de victoire. Les mêmes tirages au sort servent pour tous les coups, et les meilleurs sont rejoués 6 fois plus pour les départager. Le coach donne alors un seul meilleur coup et explique pourquoi. Un coup reste « bon » tant qu'il n'y avait pas nettement mieux : moins de 8 points d'écart (ou dans la marge des tirages) = bon coup, 8 à 20 = imprécision, plus de 20 = vraie erreur.</p>`;
   if (!document.getElementById('csFonts')) { const l = document.createElement('link'); l.id = 'csFonts'; l.rel = 'stylesheet'; l.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Condensed:wght@400;500;600;700&family=Caprasimo&family=Dela+Gothic+One&family=JetBrains+Mono:wght@500;600&family=Archivo:wdth,wght@125,900&family=Saira+Condensed:wght@500;600;700;800;900&family=Kanit:ital,wght@0,700;1,600;1,800;1,900&family=Chakra+Petch:wght@500;600;700&display=swap'; document.head.appendChild(l); }
-  const loadEngine = () => window.BFCastle ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=41'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
+  const loadEngine = () => window.BFCastle ? Promise.resolve() : new Promise((ok, ko) => { const sc = document.createElement('script'); sc.src = 'castle-engine.js?v=42'; sc.onload = ok; sc.onerror = ko; document.head.appendChild(sc); });
   let worker = null, techOf = {}, AN = new Map(), seq = 0, N = 32;
   const pc = v => Math.round(v * 100) + ' %';
   const actName = (name, a) => a === 'attack' ? 'Attaque' : a === 'purple' ? 'HOLLOW PURPLE' : a === 'rage' ? 'RAGE' : a === 'ultimate' ? 'FULL POWER' : (techOf[name] || 'Technique');
@@ -516,10 +516,10 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=41'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=42'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
-    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=41', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
+    BFCastle.mount($('#csHost'), { css: 'castle-battle.css?v=42', team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
     AN = new Map(); BFCastle.start(room);
   };
   $('#csPrev').onclick = () => BFCastle.go(BFCastle.info().idx - 1);
@@ -771,45 +771,60 @@ P.collection = async (m, tab = '') => {
   draw();
 };
 
-/* ---------- Alertes prix ---------- */
+/* ---------- Alertes marché : notification dès qu'une carte est mise en vente à ton prix ou moins ---------- */
+const VAPID_PUBLIC = 'BAro-7SSHwAMamNqEF6atBsW5IEsJR5L_64Mg0yvxWlVFCb5J4lPuRzKfW7KhoOHuswxKImQZt7-inCXV_tPnZ8';
 async function loadWatch() { const { data } = await sb.from('content').select('data').eq('key', 'market_watch').maybeSingle(); S.watch = data?.data || { cards: {} }; return S.watch; }
-async function loadAlerts() { const { data } = await sb.from('alerts').select('*'); S.alerts = data || []; return S.alerts; }
-const alertLimit = a => a.max_price || S.prices.find(p => p.card === a.card)?.good || null;
-function firedAlerts() { const W = S.watch?.cards || {}; return (S.alerts || []).filter(a => { const w = W[a.card], lim = alertLimit(a); return w && w.min != null && lim && w.min <= lim; }).map(a => ({ ...a, now: W[a.card].min, lim: alertLimit(a) })); }
+async function loadAlerts() { const { data } = await sb.from('alerts').select('*').eq('user_id', S.user.id); S.alerts = data || []; return S.alerts; }
+function firedAlerts() { const W = S.watch?.cards || {}; return (S.alerts || []).filter(a => { const w = W[a.card]; return a.max_price && w && w.min != null && w.min <= a.max_price; }).map(a => ({ ...a, now: W[a.card].min, lim: a.max_price })); }
+const pushOk = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+async function pushSub(create) {
+  if (!pushOk()) return null;
+  const reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub && create) { const k = Uint8Array.from(atob(VAPID_PUBLIC.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - VAPID_PUBLIC.length % 4) % 4)), c => c.charCodeAt(0)); sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: k }); }
+  if (sub) { const j = sub.toJSON(); await sb.from('push_subs').upsert({ endpoint: j.endpoint, user_id: S.user.id, p256dh: j.keys.p256dh, auth: j.keys.auth, ua: navigator.userAgent.slice(0, 200) }); }
+  return sub;
+}
 
 P.alertes = async m => {
   await Promise.all([loadWatch(), loadAlerts()]);
   const lr = S.kb.cards.filter(c => !c.r).map(c => c.n).sort((a, b) => a.localeCompare(b));
-  m.innerHTML = `<h1>Alertes prix</h1><p class="mute">Choisis les LR que tu veux acheter. Dès qu'une annonce passe sous ton prix (par défaut le « bon prix » du guide), elle s'allume ici et sur l'accueil. Les annonces du marché sont relevées toutes les 5 minutes.</p>
-    <div class="card section"><h2>Nouvelle alerte</h2><div class="row"><div style="flex:2;min-width:200px"><label for="ac">Carte</label><select id="ac">${lr.map(n => `<option>${esc(n)}</option>`).join('')}</select></div><div style="flex:1.4;min-width:220px"><label>Prix d'alerte</label><div class="tabs" id="am" style="margin:0 0 8px"><button data-m="good" class="on">Bon prix du guide</button><button data-m="man">Mon prix</button></div><input id="ap" type="number" min="1" placeholder="Ton prix max en KI" style="display:none"></div><div style="align-self:flex-end"><button class="btn primary" id="aa">Ajouter</button></div></div><p class="small mute" id="ah"></p>
-    <div class="row" style="margin-top:6px"><button class="btn ghost" id="an" style="min-height:36px">${ico('bell')} Notifications de ce navigateur</button><span class="small mute" id="ans"></span></div></div>
-    <div id="al"></div><div class="section"><h2>Moins chères en vente en ce moment</h2><p class="small mute" id="wat"></p><div class="tablewrap"><table><thead><tr><th>Carte</th><th class="n">En vente</th><th class="n">Moins chère</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="wt"></tbody></table></div></div>`;
-  const hint = () => { const p = S.prices.find(x => x.card === $('#ac').value); $('#ah').textContent = p ? `Bon prix ${fmt(p.good)} KI · prix médian ${fmt(p.median)} KI · max conseillé ${fmt(p.max)} KI (ventes des 7 derniers jours)` : 'Pas assez de ventes récentes pour un bon prix : indique ton prix max.'; };
+  m.innerHTML = `<h1>Alertes marché</h1><p class="mute">Choisis une LR et ton prix max. Dès qu'une annonce de cette carte est mise en vente à ton prix <b>ou moins</b>, tu reçois une notification sur ton téléphone ou ton ordinateur, même site fermé : « ALERTE : Carte a été listé sur le marché à X ki ». La notification part 3 minutes après la mise en vente.</p>
+    <div class="card section"><h2>Notifications</h2><div class="row"><button class="btn primary" id="an">${ico('bell')} Activer les notifications sur cet appareil</button><button class="btn ghost" id="at" style="display:none">Envoyer une notification de test</button></div><p class="small mute" id="ans" style="margin-top:8px"></p></div>
+    <div class="card section"><h2>Nouvelle alerte</h2><div class="row"><div style="flex:2;min-width:200px"><label for="ac">Carte</label><select id="ac">${lr.map(n => `<option>${esc(n)}</option>`).join('')}</select></div><div style="flex:1;min-width:160px"><label for="ap">Ton prix max (KI)</label><input id="ap" type="number" min="1" placeholder="ex. 60000"></div><div style="align-self:flex-end"><button class="btn primary" id="aa">Ajouter</button></div></div><p class="small mute" id="ah"></p></div>
+    <div id="al"></div><div class="section"><h2>Moins chères en vente</h2><p class="small mute" id="wat"></p><div class="tablewrap"><table><thead><tr><th>Carte</th><th class="n">En vente</th><th class="n">Moins chère</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="wt"></tbody></table></div></div>`;
+  const hint = () => { const p = S.prices.find(x => x.card === $('#ac').value); $('#ah').textContent = p ? `Repère : bon prix ${fmt(p.good)} KI · prix médian ${fmt(p.median)} KI (ventes des 7 derniers jours)` : ''; };
   const draw = () => { const W = S.watch.cards || {}, fired = new Set(firedAlerts().map(a => a.card));
-    $('#al').innerHTML = S.alerts.length ? `<div class="grid">${S.alerts.map(a => { const w = W[a.card], lim = alertLimit(a), on = fired.has(a.card);
-      return `<div class="card ${on ? 'fire' : ''}"><div class="row"><span class="chip ${on ? 'ok' : ''}">${on ? '🔔 Sous ton prix' : 'En veille'}</span><span class="sp"></span><button class="btn ghost" data-d="${esc(a.card)}" style="min-height:32px;padding:0 10px" aria-label="Supprimer">✕</button></div><h3 style="margin-top:10px">${esc(a.card)}</h3>
-      <div class="row small"><span>Ton prix : <b>${lim ? fmt(lim) + ' KI' : '—'}</b>${a.max_price ? '' : ' <span class="mute">(bon prix)</span>'}</span><span class="sp"></span><span>${w ? `Moins chère : <b class="${on ? 'up' : ''}">${fmt(w.min)} KI</b>` : '<span class="mute">Aucune en vente</span>'}</span></div></div>`; }).join('')}</div>` : '<div class="empty">Aucune alerte pour l\'instant.</div>';
+    $('#al').innerHTML = S.alerts.length ? `<div class="grid">${S.alerts.map(a => { const w = W[a.card], on = fired.has(a.card);
+      return `<div class="card ${on ? 'fire' : ''}"><div class="row"><span class="chip ${on ? 'ok' : ''}">${!a.max_price ? 'Prix à indiquer' : on ? '🔔 En vente à ton prix' : 'En veille'}</span><span class="sp"></span><button class="btn ghost" data-d="${esc(a.card)}" style="min-height:32px;padding:0 10px" aria-label="Supprimer">✕</button></div><h3 style="margin-top:10px">${esc(a.card)}</h3>
+      <div class="row small"><span>Ton prix : <b>${a.max_price ? fmt(a.max_price) + ' KI' : '—'}</b></span><span class="sp"></span><span>${w ? `Moins chère : <b class="${on ? 'up' : ''}">${fmt(w.min)} KI</b>` : '<span class="mute">Aucune en vente</span>'}</span></div>${a.max_price ? '' : '<p class="small red">Cette ancienne alerte suivait le prix moyen : ajoute-la de nouveau avec ton prix max pour être prévenu.</p>'}</div>`; }).join('')}</div>` : '<div class="empty">Aucune alerte pour l\'instant.</div>';
     $('#al').querySelectorAll('[data-d]').forEach(b => b.onclick = async () => { await sb.from('alerts').delete().eq('user_id', S.user.id).eq('card', b.dataset.d); await loadAlerts(); draw(); });
     const rows = Object.entries(W).map(([n, w]) => { const p = S.prices.find(x => x.card === n); return { ...w, card: n, good: p?.good, gap: p?.good ? (w.min - p.good) / p.good * 100 : null }; }).sort((a, b) => (a.gap ?? 999) - (b.gap ?? 999));
     $('#wt').innerHTML = rows.map(r => `<tr><td><b>${esc(r.card)}</b></td><td class="n">${r.n}</td><td class="n">${fmt(r.min)}</td><td class="n">${fmt(r.good)}</td><td class="n ${r.gap != null && r.gap <= 0 ? 'up' : ''}">${r.gap == null ? '—' : (r.gap > 0 ? '+' : '') + r.gap.toFixed(0) + ' %'}</td></tr>`).join('') || '<tr><td colspan="5" class="mute">Aucune LR en vente.</td></tr>';
-    $('#wat').textContent = S.watch.at ? `Relevé ${new Date(S.watch.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : ''; };
+    $('#wat').textContent = S.watch.at ? `Relevé ${new Date(S.watch.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} (annonces de plus de 3 minutes)` : ''; };
   $('#ac').oninput = hint; hint();
-  let amode = 'good'; $('#am').querySelectorAll('button').forEach(b => b.onclick = () => { amode = b.dataset.m; $('#am').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); $('#ap').style.display = amode === 'man' ? '' : 'none'; if (amode === 'man') $('#ap').focus(); });
-  $('#aa').onclick = async () => { const card = $('#ac').value, v = amode === 'man' ? (+$('#ap').value || null) : null; if (amode === 'man' && !v) return toast('Indique ton prix max'); if (amode === 'good' && !S.prices.find(x => x.card === card)?.good) return toast('Pas encore de bon prix pour cette carte : choisis « Mon prix »'); const { error } = await sb.from('alerts').upsert({ user_id: S.user.id, card, max_price: v }); if (error) return toast(error.message); toast('Alerte ajoutée'); $('#ap').value = ''; await loadAlerts(); draw(); };
-  const ns = () => { $('#ans').textContent = !('Notification' in window) ? 'Non disponible sur ce navigateur.' : Notification.permission === 'granted' ? 'Activées : tu es prévenu tant que le site est ouvert.' : Notification.permission === 'denied' ? 'Bloquées dans les réglages du navigateur.' : ''; };
-  $('#an').onclick = async () => { if ('Notification' in window) { await Notification.requestPermission(); ns(); } }; ns();
-  draw();
+  $('#aa').onclick = async () => { const card = $('#ac').value, v = Math.round(+$('#ap').value) || null; if (!v) return toast('Indique ton prix max'); const { error } = await sb.from('alerts').upsert({ user_id: S.user.id, card, max_price: v }); if (error) return toast(error.message); toast('Alerte ajoutée'); $('#ap').value = ''; await loadAlerts(); draw(); };
+  const ns = async () => { const t = $('#ans'), on = $('#an'), test = $('#at');
+    if (isIOS() && !standalone()) { t.innerHTML = 'Sur iPhone : touche <b>Partager</b> puis <b>Sur l\'écran d\'accueil</b>, ouvre le site depuis cette icône, puis reviens ici pour activer les notifications (obligatoire pour Apple, iOS 16.4 ou plus).'; on.disabled = true; return; }
+    if (!pushOk()) { t.textContent = 'Ce navigateur ne sait pas recevoir de notifications. Essaie Chrome, Edge, Firefox ou Safari récent.'; on.disabled = true; return; }
+    if (Notification.permission === 'denied') { t.textContent = 'Les notifications sont bloquées pour ce site dans les réglages du navigateur : autorise-les puis recharge la page.'; return; }
+    let sub = null; if (Notification.permission === 'granted') { try { sub = await pushSub(false); } catch {} }
+    on.style.display = sub ? 'none' : ''; test.style.display = sub ? '' : 'none';
+    t.textContent = sub ? '✓ Activées sur cet appareil. Fais pareil sur chaque appareil où tu veux être prévenu.' : 'Pas encore activées sur cet appareil.'; };
+  $('#an').onclick = async () => { try { if (await Notification.requestPermission() !== 'granted') return ns(); await pushSub(true); toast('Notifications activées'); } catch (e) { toast('Impossible d\'activer : ' + e.message); } ns(); };
+  $('#at').onclick = async () => { const { data, error } = await sb.functions.invoke('market-alert', { body: { test: true } }); toast(error ? 'Échec du test : ' + error.message : data?.sent ? 'Notification envoyée' : 'Aucun appareil abonné : réactive les notifications'); };
+  ns(); draw();
   S.timers.push(setInterval(async () => { if (!$('#al')) return; await loadWatch(); draw(); }, 60000));
 };
 
-// Surveillance en arrière-plan : bandeau + notification du navigateur quand une alerte s'allume.
+// Bandeau en haut du site quand une de tes alertes a une annonce en vente à ton prix (les notifications passent par le service worker).
 async function alertLoop() {
   try { await Promise.all([loadWatch(), loadAlerts()]); } catch { return; }
-  const fired = firedAlerts(); let seen = {}; try { seen = JSON.parse(localStorage.getItem('bf-alert-seen') || '{}'); } catch {}
-  for (const a of fired) { const k = a.card + ':' + a.now; if (seen[k]) continue; seen[k] = Date.now();
-    if ('Notification' in window && Notification.permission === 'granted') { try { new Notification('Brigade Fantôme · alerte prix', { body: `${a.card} à ${fmt(a.now)} KI (ton prix ${fmt(a.lim)} KI)` }); } catch {} } }
-  try { localStorage.setItem('bf-alert-seen', JSON.stringify(seen)); } catch {}
+  const fired = firedAlerts();
   const el = $('#alertbar'); if (el) el.innerHTML = fired.length ? `<a class="alertbar" href="#alertes">🔔 ${fired.map(a => `<b>${esc(a.card)}</b> ${fmt(a.now)} KI`).join(' · ')}</a>` : '';
+  if (pushOk() && Notification.permission === 'granted') pushSub(false).catch(() => {});
 }
 
 
