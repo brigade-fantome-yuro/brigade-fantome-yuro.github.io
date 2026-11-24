@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=85';
+import * as CFG from './config.js?v=86';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=85';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=85';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=86';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=86';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=85';
-import * as SCAN from './scan.js?v=85';
+import { duelRate } from './ranked.js?v=86';
+import * as SCAN from './scan.js?v=86';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='85';
+const APP_V='86';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -448,10 +448,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=85'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=86'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=85'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=86'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -581,7 +581,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=85'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=86'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -859,7 +859,7 @@ P.collection = async (m, tab = '') => {
       const got = new Map(res.cards.map(c => [keyOf(c.name, c.series), c]));
       const complete = res.expected ? Math.abs(res.cards.length - res.expected) <= Math.max(1, res.expected * .01) : false;
       const plan = []; let own = 0, dupN = 0, miss = 0;
-      for (const u of X.U) for (const c of u.c) { const g = got.get(keyOf(c[0], u.s)); if (g) { plan.push([u, c, true, g.qty >= 2, g.qty]); own++; if (g.qty >= 2) dupN++; } else if (complete) { plan.push([u, c, false, false, 0]); miss++; } }
+      for (const u of X.U) for (const c of u.c) { const g = got.get(keyOf(c[0], u.s)); if (g) { plan.push([u, c, true, g.qty >= 2, g.qty, g]); own++; if (g.qty >= 2) dupN++; } else if (complete) { plan.push([u, c, false, false, 0]); miss++; } }
       const dl = plan.filter(p => p[3]).sort((a, b) => b[4] - a[4]);
       d.innerHTML = `<div class="mbox"><h2>${X.label} : résultat de l'import</h2>
         <p>${res.cards.length} ${X.label} reconnue${res.cards.length > 1 ? 's' : ''}${res.expected ? ` sur ${res.expected} annoncées par le jeu` : ''}${res.unknown ? `, ${res.unknown} carte${res.unknown > 1 ? 's' : ''} non reconnue${res.unknown > 1 ? 's' : ''}` : ''}.</p>
@@ -867,9 +867,12 @@ P.collection = async (m, tab = '') => {
         <div class="grid" style="margin-top:10px"><div><div class="mute small">Possédées</div><div class="cd">${own}</div></div><div><div class="mute small">Doublons (×2 et plus)</div><div class="cd">${dupN}</div></div><div><div class="mute small">Manquantes</div><div class="cd">${miss}</div></div></div>
         ${dl.length ? `<details class="small" style="margin-top:8px"><summary>Voir les doublons lus (${dl.length})</summary><div class="tiles" style="margin-top:8px">${dl.map(p => tile(p[1], true, true, `<i class="small">×${p[4]}</i>`)).join('')}</div></details>` : ''}
         ${miss ? `<details class="small" style="margin-top:8px"><summary>Voir les manquantes (${miss})</summary><div class="tiles" style="margin-top:8px">${plan.filter(p => !p[2]).map(p => tile(p[1], false, false)).join('')}</div></details>` : ''}
+        ${(() => { const un = plan.filter(p => p[5]?.unsure); return un.length ? `<div class="card" style="margin-top:12px;border-color:#f3c26b"><b>⚠️ ${un.length} nombre${un.length > 1 ? 's' : ''} d'exemplaires à vérifier</b><p class="small mute" style="margin:4px 0 8px">La capture est trop floue pour lire le ×N sans risque d'erreur. Compare avec le jeu et corrige avec − / + avant d'enregistrer.</p><div class="mosaic">${un.map((p, i) => `<div class="mcell"><figure class="mcard own r${p[1][1]}">${p[1][2] ? `<img src="${img(p[1][2])}" alt="">` : ''}<figcaption><b>${esc(p[1][0])}</b><small>${esc(p[0].s)}</small></figcaption></figure><div class="mstep" data-ui="${plan.indexOf(p)}"><button data-d="-1">−</button><b>×${p[5].qty}</b><button data-d="1">+</button></div></div>`).join('')}</div></div>` : ''; })()}
         <div class="row" style="margin-top:14px">${plan.length ? '<button class="btn primary" id="rok">Enregistrer</button>' : ''}<button class="btn ghost" id="rx">Fermer</button></div></div>`;
       d.querySelector('#rx').onclick = () => d.remove();
+      d.querySelectorAll('[data-ui]').forEach(bar => bar.onclick = e => { const bt = e.target.closest('button'); if (!bt) return; const g = plan[+bar.dataset.ui][5]; g.qty = Math.max(1, g.qty + (+bt.dataset.d)); bar.querySelector('b').textContent = '×' + g.qty; });
       const ok = d.querySelector('#rok'); if (ok) ok.onclick = async () => { ok.disabled = true; ok.textContent = 'Enregistrement…'; const touched = new Set();
+        for (const p of plan) { if (p[5]) { p[3] = p[5].qty >= 2; p[4] = p[5].qty; } }
         for (const [u, c, h, du, qn] of plan) { const rr = uget(coll, u.s); if (h) { rr.owned.add(c[0]); if (du) { rr.dupes.add(c[0]); rr.qty[c[0]] = qn; } else { rr.dupes.delete(c[0]); delete rr.qty[c[0]]; } } else { rr.owned.delete(c[0]); rr.dupes.delete(c[0]); delete rr.qty[c[0]]; } touched.add(u); }
         for (const u of touched) await save(u); d.remove(); toast(`${X.label} enregistrées`);
         const onb = !S.mylr?.teams?.done; if (complete || (res.expected === 0)) { S.mylr.teams = { ...(S.mylr.teams || {}), [r === 'L' ? 'ssr' : 'ur']: true }; await saveMyLR(); }
@@ -1118,7 +1121,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=85'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=86'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();

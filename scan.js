@@ -60,12 +60,12 @@ function starsOf(ctx, b) {
 }
 
 // ×N (exemplaires) : on ne garde que les chiffres à droite du « × », agrandis et contrastés pour l'OCR.
-function qtyCrop(src, b) {
-  const x0 = b.x + b.w * .835, y0 = b.y + b.h * .87, w = b.w * .125, h = b.h * .09, k = Math.max(4, Math.round(60 / h));
+function qtyCrop(src, b, alt = 0) {
+  const thr = alt ? 135 : 100; const x0 = b.x + b.w * (alt ? .82 : .835), y0 = b.y + b.h * (alt ? .865 : .87), w = b.w * (alt ? .145 : .125), h = b.h * (alt ? .1 : .09), k = Math.max(4, Math.round(60 / h));
   const c = document.createElement('canvas'); c.width = Math.round(w * k) + 40; c.height = Math.round(h * k) + 40;
   const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height); g.imageSmoothingQuality = 'high'; g.drawImage(src, x0, y0, w, h, 20, 20, c.width - 40, c.height - 40);
   const id = g.getImageData(0, 0, c.width, c.height); const d = id.data;
-  for (let i = 0; i < d.length; i += 4) { const v = (d[i] + d[i + 1] + d[i + 2]) / 3; const o = v > 100 ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = o; }
+  for (let i = 0; i < d.length; i += 4) { const v = (d[i] + d[i + 1] + d[i + 2]) / 3; const o = v > thr ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = o; }
   g.putImageData(id, 0, 0); return c;
 }
 
@@ -140,13 +140,16 @@ export async function analyze(files, rar, ocrWorker, onp, nameWorker) {
       const best = pick ? pick[bi] : pickCard(ordC.map((c, j) => ({ c, d: it.d[j] })), it.q); dbg.push([Math.round(b.x), Math.round(b.y), it.q, best?.c.n, best?.d, best?.via]);
       if (!best) { unknown++; continue; }
       let qty = 1;
-      if (ocrWorker) { try { const r = await ocrWorker.recognize(qtyCrop(cv, b)); const mm = String(r.data.text).match(/(\d{1,3})/); if (mm) qty = Math.max(1, +mm[1]); } catch (e) { /* on garde 1 */ } }
+      let unsure = false;
+      if (ocrWorker) { try { const rd = async alt => { const r = await ocrWorker.recognize(qtyCrop(cv, b, alt)); const mm = String(r.data.text).match(/(\d{1,3})/); return mm ? Math.max(1, +mm[1]) : null; };
+        // deux lectures avec des réglages différents : si elles ne disent pas la même chose, la carte est marquée « à vérifier »
+        const a1 = await rd(0), a2 = await rd(1); qty = a1 || a2 || 1; unsure = !(a1 && a2 && a1 === a2); } catch (e) { unsure = true; } }
       const prev = found.get(best.c.id);
-      const itm = { id: best.c.id, name: best.c.n, series: best.c.s, r: best.c.r, img: best.c.img, stars: starsOf(ctx, b), qty, conf: Math.max(0, Math.min(1, 1 - best.d / 260)) };
+      const itm = { id: best.c.id, name: best.c.n, series: best.c.s, r: best.c.r, img: best.c.img, stars: starsOf(ctx, b), qty, unsure, conf: Math.max(0, Math.min(1, 1 - best.d / 260)) };
       const reads = [...(prev?.reads || []), itm.qty];
       // plusieurs captures de la même carte : on garde la lecture la plus fréquente (à égalité, la plus petite)
       const cnt = {}; reads.forEach(v => cnt[v] = (cnt[v] || 0) + 1); const qBest = +Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a - b)[0];
-      found.set(best.c.id, { ...(prev && prev.conf > itm.conf ? prev : itm), qty: qBest, reads });
+      found.set(best.c.id, { ...(prev && prev.conf > itm.conf ? prev : itm), qty: qBest, reads, unsure: (prev ? prev.unsure && itm.unsure : itm.unsure) || new Set(reads).size > 1 });
     }
   }
   return { cards: [...found.values()], nCards, unknown, dbg };
