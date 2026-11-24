@@ -2111,7 +2111,7 @@ var LEGEND_ART='https://yurocollection.fr/assets/broly-legendaire.webp';
 // ---- Pilote Brigade Fantôme : branche l'écran de combat du jeu sur le moteur du jeu ----
 var __host=null,__opts=null,__hist=[],__hidx=0;
 function renderInfinity(){
-  if(!__R||!__R.host)return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
+  if(!__R||!(__R===document||__R.host))return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
   var b=infinityUI.data.me.battle;if(!b)return;
   __R.getElementById('bfStage').innerHTML='<section class="combat-page infinity-page"><div class="infinity-layout is-fighting">'+infinityBattleHTML(b)+'</div></section>';
   try{positionStoryEffects();}catch(e){}try{infinityRefreshControls();}catch(e){}
@@ -2144,7 +2144,7 @@ function __click(e){
 }
 function __stop(){clearTimeout(infinityPlayback.timer);clearTimeout(infinityPlayback.animationTimer);infinityPlayback.animating=false;storyAnimating=false;storyImpact=null;storyEntering=false;}
 var api={
-  mount:function(host,opts){__mode='castle';__host=host;__opts=opts;var sr=host.shadowRoot||host.attachShadow({mode:'open'});
+  mount:function(host,opts){__mode='castle';__opts=opts;if(opts.frame){__host=document.documentElement;__R=document;if(!document.__bfc){document.addEventListener('click',__click);document.__bfc=1;}return;}__host=host;var sr=host.shadowRoot||host.attachShadow({mode:'open'});
     sr.innerHTML='<link rel="stylesheet" href="'+opts.css+'"><div id="bfStage" class="bf-castle"></div>';__R=sr;sr.addEventListener('click',__click);},
   start:function(room){__mode='castle';__stop();__opts.room=room;var cat=__opts.catalog;var team=__opts.team.map(function(u){return {key:u.name,name:u.name,image:u.image,rarity:u.rarity,maxHp:u.hp,hp:u.hp,attack:u.atk,cooldown:0};});
     var b=towerCreateBattle(room,team,cat);b.players=team.map(function(u){return Object.assign({},u);});
@@ -2206,7 +2206,7 @@ infinityResultHTML=function(b){if(__mode!=='duel')return __cResult(b);var D=__D,
   return '<section class="story-end-screen '+(won?'won':'lost')+'"><div class="story-end-panel"><div class="story-result-trophy">'+storyResultEmblem(won)+'</div><h2 id="storyResultTitle" tabindex="-1">'+(draw?'ÉGALITÉ':won?'VICTOIRE':'DÉFAITE')+'</h2><p>'+escapeHTML(n[0])+' contre '+escapeHTML(n[1])+' · '+(D.b.turn)+' tours.</p><p>Simulation : aucun Elo n’est en jeu.</p><div class="story-end-actions"><button class="btn primary" data-infinity-replay>Rejouer le match</button><button class="btn ghost" data-infinity-lobby>Changer les équipes</button></div></div></section>';};
 function duelView(){var D=__D,anim=infinityPlayback.animating&&D.animB,side=anim?D.animSide:(D.winner!=null?0:D.s);var pb=anim?D.animB:duelPersp(D.b,side);pb=Object.assign({},pb);
   pb.room=1;pb.result=D.winner==null||anim&&!D.animB.result?null:(D.winner===side?'win':'loss');return {pb:pb,side:side,anim:!!anim};}
-renderInfinity=function(){if(__mode!=='duel'){__cRender();__animToggle();return;}if(!__R||!__R.host||!__D)return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
+renderInfinity=function(){if(__mode!=='duel'){__cRender();__animToggle();return;}if(!__R||!(__R===document||__R.host)||!__D)return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
   var D=__D,v=duelView(),pb=v.pb,n=__opts.names||['Toi','Adversaire'];infinityUI.data.me.battle=pb;
   if(!v.anim&&!duelReady(pb.players[infinityPlayback.active])){var k=pb.players.findIndex(duelReady);infinityPlayback.active=k<0?0:k;}
   if(!pb.enemies[infinityPlayback.target]||pb.enemies[infinityPlayback.target].hp<=0){var t=pb.enemies.findIndex(function(u){return u.hp>0;});infinityPlayback.target=t<0?0:t;}
@@ -2237,7 +2237,7 @@ function duelPerform(action,quiet){var D=__D;if(!D||D.winner!=null||infinityPlay
   infinityUI.data.me.battle=next;infinityAnimate(action,pb);renderInfinity();return true;}
 performInfinityAction=function(action){if(__mode!=='duel')return __cPerform(action);if(action==='replay'||action==='start'){duelApi.start(__opts.starter);return;}duelPerform(action,false);};
 var duelApi={
-  mount:function(host,opts){__mode='duel';__host=host;__opts=opts;var sr=host.shadowRoot||host.attachShadow({mode:'open'});
+  mount:function(host,opts){__mode='duel';__opts=opts;if(opts.frame){__host=document.documentElement;__R=document;if(!document.__bfc){document.addEventListener('click',__click);document.__bfc=1;}return;}__host=host;var sr=host.shadowRoot||host.attachShadow({mode:'open'});
     sr.innerHTML='<link rel="stylesheet" href="'+opts.css+'"><div id="bfStage" class="bf-castle"></div>';__R=sr;if(!sr.__bfc){sr.addEventListener('click',__click);sr.__bfc=1;}},
   start:function(starter){__mode='duel';__stop();if(starter==null)starter=Math.random()<.5?0:1;__opts.starter=starter;__D=duelStart(__opts.A,__opts.B,starter);__dh=[{D:__D,from:null}];__di=0;infinityPlayback.active=0;infinityPlayback.target=0;
     infinityUI.data.me.battle=duelPersp(__D.b,__D.s);infinityAnimate('start',null);renderInfinity();infinityScheduleAuto();},

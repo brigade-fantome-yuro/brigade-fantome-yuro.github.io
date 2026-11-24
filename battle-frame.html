@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Combat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Roboto+Condensed:wght@400;500;600;700&family=Caprasimo&family=Dela+Gothic+One&family=JetBrains+Mono:wght@500;600&family=Archivo:wdth,wght@125,900&family=Saira+Condensed:wght@500;600;700;800;900&family=Kanit:ital,wght@0,700;1,600;1,800;1,900&family=Chakra+Petch:wght@500;600;700&display=swap">
+<link rel="stylesheet" id="bfCss">
+<style>html,body{margin:0;background:#0d0d14;color:#f3eefc}body{overflow-x:hidden}#bfStage{min-height:540px}</style>
+<script>globalThis.__yuroBundleError=function(e,f){try{console.warn('[fx]',f,e&&e.message)}catch(_){}};</script>
+</head><body><div id="bfStage" class="bf-castle"></div>
+<script>
+// Écran de combat du jeu dans un document à part : le moteur et les cinématiques du jeu y tournent comme dans le jeu.
+(async function(){
+  var v=new URLSearchParams(location.search).get('v')||'';
+  document.getElementById('bfCss').href='castle-battle-frame.css?v='+v;
+  var t=await (await fetch('castle-engine.js?v='+v)).text();
+  var s=document.createElement('script');s.textContent=t.replace('(function(){','').replace(/\}\)\(\);\s*$/,'');document.head.appendChild(s);
+  var f=document.createElement('script');f.src='fx.js?v='+v;f.onload=f.onerror=function(){window.__bfReady=true;try{parent.postMessage('bf-frame-ready','*')}catch(e){}};document.body.appendChild(f);
+})();
+</script></body></html>
