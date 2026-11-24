@@ -1,5 +1,6 @@
 // Cinématiques des techniques du jeu YURO (modules d'effets du jeu, repris avec l'accord du développeur).
 globalThis.__yuroBundleError=globalThis.__yuroBundleError||function(e,f){try{console.warn('[fx]',f,e&&e.message)}catch(_){}};
+{
 /* effects.js */
 globalThis.__yuroSkip=0;
 let packSceneTimer=null,packSceneVersion=0;
@@ -67,6 +68,9 @@ function stepArchiveCardMotion(now){archiveCardFrame=0;const dt=archiveCardTime?
 if(!globalThis.__yuroSkip)try{document.addEventListener('visibilitychange',()=>{document.documentElement.dataset.cardsPaused=document.hidden?'true':'false';if(!document.hidden)return;for(const target of [...archiveCardSprings.keys()]){clearCardTilt(target);target.classList.remove('archive-card-motion');for(const key of ['--background-x','--background-y'])target.style.removeProperty(key);}for(const target of [...cardTiltSprings.keys()])clearCardTilt(target);if(archiveCardFrame){cancelAnimationFrame(archiveCardFrame);archiveCardFrame=0;}if(cardSpringFrame){cancelAnimationFrame(cardSpringFrame);cardSpringFrame=0;}});
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"effects.js");}
 
+
+}
+{
 /* technique-audio.js */
 globalThis.__yuroSkip=0;
 let techniqueAudioPlaying;
@@ -95,6 +99,9 @@ function trackTechniqueAudio(source,gain){if(!source||!gain)return;fadeTechnique
 if(!globalThis.__yuroSkip)try{for(const name of ['finishStoryAnimation','infinityFinishAnimation']){const original=globalThis[name];if(typeof original!=='function')continue;globalThis[name]=function(){fadeTechniqueAudio();return original.apply(this,arguments);};}
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"technique-audio.js");}
 
+
+}
+{
 /* zawarudo.js */
 globalThis.__yuroSkip=0;
 let zaWarudoBuffer=null,zaWarudoLoading=null,zaWarudoSource=null,zaWarudoAudio=null;
@@ -113,6 +120,9 @@ const positionStoryEffectsBeforeZaWarudo=positionStoryEffects;
 if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=positionStoryEffectsBeforeZaWarudo.apply(this,arguments);try{if(storyAnimating&&storyImpact?.action==='zawarudo'){const arena=document.querySelector('.story-arena'),caster=arena?.querySelector('.uses-zawarudo'),dome=arena?.querySelector('.zw-dome');if(arena&&caster&&dome){const a=arena.getBoundingClientRect(),c=caster.getBoundingClientRect();dome.style.left=(c.left+c.width/2-a.left)+'px';dome.style.top=(c.top+c.height*.42-a.top)+'px';}playZaWarudoVoice(storyImpact);}}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"zawarudo.js");}
 
+
+}
+{
 /* rika.js */
 globalThis.__yuroSkip=0;
 let rikaBuffer=null,rikaLoading=null,rikaSource=null,rikaAudio=null;
@@ -136,6 +146,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 if(!globalThis.__yuroSkip)try{addEventListener('resize',()=>{try{if(document.querySelector('.rika-bond'))drawRikaBond();}catch{}});
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"rika.js");}
 
+
+}
+{
 /* madara.js */
 globalThis.__yuroSkip=0;
 let madaraVoices,voicedMadara;
@@ -150,6 +163,9 @@ const positionStoryEffectsBeforeMadara=positionStoryEffects;
 if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=positionStoryEffectsBeforeMadara.apply(this,arguments);try{if(storyAnimating&&['rinnegan','fullpower'].includes(storyImpact?.action))playMadaraVoice(storyImpact.action,storyImpact);if(document.querySelector('.rinnegan-skill'))prepareMadaraVoice('rinnegan');if(document.querySelector('.fullpower-skill'))prepareMadaraVoice('fullpower');}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"madara.js");}
 
+
+}
+{
 /* akaza.js */
 globalThis.__yuroSkip=0;
 const akazaFlakeCache={};
@@ -158,6 +174,9 @@ const positionStoryEffectsBeforeAkaza=positionStoryEffects;
 if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=positionStoryEffectsBeforeAkaza.apply(this,arguments);try{if(storyAnimating&&storyImpact?.action==='akaza'){const arena=document.querySelector('.story-arena'),stage=arena?.querySelector('.ak-stage'),caster=arena?.querySelector('.uses-akaza>button');if(stage&&caster){const a=arena.getBoundingClientRect(),c=caster.getBoundingClientRect();stage.style.setProperty('--ax',(c.left+c.width/2-a.left)+'px');stage.style.setProperty('--ay',(c.top+c.height/2-a.top)+'px');}}}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"akaza.js");}
 
+
+}
+{
 /* cid.js */
 globalThis.__yuroSkip=0;
 const ATOMIC_LEN=7.6;
@@ -182,6 +201,9 @@ const positionStoryEffectsBeforeAtomic=positionStoryEffects;
 if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=positionStoryEffectsBeforeAtomic.apply(this,arguments);try{if(storyAnimating&&storyImpact?.action==='atomic'){playAtomicVoice(storyImpact);const arena=document.querySelector('.story-arena'),stage=arena?.querySelector('.atom-stage'),caster=arena?.querySelector('.uses-atomic>button'),foes=[...(arena?.querySelectorAll('[data-fighter-side="enemy"]>button')||[])];if(arena&&stage){const a=arena.getBoundingClientRect();if(caster){const c=caster.getBoundingClientRect();stage.style.setProperty('--cx',(c.left+c.width/2-a.left)+'px');stage.style.setProperty('--cy',(c.top+c.height/2-a.top)+'px');}if(foes.length){const r=foes.map(f=>f.getBoundingClientRect()),l=Math.min(...r.map(x=>x.left)),rt=Math.max(...r.map(x=>x.right)),t=Math.min(...r.map(x=>x.top)),bt=Math.max(...r.map(x=>x.bottom));stage.style.setProperty('--ex',((l+rt)/2-a.left)+'px');stage.style.setProperty('--ey',((t+bt)/2-a.top)+'px');stage.style.setProperty('--ew',Math.max(160,rt-l+60)+'px');}}}else if(document.querySelector('.atomic-skill'))prepareAtomicVoice();}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"cid.js");}
 
+
+}
+{
 /* vampire.js */
 globalThis.__yuroSkip=0;
 const vampireBatPath='M0 6C3 2 6 2 8 5C9 3 10 3 11 5C12 3 13 3 14 5C16 2 19 2 22 6C19 5 17 7 16 9C14 8 12 9 11 11C10 9 8 8 6 9C5 7 3 5 0 6Z';
@@ -194,6 +216,9 @@ const positionStoryEffectsBeforeVampire=positionStoryEffects;
 if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=positionStoryEffectsBeforeVampire.apply(this,arguments);try{if(storyAnimating&&storyImpact?.action==='vampire'){const arena=document.querySelector('.story-arena'),stage=arena?.querySelector('.vp-stage'),caster=arena?.querySelector('.uses-vampire>button'),target=arena?.querySelector('.vampire-target>button');if(arena&&stage&&caster){const a=arena.getBoundingClientRect(),c=caster.getBoundingClientRect(),t=(target||caster).getBoundingClientRect(),cx=c.left+c.width/2-a.left,cy=c.top+c.height*.38-a.top,tx=t.left+t.width/2-a.left,ty=t.top+t.height*.45-a.top,gap=Math.min(150,c.width*1.05),W=a.width,clamp=x=>Math.max(70,Math.min(W-70,x));stage.style.setProperty('--tx',tx+'px');stage.style.setProperty('--cx',cx+'px');stage.style.setProperty('--cy',cy+'px');stage.style.setProperty('--ty',ty+'px');[['1',clamp(cx-gap),cy+c.height*.05],['2',clamp(cx+gap),cy+c.height*.18]].forEach(([n,gx,gy])=>{const ang=Math.atan2(ty-gy,tx-gx),dist=Math.hypot(tx-gx,ty-gy);stage.style.setProperty('--g'+n+'x',gx+'px');stage.style.setProperty('--g'+n+'y',gy+'px');stage.style.setProperty('--a'+n,ang+'rad');stage.style.setProperty('--d'+n,Math.max(0,dist-40)+'px');});}}}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"vampire.js");}
 
+
+}
+{
 /* vampire-sfx.js */
 globalThis.__yuroSkip=0;
 let vampireSfxPlayed,vampireRelease;
@@ -253,6 +278,9 @@ if(!globalThis.__yuroSkip)try{if(typeof vampireCasterHTML==='function'){vampireC
  return `<span class="vd-aura" aria-hidden="true"><i></i><b></b></span><span class="vd-eyes" aria-hidden="true">${eyes}</span><span class="arise-manga-bubble vampire-bubble" role="status"><small>吸血鬼</small><b>VAMPIRE</b></span>`;};}
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"vampire-sfx.js");}
 
+
+}
+{
 /* technique-art.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){let queued=false;
@@ -268,6 +296,9 @@ if(!globalThis.__yuroSkip)try{(function(){let queued=false;
  const root=document.getElementById('viewRoot');if(root)new MutationObserver(()=>{if(!queued){queued=true;requestAnimationFrame(paint);}}).observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class','aria-pressed']});})();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"technique-art.js");}
 
+
+}
+{
 /* gojo-void.js */
 globalThis.__yuroSkip=0;
 let gojoVoice,gojoPlayed,GOJO_T;
@@ -296,6 +327,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
   if(foes.length){const l=Math.min(...foes.map(r=>r.left)),r=Math.max(...foes.map(r=>r.right)),t=Math.min(...foes.map(r=>r.top)),b=Math.max(...foes.map(r=>r.bottom));stage.style.setProperty('--ex',(l+r)/2-a.left+'px');stage.style.setProperty('--ey',(t+b)/2-a.top+'px');stage.style.setProperty('--ew',Math.max(260,Math.min(a.width*.9,r-l+120))+'px');}}}}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"gojo-void.js");}
 
+
+}
+{
 /* technique-flow.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -322,6 +356,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"technique-flow.js");}
 
+
+}
+{
 /* purple.js */
 globalThis.__yuroSkip=0;
 let purpleVoice,purplePlayed;
@@ -354,6 +391,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
   const s=(k,v)=>stage.style.setProperty(k,v);s('--gx',gx+'px');s('--gy',gy+'px');s('--ex',ex+'px');s('--ey',ey+'px');s('--ew',Math.max(220,ew)+'px');s('--dx',ex-gx+'px');s('--dy',ey-gy+'px');s('--ang',Math.atan2(ey-gy,ex-gx)+'rad');s('--dist',Math.hypot(ex-gx,ey-gy)+'px');}}}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"purple.js");}
 
+
+}
+{
 /* broly.js */
 globalThis.__yuroSkip=0;
 const LEGEND_ART='https://yurocollection.fr/assets/broly-legendaire.webp';
@@ -388,6 +428,9 @@ const positionStoryEffectsBeforeLegend=positionStoryEffects;
 if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=positionStoryEffectsBeforeLegend.apply(this,arguments);try{if(storyAnimating&&storyImpact?.action==='legendary'&&!legendPlayed.has(storyImpact)){legendPlayed.add(storyImpact);if(state.sound)playLegendVoice();}}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"broly.js");}
 
+
+}
+{
 /* rage.js */
 globalThis.__yuroSkip=0;
 const RAGE_HITS=[0.8,1.03,1.26,1.49,1.72,1.95,2.18,2.65];
@@ -417,6 +460,9 @@ const positionStoryEffectsBeforeRage=positionStoryEffects;
 if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=positionStoryEffectsBeforeRage.apply(this,arguments);try{if(storyAnimating&&storyImpact?.action==='rage'&&!ragePlayed.has(storyImpact)){ragePlayed.add(storyImpact);if(state.sound)playRageSfx();}}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"rage.js");}
 
+
+}
+{
 /* sukuna.js */
 globalThis.__yuroSkip=0;
 let fireVoice,firePlayed;
@@ -522,6 +568,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
   stage.querySelectorAll('[data-fa-ex]').forEach((el,i)=>{const f=foes[i];if(!f){el.hidden=true;return;}el.hidden=false;el.style.left=(f.left+f.width/2-a.left)+'px';el.style.top=(f.top+f.height/2-a.top)+'px';el.style.setProperty('--fw',f.width+'px');});arena.style.setProperty('--fa-cx',gx+'px');arena.style.setProperty('--fa-cy',gy+'px');arena.style.setProperty('--fa-dx',(ex-gx)+'px');arena.style.setProperty('--fa-dy',(ey-gy)+'px');stage._fa={gx,gy,ex,ey,ew:Math.max(220,ew),ang:Math.atan2(ey-gy,ex-gx),foes:foes.map(f=>({x:f.left+f.width/2-a.left,y:f.top+f.height/2-a.top,w:f.width,h:f.height}))};startFireCanvas(stage);}}}catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"sukuna.js");}
 
+
+}
+{
 /* burn-fx.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -576,6 +625,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"burn-fx.js");}
 
+
+}
+{
 /* haki.js */
 globalThis.__yuroSkip=0;
 let hakiVoice,hakiPlayed;
@@ -611,6 +663,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"haki.js");}
 
+
+}
+{
 /* geass.js */
 globalThis.__yuroSkip=0;
 let geassVoice,geassPlayed;
@@ -672,6 +727,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"geass.js");}
 
+
+}
+{
 /* enuma.js */
 globalThis.__yuroSkip=0;
 let enumaVoice,enumaPlayed;
@@ -707,6 +765,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"enuma.js");}
 
+
+}
+{
 /* enuma-gl.js */
 globalThis.__yuroSkip=0;
 const yuroGLLow_enumagl=()=>{try{return matchMedia('(pointer:coarse)').matches||innerWidth<=760;}catch{return false;}},yuroGLScale_enumagl=(a,s)=>{const px=a.width*a.height*s*s,cap=120000;return yuroGLLow_enumagl()&&px>cap?s*Math.sqrt(cap/px):s;};
@@ -816,6 +877,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"enuma-gl.js");}
 
+
+}
+{
 /* muzan.js */
 globalThis.__yuroSkip=0;
 const MOON_ORDER=['kokushibo','doma','akaza','daki'];
@@ -826,6 +890,9 @@ function moonPanelHTML(b){if(typeof MOONS==='undefined'||!b||b.result)return '';
   return `<button type="button" class="moon-choice moon-${k}" style="--mc:${m.color}" data-story-action="moon-${k}" ${busy||occupied?'disabled':''} aria-label="Invoquer ${m.name}, ${m.title}, ${r.label}"><span class="moon-art"><img src="${typeof escapeHTML==='function'?escapeHTML(MOON_IMAGES[k]):MOON_IMAGES[k]}" alt="" loading="lazy" draggable="false"><i class="moon-rank" lang="ja">${m.rank}</i></span><span class="moon-copy"><span class="moon-role">${r.icon} ${r.label}</span><b>${m.name}</b><small>${m.title}</small><em>${r.text}</em><span class="moon-stats"><span>❤ ${hp}</span><span>⚔ ${atk}</span><span>⌛ 3 tours</span></span></span></button>`;}).join('');
  return `<aside class="moon-panel" aria-label="Lunes supérieures de Muzan"><header><span class="moon-panel-mark" aria-hidden="true">鬼</span><div><b>LUNES SUPÉRIEURES</b><small>${occupied?'Une invocation est déjà sur le terrain':'Choisis une lune · une seule fois par combat'}</small></div></header><div class="moon-list">${items}</div></aside>`;}
 
+
+}
+{
 /* door.js */
 globalThis.__yuroSkip=0;
 let doorVoice,doorPlayed;
@@ -845,6 +912,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"door.js");}
 
+
+}
+{
 /* almighty.js */
 globalThis.__yuroSkip=0;
 let almightyVoice,almightyPlayed;
@@ -889,6 +959,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"almighty.js");}
 
+
+}
+{
 /* sun-gl.js */
 globalThis.__yuroSkip=0;
 const yuroGLLow_sungl=()=>{try{return matchMedia('(pointer:coarse)').matches||innerWidth<=760;}catch{return false;}},yuroGLScale_sungl=(a,s)=>{const px=a.width*a.height*s*s,cap=120000;return yuroGLLow_sungl()&&px>cap?s*Math.sqrt(cap/px):s;};
@@ -989,6 +1062,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"sun-gl.js");}
 
+
+}
+{
 /* transform-fx.js */
 globalThis.__yuroSkip=0;
 let transformVoices,transformPlayed;
@@ -1011,6 +1087,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"transform-fx.js");}
 
+
+}
+{
 /* transform-gl.js */
 globalThis.__yuroSkip=0;
 const yuroGLLow_transformgl=()=>{try{return matchMedia('(pointer:coarse)').matches||innerWidth<=760;}catch{return false;}},yuroGLScale_transformgl=(a,s,cap=120000)=>{const px=a.width*a.height*s*s;return yuroGLLow_transformgl()&&px>cap?s*Math.sqrt(cap/px):s;};
@@ -1698,6 +1777,9 @@ if(!globalThis.__yuroSkip)try{positionStoryEffects=function(){const result=posit
 }catch{}return result;};
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"transform-gl.js");}
 
+
+}
+{
 /* janemba-dimension.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -1751,6 +1833,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"janemba-dimension.js");}
 
+
+}
+{
 /* aizen-ultrafragor.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -1825,6 +1910,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"aizen-ultrafragor.js");}
 
+
+}
+{
 /* garp-galaxy.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -1916,6 +2004,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"garp-galaxy.js");}
 
+
+}
+{
 /* boros-cannon.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -2110,6 +2201,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"boros-cannon.js");}
 
+
+}
+{
 /* axel-tornado.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -2216,6 +2310,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"axel-tornado.js");}
 
+
+}
+{
 /* yami-dslash.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -2354,6 +2451,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"yami-dslash.js");}
 
+
+}
+{
 /* frieren-bh.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -2460,6 +2560,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"frieren-bh.js");}
 
+
+}
+{
 /* seiichi-fx.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -2590,6 +2693,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"seiichi-fx.js");}
 
+
+}
+{
 /* hashirama-senpo.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -2656,6 +2762,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"hashirama-senpo.js");}
 
+
+}
+{
 /* black-freezer-orb.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -2724,6 +2833,9 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"black-freezer-orb.js");}
 
+
+}
+{
 /* shanks-kamusari.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -2895,6 +3007,9 @@ void main(){vec2 p=(gl_FragCoord.xy-.5*R)/R.y;vec4 o=vec4(0.);vec3 red=vec3(1.,.
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"shanks-kamusari.js");}
 
+
+}
+{
 /* pucci-heaven.js */
 globalThis.__yuroSkip=0;
 const HEAVEN_VOICE_SKIP=.3;
@@ -2965,6 +3080,9 @@ if(!globalThis.__yuroSkip)try{(function(){if(typeof finishStoryAnimation!=='func
 if(!globalThis.__yuroSkip)try{setTimeout(()=>{try{prepareHeavenVoice();}catch{}},2500);
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"pucci-heaven.js");}
 
+
+}
+{
 /* itachi-genjutsu.js */
 globalThis.__yuroSkip=0;
 const GENJUTSU_T={morph:1.5};
@@ -3015,6 +3133,9 @@ globalThis.__yuroSkip=0;
 'use strict';
 globalThis.__yuroBundleError||=function(e,f){try{if(typeof reportError==='function')reportError(e);else console.error('['+f+']',e);}catch(_){}};
 
+
+}
+{
 /* vegeta-sacrifice.js */
 globalThis.__yuroSkip=0;
 if(!globalThis.__yuroSkip)try{(function(){
@@ -3134,3 +3255,5 @@ if(!globalThis.__yuroSkip)try{(function(){
 })();
 }catch(e){globalThis.__yuroSkip=1;globalThis.__yuroBundleError(e,"vegeta-sacrifice.js");}
 
+
+}
