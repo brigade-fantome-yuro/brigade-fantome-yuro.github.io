@@ -2202,7 +2202,9 @@ function duelPolicy(D){var pb=duelPersp(D.b,D.s),T=duelTargets(pb);if(!T.length)
   var pn=(typeof self!=='undefined'&&self.__pn)||0;if(pn&&Math.random()<pn)i=ready[Math.floor(Math.random()*ready.length)];
   var p=pb.players[i],atk=p.attack||0;
   var kill=pool.filter(function(j){return pb.enemies[j].hp<=atk;});
-  var t=(kill.length?kill:pool).reduce(function(x,j){return pb.enemies[j].hp<pb.enemies[x].hp?j:x;},(kill.length?kill:pool)[0]);
+  // Ayanokouji se focus en dernier (consigne Nicolas) : tant qu'il reste une autre cible, on ne la tape que si on peut l'achever, pour finir en 2 contre 1 où son échange ne sert plus.
+  var isAya=function(j){return /ayanokouji/i.test(pb.enemies[j].name||'');},noAya=pool.filter(function(j){return !isAya(j);}),base=kill.length?kill:(noAya.length?noAya:pool);
+  var t=base.reduce(function(x,j){return pb.enemies[j].hp<pb.enemies[x].hp?j:x;},base[0]);
   if(pn&&Math.random()<pn)t=pool[Math.floor(Math.random()*pool.length)];
   var high=T.reduce(function(x,j){return pb.enemies[j].hp>pb.enemies[x].hp?j:x;},T[0]);
   var acts=duelActions(pb,p).filter(function(a){return a!=='attack';});
