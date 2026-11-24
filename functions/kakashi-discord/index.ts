@@ -209,7 +209,7 @@ Deno.serve(async (req) => {
     }
     // deno-lint-ignore no-explicit-any
     (globalThis as any).EdgeRuntime?.waitUntil ? (globalThis as any).EdgeRuntime.waitUntil(work(i)) : work(i);
-    return Response.json({ type: 5 });
+    return Response.json({ type: 5, data: { flags: 64 } }); // réponse privée : seul l'auteur voit sa question et la réponse
   }
   return Response.json({ type: 4, data: { content: 'Commande inconnue.', flags: 64 } });
 });
