@@ -338,3 +338,10 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .rtabs .rt-E{border-color:#9b5bd6}.rtabs .rt-E i{color:#c99bff;font-style:normal;font-size:.8em}.rtabs .rt-E.on{background:#9b5bd6;color:#fff;border-color:#9b5bd6}.rtabs .rt-E.on i{color:#fff}
 .rtabs{flex-wrap:wrap}
 @media (max-width:600px){.rtabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.rtabs button{padding:6px 8px;gap:6px;min-height:48px}.rtabs button i{width:auto;font-size:17px}}
+/* v104 LR stars/doublons compacts */
+.mstep:has(.stars5){gap:2px!important;flex-wrap:nowrap!important}
+.mstep .stars5{flex:1 1 auto;min-width:0;justify-content:center}
+.mstep .stars5 button{flex:1 1 0!important;min-width:0!important;width:auto!important;padding:0!important;min-height:32px!important;font-size:clamp(15px,4.6vw,21px)!important}
+.mstep:has(.stars5) .rm{flex:0 0 auto!important;min-width:22px!important;min-height:22px!important;padding:0 4px!important;font-size:11px}
+.mstep b.dlb{display:flex;flex-direction:column;align-items:center;line-height:1.05;font-size:14px!important;min-width:44px!important}
+.mstep b.dlb small{font-size:9px;font-weight:600;opacity:.6;text-transform:uppercase;letter-spacing:.06em}
