@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=54');
+importScripts('castle-engine.js?v=55');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -17,8 +17,10 @@ function castleMove(b) {
   const order = [];
   if (C.canFullPower(p)) order.push(['ultimate', low]); if (C.canHollowPurple(p)) order.push(['purple', low]); if (C.canRage(p)) order.push(['rage', low]);
   if (ready) {
-    if (isAya(p)) { if (p.hp / p.maxHp <= .35) order.push(['skill', high]); }
-    else if (isHeal(p)) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (miss >= tot * .25 || al.some(u => u.hp / u.maxHp < .35)) order.push(['skill', low]); }
+    // Boucle de la Brigade : le soin passe dès qu'un allié mourrait au prochain coup de gardien ; Aya échange quand un coup de plus la tuerait.
+    const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0);
+    if (isAya(p)) { if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', high]); }
+    else if (isHeal(p)) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (al.some(u => u.hp <= gAtk && u.hp + Math.round(u.maxHp * .3) > gAtk) || miss >= tot * .3) order.push(['skill', low]); }
     else order.push(['skill', low]);
   }
   order.push(['attack', low]);
