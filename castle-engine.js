@@ -2192,11 +2192,24 @@ function duelTargets(pb){var idx=pb.enemies.map(function(e,i){return i;}),T=idx.
 function duelActions(pb,p){var acts=['attack'];if(!(p.cooldown>0)&&!combatSpentSpecial(p)&&!atomicLocked(p,p,pb))acts.push('skill');if(canHollowPurple(p))acts.push('purple');if(canRage(p))acts.push('rage');if(canFullPower(p))acts.push('ultimate');if(p.frozen>0)acts=acts.filter(function(a){return a==='skill';});return acts;}
 function duelOptions(D){var pb=duelPersp(D.b,D.s),out=[],T=duelTargets(pb);pb.players.forEach(function(p,i){if(!duelReady(p))return;for(const a of duelActions(pb,p))for(const t of T)out.push({i:i,a:a,t:t});});return out;}
 // Jeu simple des deux camps pour rejouer la suite (et pour l'adversaire joué par l'ordinateur).
-function duelPolicy(D){var pb=duelPersp(D.b,D.s),T=duelTargets(pb);if(!T.length)return null;var i=pb.players.findIndex(duelReady);if(i<0)return null;var p=pb.players[i];
-  var t=T.reduce(function(x,j){return pb.enemies[j].hp<pb.enemies[x].hp?j:x;},T[0]);
+function duelPolicy(D){var pb=duelPersp(D.b,D.s),T=duelTargets(pb);if(!T.length)return null;
+  var prot=function(u){return u.janembaDodges>0||u.mui>0||u.xebecWard>0||u.dodges>0;};
+  var ready=pb.players.map(function(p,i){return i;}).filter(function(i){return duelReady(pb.players[i]);});if(!ready.length)return null;
+  var open=T.filter(function(j){return !prot(pb.enemies[j]);}),pool=open.length?open:T;
+  // Qui joue : en priorité une carte qui peut achever une cible non protégée, sinon la première prête.
+  var i=ready[0];for(const k of ready){var a=pb.players[k].attack||0;if(pool.some(function(j){return pb.enemies[j].hp<=a;})){i=k;break;}}
+  var p=pb.players[i],atk=p.attack||0;
+  var kill=pool.filter(function(j){return pb.enemies[j].hp<=atk;});
+  var t=(kill.length?kill:pool).reduce(function(x,j){return pb.enemies[j].hp<pb.enemies[x].hp?j:x;},(kill.length?kill:pool)[0]);
+  var high=T.reduce(function(x,j){return pb.enemies[j].hp>pb.enemies[x].hp?j:x;},T[0]);
   var acts=duelActions(pb,p).filter(function(a){return a!=='attack';});
-  if(/ayanokouji/i.test(p.name)&&p.hp/p.maxHp>.4)acts=acts.filter(function(a){return a!=='skill';});
-  var order=['ultimate','purple','rage','skill'].filter(function(a){return acts.indexOf(a)>=0;});if(!(p.frozen>0))order.push('attack');
+  var order=[];
+  ['ultimate','purple','rage'].forEach(function(a){if(acts.indexOf(a)>=0)order.push(a);});
+  if(acts.indexOf('skill')>=0){
+    if(/ayanokouji/i.test(p.name)){if(p.hp/p.maxHp<=.35){order.push('skill');t=high;}}
+    else if(/seiichi|rimuru/i.test(p.name)){var al=pb.players.filter(function(u){return u.hp>0;}),miss=al.reduce(function(a,u){return a+(u.maxHp-u.hp);},0),tot=al.reduce(function(a,u){return a+u.maxHp;},0);if(miss>=tot*.25||al.some(function(u){return u.hp/u.maxHp<.35;}))order.push('skill');}
+    else order.push('skill');}
+  if(!(p.frozen>0))order.push('attack');
   return {i:i,order:order,t:t};}
 function duelPolicyStep(D){var m=duelPolicy(D);if(!m)return null;for(const a of m.order){try{return {D:duelStep(D,{i:m.i,a:a,t:m.t}),mv:{i:m.i,a:a,t:m.t}};}catch(e){}}return null;}
 

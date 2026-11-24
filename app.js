@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=51';
+import * as CFG from './config.js?v=52';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=51';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=51';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=52';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=52';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=51';
-import * as SCAN from './scan.js?v=51';
+import { duelRate } from './ranked.js?v=52';
+import * as SCAN from './scan.js?v=52';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='51';
+const APP_V='52';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -448,10 +448,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=51'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=52'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=51'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=52'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -478,7 +478,7 @@ P.chateausim = m => {
   <datalist id="csCards">${ALL.map(c => `<option value="${esc(lab(c))}">`).join('')}</datalist>
   <div id="csSetup" class="card section"><h2>Ton équipe</h2><div class="pl-picks3">${[953, 3248, 499].map((id, i) => slot(i, id)).join('')}</div>
   <div class="pl-row"><div class="pl-slot"><label for="csRoom">Chambre</label><input id="csRoom" type="number" min="1" max="5000" value="500"></div><div class="pl-slot"><label for="csN">Précision de l'analyse</label><select id="csN"><option value="12">Rapide</option><option value="24" selected>Normale</option><option value="48">Fine (plus lent)</option></select></div></div>
-  <div class="row section"><button class="btn primary" id="csGo">Entrer dans la chambre</button><span id="csErr" class="red small"></span></div></div>
+  <div class="row section"><button class="btn primary" id="csGo">Entrer dans la chambre</button><button class="btn ghost" id="csCeilB">📊 Plafond de cette équipe</button><span id="csErr" class="red small"></span></div><div id="csCeil"></div></div>
   <div id="csGame" style="display:none"><div class="cs-wrap"><div class="cs-stage" id="csHost"></div><aside class="card cs-side"><div class="pl-nav"><button class="btn" id="csPrev" aria-label="Coup précédent">‹</button><span class="small mute" id="csPos">Coup 0</span><button class="btn" id="csNext" aria-label="Coup suivant">›</button></div><div id="csAn"></div><ol class="pl-hist" id="csHist"></ol><div class="row section"><button class="btn ghost" id="csNew">Changer d'équipe</button></div></aside></div></div>
   <p class="small mute section">Comment l'IA juge : pour chaque coup possible (quelle carte, quelle action, quelle cible), elle rejoue la suite de la chambre des dizaines de fois (les gardiens visent au hasard, comme dans le jeu) et compare tes chances de victoire. Les mêmes tirages au sort servent pour tous les coups, et les meilleurs sont rejoués 6 fois plus pour les départager. Le coach donne alors un seul meilleur coup et explique pourquoi. Un coup reste « bon » tant qu'il n'y avait pas nettement mieux : moins de 8 points d'écart (ou dans la marge des tirages) = bon coup, 8 à 20 = imprécision, plus de 20 = vraie erreur.</p>`;
   bindPicks(m, byName, lab);
@@ -534,6 +534,15 @@ P.chateausim = m => {
     const last = H[H.length - 1]; if (last.from && !AN.has(last) && !last.sent) { last.sent = ++seq; worker.postMessage({ id: last.sent, from: last.from, chosen: { i: last.active, a: last.action, t: last.target }, n: N }); }
     side(info);
   }
+  // Chiffres de l'équipe choisie (même avec des cartes qu'on n'a pas) : chambre sûre, jouable, max et plafond réel, avec le moteur du jeu.
+  $('#csCeilB').onclick = async () => {
+    const T = [0, 1, 2].map(i => { const c = byName.get($('#cs' + i).value.trim().toLowerCase()); return c ? engUnit(c, +$('#css' + i).value) : null; });
+    if (T.includes(null)) { $('#csErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
+    $('#csErr').textContent = ''; const btn = $('#csCeilB'); btn.disabled = true; $('#csCeil').innerHTML = '<p class="mute small" style="margin-top:12px">Combats simulés chambre par chambre avec le moteur du jeu (quelques secondes)…</p>';
+    const r = await twCall({ kind: 'castle', team: T, catalog: castleCatalog(), n: 100 }); btn.disabled = false;
+    if ($('#csCeil')) $('#csCeil').innerHTML = `<h3 style="margin-top:16px">Ce que cette équipe peut atteindre</h3>${simBlock(r)}<button class="btn ghost small" id="csAtCeil" style="margin-top:6px">Jouer la chambre ${r.ceil} (plafond)</button>`;
+    const a = $('#csAtCeil'); if (a) a.onclick = () => { $('#csRoom').value = r.ceil; $('#csGo').click(); };
+  };
   $('#csGo').onclick = async () => {
     const team = [0, 1, 2].map(i => { const c = byName.get($('#cs' + i).value.trim().toLowerCase()); if (!c) return null; const s = stOf(c, +$('#css' + i).value); techOf[c.n] = c.t?.[0]?.[0] || 'Technique'; return { name: c.n, rarity: rar(c), image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; });
     if (team.includes(null)) { $('#csErr').textContent = 'Une carte n\'est pas reconnue : choisis-la dans la liste.'; return; }
@@ -541,7 +550,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=51'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=52'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -966,10 +975,16 @@ function castleEval(team, own) {
   if (aya) return { room: Math.max(twoShotRoom(null, aya, st(aya), heal), race), aya: true, heal };
   return { room: race, aya: false, heal };
 }
+// Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
+let TW = null, twSeq = 0; const twWait = new Map();
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=52'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
+const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
-function simCastle(team, own, n = 150) {
-  const key = team.map(c => c.id + ':' + (own[c.id] || 0)).sort().join(',') + '|' + n;
-  if (!SIMC.has(key)) SIMC.set(key, castleReport(team.map(c => { const s = statsAt(c, own[c.id] || 0); return { id: c.id, hp: s.hp, atk: s.atk }; }), n));
+function simCastle(team, own, n = 100) {
+  const key = team.map(c => c.id + ':' + (own[c.id] || 0)).sort().join(',') + '|' + n + '|e1';
+  if (!SIMC.has(key)) { let c = null; try { c = JSON.parse(localStorage.getItem('bfc:' + key) || 'null'); } catch {}
+    SIMC.set(key, c ? Promise.resolve(c) : twCall({ kind: 'castle', team: team.map(x => engUnit(x, own[x.id] || 0)), catalog: castleCatalog(), n }).then(r => { try { localStorage.setItem('bfc:' + key, JSON.stringify(r)); } catch {} return r; })); }
   return SIMC.get(key);
 }
 const nextFrame = () => new Promise(r => setTimeout(r, 0));
@@ -980,11 +995,11 @@ async function bestCastleSim(own, onp, current) {
   for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) for (let k = j + 1; k < C.length; k++) { const t = [C[i], C[j], C[k]]; if (!roleOk(t)) continue; const e = castleEval(t, own);
     const pw = t.reduce((n, c) => { const s = statsAt(c, own[c.id] || 0); return n + s.hp / 100 + s.atk / 10; }, 0);
     cand.push({ t, v: e.room + (e.aya ? 400 : 0) + (t.some(c => HEALERS.includes(c.id)) ? 200 : 0) + (t.some(c => [340, 499, 329].includes(c.id)) ? 80 : 0) + pw }); }
-  cand.sort((a, b) => b.v - a.v); const pool = cand.slice(0, 40);
+  cand.sort((a, b) => b.v - a.v); const pool = cand.slice(0, 24);
   if (current?.length === 3 && roleOk(current) && !pool.some(x => x.t.every(c => current.some(y => y.id === c.id)))) pool.push({ t: current });
-  const quick = []; for (let i = 0; i < pool.length; i++) { if (i % 4 === 0) { onp?.(i, pool.length + 5); await nextFrame(); } const r = simCastle(pool[i].t, own, 40); quick.push({ t: pool[i].t, sc: r.play * 1000 + r.sure }); }
+  const quick = []; for (let i = 0; i < pool.length; i++) { if (i % 4 === 0) { onp?.(i, pool.length + 5); await nextFrame(); } const r = await simCastle(pool[i].t, own, 30); quick.push({ t: pool[i].t, sc: r.play * 1000 + r.sure }); }
   quick.sort((a, b) => b.sc - a.sc); let best = null; const fin = quick.slice(0, 5);
-  for (let i = 0; i < fin.length; i++) { onp?.(pool.length + i + 1, pool.length + 5); await nextFrame(); const r = simCastle(fin[i].t, own); const sc = r.play * 1000 + r.sure + r.max / 1000; if (!best || sc > best.sc) best = { team: fin[i].t, r, sc }; }
+  for (let i = 0; i < fin.length; i++) { onp?.(pool.length + i + 1, pool.length + 5); await nextFrame(); const r = await simCastle(fin[i].t, own); const sc = r.play * 1000 + r.sure + r.max / 1000; if (!best || sc > best.sc) best = { team: fin[i].t, r, sc }; }
   return best;
 }
 function rankedScore(team, own) {
@@ -1004,31 +1019,32 @@ async function loadRMeta() { if (S.rmeta !== undefined) return S.rmeta; const { 
   const map = new Map(); for (const row of d.trios.split(';')) { const [ids, q0, q5, f0, f5, p0, p5, o] = row.split(','); map.set(ids.split('-').map(Number).sort((x, y) => x - y).join(','), { q0: +q0 / 1000, q5: +q5 / 1000, f0: f0 ? +f0 / 1000 : null, f5: f5 ? +f5 / 1000 : null, p0, p5, o: o ? o.split('-').map(Number) : null }); }
   S.rmeta = { ...d, map }; return S.rmeta; }
 const metaName = ids => ids.map(id => (LRS().find(c => c.id === id)?.n || '?').replace(/\s*\(.*$/, '')).join(' · ');
-function rankedSim(team, own, n = 40) {
-  const M = S.rmeta; const key = team.map(c => c.id).sort((x, y) => x - y).join(',');
-  if (M && M.map.has(key)) { const r = M.map.get(key); const m = team.reduce((a, c) => a + Math.min(5, own[c.id] || 0), 0) / team.length / 5;
-    if (r.f0 != null) { const hi = m >= .5, per = hi ? r.p5 : r.p0, meta = hi ? (M.meta5 || M.meta) : M.meta;
-      return { avg: r.f0 * (1 - m) + r.f5 * m, key: 2 + r.f0 * (1 - m) + r.f5 * m, res: meta.map((x, i) => ({ name: metaName(x.ids), w: (+per[i] || 0) / 2, f: x.w, sim: i >= (M.observed || 8) })), real: true, full: true, order: r.o }; }
-    const v = r.q0 * (1 - m) + r.q5 * m; return { avg: v, key: v, res: [], real: true, full: false }; }
-  const A = team.map(c => unitOf(c, own[c.id] || 0));
-  const res = oppTeams().map(t => ({ name: metaName(t.map(c => c.id)), w: duelRate(A, t.map(c => unitOf(c, OPP_ST)), n) }));
-  const v = res.length ? res.reduce((a, r) => a + r.w, 0) / res.length : 0; return { avg: v, key: v, res };
+// Force ranked avec le moteur du jeu : matchs contre les équipes de la méta (à 4★), chaque camp commençant à tour de rôle.
+const RSIM = new Map();
+function rankedSim(team, own, n = 6) {
+  const key = team.map(c => c.id + ':' + (own[c.id] || 0)).sort().join(',') + '|' + n + '|e1';
+  if (!RSIM.has(key)) RSIM.set(key, twCall({ kind: 'ranked', A: team.map(c => engUnit(c, own[c.id] || 0)), opps: oppTeams().map(t => ({ name: metaName(t.map(c => c.id)), B: t.map(c => engUnit(c, OPP_ST)) })), n }).then(r => ({ ...r, key: r.avg, engine: true })));
+  return RSIM.get(key);
 }
 async function bestRankedSim(own, onp, cur) {
-  await loadRMeta();
-  const C = LRS().filter(c => own[c.id] != null); if (C.length < 3) return null; let trios = [];
+  const sig = JSON.stringify(own); if (S.brBest && S.brBest.sig === sig) return S.brBest.v;
+  const C = LRS().filter(c => own[c.id] != null); if (C.length < 3) return null; const trios = [];
   for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) for (let k = j + 1; k < C.length; k++) { const t = [C[i], C[j], C[k]]; if (roleOk(t)) trios.push(t); }
-  if (!S.rmeta && trios.length > 260) { trios.sort((a, b) => rankedScore(b, own) - rankedScore(a, own)); trios = trios.slice(0, 260); }
-  let best = null; for (let i = 0; i < trios.length; i++) { if (i % 40 === 0) { onp?.(i, trios.length); await nextFrame(); } const r = rankedSim(trios[i], own, S.rmeta ? 0 : 24); if (!best || r.key > best.r.key) best = { team: trios[i], r }; }
-  return best;
+  const opps = oppTeams().map(t => ({ name: metaName(t.map(c => c.id)), B: t.map(c => engUnit(c, OPP_ST)) }));
+  const sc = []; const step = 12;
+  for (let i = 0; i < trios.length; i += step) { onp?.(i, trios.length + 8); const part = trios.slice(i, i + step); const r = await twCall({ kind: 'rankedMany', teams: part.map(t => t.map(c => engUnit(c, own[c.id] || 0))), opps, n: 2 }); part.forEach((t, k) => sc.push({ t, v: r[k] })); }
+  sc.sort((a, b) => b.v - a.v); let best = null; const fin = sc.slice(0, 8);
+  if (cur?.length === 3 && roleOk(cur) && !fin.some(x => x.t.every(c => cur.some(y => y.id === c.id)))) fin.push({ t: cur });
+  for (let i = 0; i < fin.length; i++) { onp?.(trios.length + i, trios.length + 8); const r = await rankedSim(fin[i].t, own); if (!best || r.avg > best.r.avg) best = { team: fin[i].t, r }; }
+  S.brBest = { sig, v: best }; return best;
 }
 const forceTxt = r => { const byId = id => LRS().find(c => c.id === id);
   const obs = r.res.filter(x => !x.sim), sim = r.res.filter(x => x.sim);
   const rows = L => L.map(x => `<div class="opp"><span class="small">${esc(x.name)}${x.f && !x.sim ? ` <span class="mute">(${x.f}×)</span>` : ''}</span><span class="bar"><i style="width:${Math.round(x.w * 100)}%"></i></span><b class="small">${Math.round(x.w * 100)} %</b></div>`).join('');
   return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Indice de force</div><div class="cd">${Math.round(r.avg * 100)}<span class="small mute">/100</span></div></div>${r.order ? `<div><div class="mute small">Placement conseillé</div><div style="font-weight:700;margin-top:6px">${r.order.map(id => esc((byId(id)?.n || '').replace(/\s*\(.*$/, ''))).join(' → ')}</div></div>` : ''}</div>
   ${obs.length ? `<h3 style="margin-top:14px">Contre les équipes les plus jouées</h3><div class="opps">${rows(obs)}</div>` : ''}${sim.length ? `<h3 style="margin-top:14px">Contre la méta simulée</h3><div class="opps">${rows(sim)}</div>` : ''}
-  <p class="small" style="color:#f3c26b">Simulation en cours de calibrage sur les vrais matchs ranked : à prendre comme une indication, pas comme une vérité.</p>
-  <p class="small mute">${r.full ? 'Calculé avec le moteur de combat du jeu : chaque camp commence à tour de rôle, ton trio joue avec son meilleur placement, et tes étoiles sont prises en compte. Méta = les équipes les plus jouées en ranked (entre parenthèses : combien de fois) + les meilleures équipes trouvées par simulation.' : r.real ? 'Calculé avec le moteur de combat du jeu contre les 3 équipes les plus jouées en ranked (ce trio n\'est pas dans le haut du classement, il n\'a pas été testé contre la méta complète).' : 'Estimation.'} Le joueur d'en face peut jouer autrement.</p>`; };
+  <p class="small" style="color:#f3c26b">Indication : un vrai joueur peut jouer mieux ou autrement que la simulation.</p>
+  <p class="small mute">${r.engine ? `Calculé avec le moteur de combat du jeu (le même que le simulateur « Jouer un match ») : ton trio, à tes étoiles, joue contre chacune des ${r.res.length} équipes de la méta à 4★, chaque camp commençant à tour de rôle. Les deux camps jouent leurs techniques dès qu'elles sont prêtes, achèvent ce qui peut l'être et évitent les cartes protégées (esquives, UI, Haki) ; le soin est gardé pour quand l'équipe en a besoin.` : r.full ? 'Calculé avec le moteur de combat du jeu : chaque camp commence à tour de rôle, ton trio joue avec son meilleur placement, et tes étoiles sont prises en compte. Méta = les équipes les plus jouées en ranked (entre parenthèses : combien de fois) + les meilleures équipes trouvées par simulation.' : r.real ? 'Calculé avec le moteur de combat du jeu contre les 3 équipes les plus jouées en ranked (ce trio n\'est pas dans le haut du classement, il n\'a pas été testé contre la méta complète).' : 'Estimation.'} Le joueur d'en face peut jouer autrement.</p>`; };
 function synergy(bt) {
   const has = id => bt.some(c => c.id === id), k = c => KIND_OF(c.id), L = [];
   const heal = bt.find(c => HEALERS.includes(c.id)), stun = bt.find(c => ['stunall', 'timestop', 'dom', 'door'].includes(k(c))), dodge = bt.find(c => [1070, 961].includes(c.id)), aoe = bt.find(c => k(c) === 'aoe');
@@ -1088,13 +1104,14 @@ function ayaCeiling(team, own) {
   return { last: r - 1, stop: r, heal, seuil1: s1, stars: own?.[953] || 0 };
 }
 function simBlock(r, team, own) {
-  const approx = team.filter(c => APPROX.has(c.id)); const ce = ayaCeiling(team, own);
-  return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre sûre (9 fois sur 10)</div><div class="cd">${r.sure}</div></div><div><div class="mute small">Chambre jouable (1 fois sur 2)</div><div class="cd">${r.play}</div></div><div><div class="mute small">Chambre max (1 fois sur 5)</div><div class="cd">${r.max}</div></div>${ce ? `<div><div class="mute small">Plafond réel${ce.heal ? ' (avec soin)' : ''}</div><div class="cd">${ce.last}</div></div>` : ''}</div>${ce ? `<p class="small" style="margin-top:8px"><b>Plafond pour Aya ${ce.stars}★ :</b> la boucle reste gagnable jusqu'à la chambre ${ce.last} (au-delà de la chambre ${ce.seuil1 - 1}, ça se joue à la chance : quelques % de victoires par essai) et devient impossible dès la chambre ${ce.stop}${ce.heal ? ', car 2 coups de gardien dépassent ses PV même avec un soin de 30 %' : ', car elle meurt en 2 coups sans soin'}.</p>` : ''}
-  <p class="small mute" style="margin-top:8px">150 combats simulés par chambre, avec les stats exactes de tes cartes et la boucle de la Brigade.${approx.length ? ` Technique approchée pour : ${approx.map(c => esc(c.n)).join(', ')}.` : ''}</p>`;
+  const pc = v => Math.round(v * 100);
+  return `<div class="grid" style="margin-top:14px"><div><div class="mute small">Chambre sûre (9 fois sur 10)</div><div class="cd">${r.sure}</div></div><div><div class="mute small">Chambre jouable (1 fois sur 2)</div><div class="cd">${r.play}</div></div><div><div class="mute small">Chambre max (1 fois sur 5)</div><div class="cd">${r.max}</div></div><div><div class="mute small">Plafond réel</div><div class="cd">${r.ceil}</div><div class="small mute">${pc(r.ceilP) || '< 1'} % de victoire par essai</div></div></div>
+  <p class="small" style="margin-top:8px"><b>Plafond réel :</b> dernière chambre encore gagnable avec le hasard du jeu (au moins 2 victoires sur 100 essais). À la chambre ${r.ceil}, cette équipe gagne environ ${pc(r.ceilP) || 'moins de 1'} fois sur 100 ; au-delà, elle ne gagne plus.</p>
+  <p class="small mute" style="margin-top:8px">${r.n} combats simulés par chambre avec le moteur de combat du jeu (le même que le simulateur « Jouer une chambre ») : vraies techniques, stats exactes à tes étoiles, gardiens qui visent au hasard comme dans le jeu. L'équipe joue ses techniques dès qu'elles sont prêtes, l'échange d'Aya quand elle est basse et le soin quand l'équipe en a besoin ; un joueur précis peut faire un peu mieux.</p>`;
 }
-function renderCastleReco(best, team, ok, own, mode, use) {
+async function renderCastleReco(best, team, ok, own, mode, use) {
   const bt = best.team, r = best.r; const same = ok && bt.every(c => team.some(x => x.id === c.id)); const e = castleEval(bt, own);
-  const cur = ok ? simCastle(team, own) : null;
+  const cur = ok ? await simCastle(team, own) : null; if (!$('#rec')) return;
   $('#rec').innerHTML = `<div class="card section reco"><span class="chip ${same ? 'ok' : 'red'}">${same ? '✓ Ton équipe est déjà la meilleure' : 'Recommandation'}</span><h2 style="margin-top:10px">${same ? 'Garde cette équipe' : 'Équipe conseillée'}</h2>
     ${teamCards(bt, own)}${simBlock(r, bt, own)}${cur && !same ? `<p><b>Gain par rapport à ton équipe :</b> chambre jouable ${r.play - cur.play >= 0 ? '+' : ''}${r.play - cur.play}, chambre sûre ${r.sure - cur.sure >= 0 ? '+' : ''}${r.sure - cur.sure}.</p>` : ''}
     <h3 style="margin-top:18px">Pourquoi cette équipe</h3><ul class="list">${castleWhy(bt, own, e).map(x => `<li>${x}</li>`).join('')}</ul>
@@ -1122,8 +1139,8 @@ function renderTop5(el, M) {
     el.querySelectorAll('#tl button').forEach(b => b.onclick = () => { lvl = b.dataset.l; draw(); }); };
   draw();
 }
-function renderRankedReco(best, team, ok, own, use) {
-  const bt = best.team, r = best.r; const same = ok && bt.every(c => team.some(x => x.id === c.id)); const cur = ok && !same ? rankedSim(team, own, 80) : null;
+async function renderRankedReco(best, team, ok, own, use) {
+  const bt = best.team, r = best.r; const same = ok && bt.every(c => team.some(x => x.id === c.id)); const cur = ok && !same ? await rankedSim(team, own) : null; if (!$('#rec')) return;
   const syn = synergy(bt);
   $('#rec').innerHTML = `<div class="card section reco"><span class="chip ${same ? 'ok' : 'red'}">${same ? '✓ Ton équipe est déjà la meilleure' : 'Recommandation'}</span><h2 style="margin-top:10px">${same ? 'Garde cette équipe' : 'Équipe conseillée'}</h2>
     ${teamCards(bt, own)}${forceTxt(r)}${cur ? `<p><b>Gain par rapport à ton équipe :</b> ${Math.round((r.avg - cur.avg) * 100) >= 0 ? '+' : ''}${Math.round((r.avg - cur.avg) * 100)} points d'indice de force.</p>` : ''}
@@ -1148,8 +1165,8 @@ P.equipe = async (m, mode = 'chateau') => {
   const show = () => {
     const ok = team.length === 3 && roleOk(team);
     if (!ok) { $('#cur').innerHTML = team.length === 3 ? '<div class="msg">Deux cartes ont le même rôle : le jeu ne l\'accepte pas.</div>' : '<p class="mute small">Choisis 3 cartes.</p>'; }
-    else if (mode === 'chateau') { const r = simCastle(team, own); $('#cur').innerHTML = `${teamCards(team, own)}${simBlock(r, team, own)}`; }
-    else { $('#cur').innerHTML = `${teamCards(team, own)}<p class="mute small">Calcul…</p>`; loadRMeta().then(() => { $('#cur').innerHTML = `${teamCards(team, own)}${forceTxt(rankedSim(team, own, 40))}`; }); }
+    else if (mode === 'chateau') { $('#cur').innerHTML = `${teamCards(team, own)}<p class="mute small">Combats simulés avec le moteur du jeu…</p>`; const tk = team.map(c => c.id).join(); simCastle(team, own).then(r => { if ($('#cur') && team.map(c => c.id).join() === tk) $('#cur').innerHTML = `${teamCards(team, own)}${simBlock(r, team, own)}`; }); }
+    else { $('#cur').innerHTML = `${teamCards(team, own)}<p class="mute small">Matchs simulés avec le moteur du jeu…</p>`; const tk = team.map(c => c.id).join(); rankedSim(team, own).then(r => { if ($('#cur') && team.map(c => c.id).join() === tk) $('#cur').innerHTML = `${teamCards(team, own)}${forceTxt(r)}`; }); }
     if (mode === 'chateau') { $('#rec').innerHTML = '<div class="card section"><div class="row"><span class="chip red">Simulation</span><span class="mute small" id="simp">Combats simulés en cours…</span></div><div class="bar" style="margin-top:10px"><i id="simbar" style="width:0%"></i></div></div>'; const tok = (S.simTok = (S.simTok || 0) + 1);
       bestCastleSim(own, (i, n) => { if (S.simTok !== tok) return; const b = $('#simbar'); if (b) b.style.width = (i / n * 100) + '%'; const t = $('#simp'); if (t) t.textContent = `Combats simulés : ${Math.round(i / n * 100)} %…`; }, ok ? team : null).then(best => { if (S.simTok !== tok || !best) return; renderCastleReco(best, team, ok, own, mode, use); });
       return; }
@@ -1232,8 +1249,8 @@ async function shrinkImage(file, max = 1024) {
 async function kakashiCtx() {
   try { await loadMyLR(); const own = S.mylr.cards || {}; if (Object.keys(own).length < 3) return '';
     const L = []; const bc = await bestCastleSim(own); if (bc) L.push(`Meilleure équipe château (combats simulés) : ${bc.team.map(c => `${c.n} ${own[c.id] || 0}★`).join(', ')} → chambre sûre ${bc.r.sure} (gagnée 9 fois sur 10), jouable ${bc.r.play} (1 fois sur 2), max ${bc.r.max} (1 fois sur 5).`);
-    const br = bestTeam('ranked', own); if (br) L.push(`Équipe ranked conseillée : ${br.team.map(c => `${c.n} ${own[c.id] || 0}★`).join(', ')}${br.meta ? ' (trio de la méta)' : ''}.`);
-    for (const md of ['chateau', 'ranked']) { const t = (S.mylr.teams?.[md] || []).map(id => LRS().find(c => c.id === +id)).filter(Boolean); if (t.length === 3) { const r = md === 'chateau' ? simCastle(t, own) : null; L.push(`Équipe ${md} actuelle du membre : ${t.map(c => c.n).join(', ')}${r ? ` (chambre sûre ${r.sure}, jouable ${r.play}, max ${r.max})` : ''}.`); } }
+    const br = await bestRankedSim(own); if (br) L.push(`Équipe ranked conseillée (matchs simulés avec le moteur du jeu contre la méta) : ${br.team.map(c => `${c.n} ${own[c.id] || 0}★`).join(', ')}, indice de force ${Math.round(br.r.avg * 100)}/100.`);
+    for (const md of ['chateau', 'ranked']) { const t = (S.mylr.teams?.[md] || []).map(id => LRS().find(c => c.id === +id)).filter(Boolean); if (t.length === 3) { const r = md === 'chateau' ? await simCastle(t, own) : null; L.push(`Équipe ${md} actuelle du membre : ${t.map(c => c.n).join(', ')}${r ? ` (chambre sûre ${r.sure}, jouable ${r.play}, max ${r.max})` : ''}.`); } }
     return L.join('\n'); } catch { return ''; }
 }
 P.kakashi = m => {
@@ -1268,7 +1285,7 @@ P.guilde = async (m, id) => {
     const p = S.members.find(x => x.id === id); if (!p || (!p.share && id !== S.user.id)) { m.innerHTML = '<div class="empty">Ce membre ne partage pas son profil.</div>'; return; }
     const lr = LRm[id] || { cards: {}, teams: {} }; const own = lr.cards || {};
     const team = k => (lr.teams?.[k] || []).map(byId).filter(Boolean);
-    const tblock = (k, label) => { const t = team(k); if (t.length !== 3) return `<div class="card"><h3>${label}</h3><p class="mute small">Pas encore renseignée.</p></div>`; const r = k === 'chateau' ? simCastle(t, own) : null; return `<div class="card"><h3>${label}</h3>${teamCards(t, own)}${r ? `<p class="small" style="margin-top:10px">Chambre sûre <b>${r.sure}</b> · jouable <b>${r.play}</b> · max <b>${r.max}</b></p>` : ''}</div>`; };
+    const tblock = (k, label) => { const t = team(k); if (t.length !== 3) return `<div class="card"><h3>${label}</h3><p class="mute small">Pas encore renseignée.</p></div>`; if (k === 'chateau') simCastle(t, own).then(r => { const el = document.getElementById('tb-' + k); if (el) el.innerHTML = `Chambre sûre <b>${r.sure}</b> · jouable <b>${r.play}</b> · max <b>${r.max}</b> · plafond <b>${r.ceil}</b>`; }); return `<div class="card"><h3>${label}</h3>${teamCards(t, own)}${k === 'chateau' ? `<p class="small" style="margin-top:10px" id="tb-${k}">Calcul…</p>` : ''}</div>`; };
     const coll = S.coll[id] || {}, mine = myColl();
     const dupes = U.flatMap(u => u.c.filter(c => coll[u.s]?.dupes.has(c[0])).map(c => [u, c]));
     const inc = U.map(u => ({ u, miss: u.c.filter(c => !coll[u.s]?.owned.has(c[0])) })).filter(x => x.miss.length && x.miss.length < x.u.c.length).sort((a, b) => a.miss.length - b.miss.length);
