@@ -323,3 +323,5 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .lr .mstep.ldup{display:flex;justify-content:center;gap:6px;align-items:center;margin-top:6px}
 .lr .mstep.ldup button{min-width:30px;min-height:30px}
 @media (max-width:600px){.funrow{grid-template-columns:1fr 2fr 30px 44px;gap:6px}}
+@media (max-width:700px){.tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tabs::-webkit-scrollbar{display:none}.tabs button{flex:0 0 auto;white-space:nowrap;padding:0 12px}}
+.mstep.ldup{flex-wrap:nowrap;gap:3px}.mstep.ldup button{min-width:26px;padding:0 6px}

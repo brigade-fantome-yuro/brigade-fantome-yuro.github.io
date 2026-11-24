@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=99';
+import * as CFG from './config.js?v=100';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=99';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=99';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=100';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=100';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=99';
-import * as SCAN from './scan.js?v=99';
+import { duelRate } from './ranked.js?v=100';
+import * as SCAN from './scan.js?v=100';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='99';
+const APP_V='100';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -143,7 +143,7 @@ P.accueil = m => {
     <h1 style="margin-top:12px">Bienvenue dans le repaire, ${esc(S.profile.discord)}</h1>${S.profile.nen ? `<p style="margin:6px 0 0"><span class="chip">🕷 Rôle Nen : ${esc(S.profile.nen)}${S.profile.level != null ? ' · niveau ' + S.profile.level : ''}</span> <span class="small mute">Gagne de l'XP en étant actif sur le Discord.</span></p>` : ''}
     <p class="mute">Tout ce qu'il faut pour progresser sur YURO : guides, fiches des LR, calculateurs, prix réels du marché et Kakashi pour répondre à tes questions.</p>
     <div class="row" style="margin-top:14px"><a class="btn primary" href="#kakashi">${ico('bot')} Demander à Kakashi</a><a class="btn" href="#prix">${ico('chart')} Voir les prix</a></div></section>
-    ${standalone() ? '' : `<div class="card section installcard"><div class="row"><div style="flex:1;min-width:220px"><b>📲 Installer le site comme une app</b><div class="small mute">${isIOS() ? 'Sur iPhone : touche <b>Partager</b> (le carré avec une flèche) puis <b>Sur l\'écran d\'accueil</b>. Ouvre ensuite la Brigade depuis l\'icône : c\'est aussi obligatoire pour recevoir les alertes sur iPhone.' : 'Une icône sur ton écran d\'accueil, le site en plein écran et les alertes du marché comme une vraie app.'}</div></div>${isIOS() ? '' : '<button class="btn primary" id="inst" style="display:none">Installer</button>'}</div></div>`}
+    ${standalone() ? '' : `<div class="card section installcard"><div class="row"><div style="flex:1;min-width:220px"><b>📲 Installer le site comme une app</b><div class="small mute">${isIOS() ? 'Sur iPhone : touche <b>Partager</b> (le carré avec une flèche) puis <b>Sur l\'écran d\'accueil</b>. Ouvre ensuite la Brigade depuis l\'icône : c\'est aussi obligatoire pour recevoir les alertes sur iPhone.' : 'Une icône sur ton écran d\'accueil, le site en plein écran et les alertes du marché comme une vraie app. Si le bouton n\'apparaît pas : menu du navigateur (⋮) → <b>Installer l\'application</b> ou <b>Ajouter à l\'écran d\'accueil</b>.'}</div></div>${isIOS() ? '' : '<button class="btn primary" id="inst" style="display:none">Installer</button>'}</div></div>`}
     <div class="grid">
       ${[['guide/chateau', 'Château de l\'infini', 'La boucle Aya, le focus et les chambres limites par étoile.'], ['guide/prestige', 'Prestige', 'Jetons, univers à compléter, booster Prestige.'], ['guide/temps', 'Salle du temps', 'Farmer du KI et des boosters efficacement.'], ['guide/ranked', 'Ranked', 'Construire son équipe et gagner ses matchs.']]
       .map(g => `<a class="card" href="#${g[0]}"><span class="chip">Guide</span><h3 style="margin-top:10px">${g[1]}</h3><p class="mute small">${g[2]}</p></a>`).join('')}
@@ -455,10 +455,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=99'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=100'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=99'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=100'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -588,7 +588,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=99'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=100'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -883,7 +883,7 @@ P.collection = async (m, tab = '') => {
     });
   }
   const mosaic = (L, empty, color) => `<div class="mosaic">${L.map(([u, c, n, own]) => { const sn = S.serial?.get(c[3]); const o = color ? own : true; const lr = c[1] === 'S'; const st = lr ? S.mylr.cards[c[3]] : null;
-    const ctl = !color ? '' : lr ? `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${own ? `<button data-x="0" title="Je ne l'ai pas">✕</button>${[0, 1, 2, 3, 4, 5].map(k => `<button data-st="${k}" class="${st === k ? 'on' : ''}">${k}★</button>`).join('')}` : '<button data-st="0" class="add">+ Je l\'ai</button>'}</div>${own ? `<div class="mstep ldup" data-u="${esc(u.s)}" data-c="${esc(c[0])}" title="Exemplaires en plus de ta carte (après les montées d'étoiles)"><button data-ld="-1" ${n > 1 ? '' : 'disabled'}>−</button><b>${n > 1 ? '+' + (n - 1) + ' en double' : 'Aucun doublon'}</b><button data-ld="1">+</button></div>` : ''}`
+    const ctl = !color ? '' : lr ? `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${own ? `<button data-x="0" title="Je ne l'ai pas">✕</button>${[0, 1, 2, 3, 4, 5].map(k => `<button data-st="${k}" class="${st === k ? 'on' : ''}">${k}★</button>`).join('')}` : '<button data-st="0" class="add">+ Je l\'ai</button>'}</div>${own ? `<div class="mstep ldup" data-u="${esc(u.s)}" data-c="${esc(c[0])}" title="Exemplaires en plus de ta carte (après les montées d'étoiles)"><button data-ld="-1" ${n > 1 ? '' : 'disabled'}>−</button><b>Doublons ${n - 1}</b><button data-ld="1">+</button></div>` : ''}`
       : `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}"><button data-d="-1" ${own ? '' : 'disabled'}>−</button><b>${own ? '×' + n : 'Manquante'}</b><button data-d="1">+</button></div>`;
     return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] === 'Légendaire' ? 'SSR' : lr ? 'LR' : RN[c[1]] || ''}${lr && own ? ` · <span class="st">${st}★</span>${n > 1 ? ` · ×${n}` : ''}` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
   function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2, true])); const extra = L.reduce((a, x) => a + x[2] - 1, 0); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>` + mosaic(L, 'Aucun doublon. Importe tes captures : les cartes à ×2 et plus y sont ajoutées avec leur nombre.', true); bindEdit(el, X, () => vDupes(el, X)); }
@@ -1000,7 +1000,7 @@ P.alertes = async m => {
     </tbody></table></div></div>
     <div class="card section"><h2>Notifications</h2><div class="row"><button class="btn primary" id="an">${ico('bell')} Activer les notifications sur cet appareil</button><button class="btn ghost" id="at" style="display:none">Envoyer une notification de test</button></div><p class="small mute" id="ans" style="margin-top:8px"></p></div>
     <div class="card section"><h2>Nouvelle alerte</h2><div class="row"><div style="flex:2;min-width:200px"><label for="ac">Carte</label><select id="ac"><optgroup label="LR">${lr.map(n => `<option>${esc(n)}</option>`).join('')}</optgroup><optgroup label="UR (pour les évolutions)">${ALERT_UR.map(n => `<option>${esc(n)}</option>`).join('')}</optgroup></select></div><div style="flex:1;min-width:160px"><label for="ap">Ton prix max (KI)</label><input id="ap" type="number" min="1" placeholder="ex. 60000"></div><div style="align-self:flex-end"><button class="btn primary" id="aa">Ajouter</button></div></div><p class="small mute" id="ah"></p></div>
-    <div id="al"></div><div class="section"><h2>Dernières alertes reçues</h2><p class="small mute">Les notifications envoyées pour tes alertes, avec le repère du guide des prix : en vert, une vraie bonne affaire (sous le bon prix).</p><div class="tablewrap"><table><thead><tr><th>Quand</th><th>Carte</th><th class="n">Prix annoncé</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="ahist"><tr><td colspan="5" class="mute">Chargement…</td></tr></tbody></table></div></div><div class="section"><h2>Moins chères en vente</h2><p class="small mute" id="wat"></p><div class="tablewrap"><table><thead><tr><th>Carte</th><th class="n">En vente</th><th class="n">Moins chère</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="wt"></tbody></table></div></div>`;
+    <div id="al"></div><div class="section"><h2>Dernières alertes reçues</h2><p class="small mute">Les notifications envoyées pour tes alertes, avec le repère du guide des prix : en vert, une vraie bonne affaire (sous le bon prix).</p><div class="tablewrap"><table><thead><tr><th>Quand</th><th>Carte</th><th class="n">Prix</th><th class="n hide-sm">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="ahist"><tr><td colspan="5" class="mute">Chargement…</td></tr></tbody></table></div></div><div class="section"><h2>Moins chères en vente</h2><p class="small mute" id="wat"></p><div class="tablewrap"><table><thead><tr><th>Carte</th><th class="n hide-sm">En vente</th><th class="n">Moins chère</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="wt"></tbody></table></div></div>`;
   const hint = () => { const p = S.prices.find(x => x.card === $('#ac').value); $('#ah').textContent = p ? `Repère : bon prix ${fmt(p.good)} KI · prix médian ${fmt(p.median)} KI (ventes des 7 derniers jours)` : ALERT_UR.includes($('#ac').value) ? 'UR de base (pas la version éveillée) : l\'alerte ne concerne que la carte normale.' : ''; };
   const draw = () => { const W = S.watch.cards || {}, fired = new Set(firedAlerts().map(a => a.card));
     $('#al').innerHTML = S.alerts.length ? `<div class="grid">${S.alerts.map(a => { const w = W[a.card], on = fired.has(a.card);
@@ -1008,7 +1008,7 @@ P.alertes = async m => {
       <div class="row small"><span>Ton prix : <b>${a.max_price ? fmt(a.max_price) + ' KI' : '—'}</b></span><span class="sp"></span><span>${w ? `Moins chère : <b class="${on ? 'up' : ''}">${fmt(w.min)} KI</b>` : '<span class="mute">Aucune en vente</span>'}</span></div>${(() => { const p = S.prices.find(x => x.card === a.card); return p ? `<div class="small mute" style="margin-top:6px">Guide des prix : bon prix <b class="bone">${fmt(p.good)}</b> · médiane ${fmt(p.median)} · max conseillé ${fmt(p.max)}${a.max_price && a.max_price > p.max ? ' · <span class="red">ton prix dépasse le max conseillé</span>' : ''}</div>` : '<div class="small mute" style="margin-top:6px">Pas assez de ventes cette semaine pour un repère de prix.</div>'; })()}${a.max_price ? '' : '<p class="small red">Cette ancienne alerte suivait le prix moyen : ajoute-la de nouveau avec ton prix max pour être prévenu.</p>'}</div>`; }).join('')}</div>` : '<div class="empty">Aucune alerte pour l\'instant.</div>';
     $('#al').querySelectorAll('[data-d]').forEach(b => b.onclick = async () => { await sb.from('alerts').delete().eq('user_id', S.user.id).eq('card', b.dataset.d); await loadAlerts(); draw(); });
     const rows = Object.entries(W).map(([n, w]) => { const p = S.prices.find(x => x.card === n); return { ...w, card: n, good: p?.good, gap: p?.good ? (w.min - p.good) / p.good * 100 : null }; }).sort((a, b) => (a.gap ?? 999) - (b.gap ?? 999));
-    $('#wt').innerHTML = rows.map(r => `<tr><td><b>${esc(r.card)}</b></td><td class="n">${r.n}</td><td class="n">${fmt(r.min)}</td><td class="n">${fmt(r.good)}</td><td class="n ${r.gap != null && r.gap <= 0 ? 'up' : ''}">${r.gap == null ? '—' : (r.gap > 0 ? '+' : '') + r.gap.toFixed(0) + ' %'}</td></tr>`).join('') || '<tr><td colspan="5" class="mute">Aucune LR en vente.</td></tr>';
+    $('#wt').innerHTML = rows.map(r => `<tr><td><b>${esc(r.card)}</b></td><td class="n hide-sm">${r.n}</td><td class="n">${fmt(r.min)}</td><td class="n">${fmt(r.good)}</td><td class="n ${r.gap != null && r.gap <= 0 ? 'up' : ''}">${r.gap == null ? '—' : (r.gap > 0 ? '+' : '') + r.gap.toFixed(0) + ' %'}</td></tr>`).join('') || '<tr><td colspan="5" class="mute">Aucune LR en vente.</td></tr>';
     $('#wat').textContent = S.watch.at ? `Relevé ${new Date(S.watch.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} (annonces de plus de 3 minutes)` : ''; };
   $('#ac').oninput = hint; hint();
   $('#aa').onclick = async () => { const card = $('#ac').value, v = Math.round(+$('#ap').value) || null; if (!v) return toast('Indique ton prix max'); const { error } = await sb.from('alerts').upsert({ user_id: S.user.id, card, max_price: v }); if (error) return toast(error.message); toast('Alerte ajoutée'); $('#ap').value = ''; await loadAlerts(); draw(); };
@@ -1023,7 +1023,7 @@ P.alertes = async m => {
   $('#an').onclick = async () => { try { if (await Notification.requestPermission() !== 'granted') return ns(); await pushSub(true); toast('Notifications activées'); } catch (e) { toast('Impossible d\'activer : ' + e.message); } ns(); };
   $('#at').onclick = async () => { const { data, error } = await sb.functions.invoke('market-alert', { body: { test: true } }); toast(error ? 'Échec du test : ' + error.message : data?.sent ? 'Notification envoyée' : 'Aucun appareil abonné : réactive les notifications'); };
   const hist = async () => { const { data } = await sb.from('alert_sent').select('card,price,sent_at').eq('user_id', S.user.id).order('sent_at', { ascending: false }).limit(30); const el = $('#ahist'); if (!el) return;
-    el.innerHTML = (data || []).map(h => { const p = S.prices.find(x => x.card === h.card), gap = p?.good ? (h.price - p.good) / p.good * 100 : null; return `<tr><td class="small">${new Date(h.sent_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td><b>${esc(h.card)}</b></td><td class="n">${fmt(h.price)}</td><td class="n">${p ? fmt(p.good) : '—'}</td><td class="n ${gap != null && gap <= 0 ? 'up' : ''}">${gap == null ? '—' : (gap > 0 ? '+' : '') + gap.toFixed(0) + ' %'}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Aucune alerte reçue pour l\'instant.</td></tr>'; };
+    el.innerHTML = (data || []).map(h => { const p = S.prices.find(x => x.card === h.card), gap = p?.good ? (h.price - p.good) / p.good * 100 : null; return `<tr><td class="small">${new Date(h.sent_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td><b>${esc(h.card)}</b></td><td class="n">${fmt(h.price)}</td><td class="n hide-sm">${p ? fmt(p.good) : '—'}</td><td class="n ${gap != null && gap <= 0 ? 'up' : ''}">${gap == null ? '—' : (gap > 0 ? '+' : '') + gap.toFixed(0) + ' %'}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Aucune alerte reçue pour l\'instant.</td></tr>'; };
   ns(); draw(); hist();
   S.timers.push(setInterval(async () => { if (!$('#al')) return; await loadWatch(); if ($('#al')) { draw(); hist(); } }, 60000));
 };
@@ -1204,7 +1204,7 @@ P.meslr = async m => {
     <p class="small mute" style="margin:6px 0 0">Dans le jeu : Collection → filtre LR → Possédées, puis une ou plusieurs captures (fais défiler pour tout montrer). Le site reconnaît chaque carte et lit ses étoiles : tu vérifies avant de valider.</p>`; };
   const draw = () => { $('#lg').innerHTML = LRS().map(c => { const st = own[c.id]; const has = st != null; const dp = +(S.mylr.dupes?.[c.id] || 0);
     return `<div class="lr ${has ? 'on' : ''}" data-id="${c.id}"><button class="lrimg" data-t="${c.id}" aria-pressed="${has}">${lrImg(c) ? `<img loading="lazy" src="${lrImg(c)}" alt="">` : ''}<span>${esc(c.n)}</span></button>
-      ${has ? `<div class="stars">${[0, 1, 2, 3, 4, 5].map(k => `<button data-s="${k}" class="${st === k ? 'on' : ''}" aria-label="${k} étoiles">${k}★</button>`).join('')}</div><div class="mstep ldup"><button data-ld="-1" ${dp ? '' : 'disabled'} aria-label="Un doublon de moins">−</button><b>${dp ? '+' + dp + ' en double' : 'Aucun doublon'}</b><button data-ld="1" aria-label="Un doublon de plus">+</button></div>` : ''}</div>`; }).join('');
+      ${has ? `<div class="stars">${[0, 1, 2, 3, 4, 5].map(k => `<button data-s="${k}" class="${st === k ? 'on' : ''}" aria-label="${k} étoiles">${k}★</button>`).join('')}</div><div class="mstep ldup"><button data-ld="-1" ${dp ? '' : 'disabled'} aria-label="Un doublon de moins">−</button><b>Doublons ${dp}</b><button data-ld="1" aria-label="Un doublon de plus">+</button></div>` : ''}</div>`; }).join('');
     $('#lg').querySelectorAll('.lrimg').forEach(b => b.onclick = async () => { const id = b.dataset.t; if (own[id] != null) { delete own[id]; if (S.mylr.dupes) delete S.mylr.dupes[id]; } else own[id] = 0; draw(); sum(); await saveMyLR(); });
     $('#lg').querySelectorAll('.stars button').forEach(b => b.onclick = async () => { const id = b.closest('.lr').dataset.id; own[id] = +b.dataset.s; draw(); await saveMyLR(); });
     $('#lg').querySelectorAll('.ldup button').forEach(b => b.onclick = async () => { const id = b.closest('.lr').dataset.id; S.mylr.dupes = S.mylr.dupes || {}; const x = Math.max(0, Math.min(99, (+S.mylr.dupes[id] || 0) + (+b.dataset.ld))); if (x) S.mylr.dupes[id] = x; else delete S.mylr.dupes[id]; draw(); await saveMyLR(); }); };
@@ -1237,7 +1237,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=99'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=100'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
