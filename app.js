@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=80';
+import * as CFG from './config.js?v=81';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=80';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=80';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=81';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=81';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=80';
-import * as SCAN from './scan.js?v=80';
+import { duelRate } from './ranked.js?v=81';
+import * as SCAN from './scan.js?v=81';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='80';
+const APP_V='81';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -470,10 +470,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=80'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=81'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=80'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=81'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -603,7 +603,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=80'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=81'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -777,7 +777,7 @@ function viewTrades(el, U) {
 // Univers construits à partir de la base de reconnaissance des cartes (toutes les SSR et toutes les UR du jeu).
 function rarUniverses(r) {
   const base = S.feats?.base || 'https://yurocollection.fr/card-art/', by = new Map();
-  for (const row of S.feats?.rows || []) { if (row[1] !== r) continue; const s = row[3] || '—'; if (!by.has(s)) by.set(s, { s, c: [] }); by.get(s).c.push([row[2], r, row[4] ? base + row[4] + '.webp' : '']); }
+  for (const row of S.feats?.rows || []) { if (row[1] !== r) continue; const s = row[3] || '—'; if (!by.has(s)) by.set(s, { s, c: [] }); by.get(s).c.push([row[2], r, row[4] ? (/^https?:/.test(row[4]) ? row[4] : base + row[4] + '.webp') : '', Number(row[0])]); }
   return [...by.values()].sort((a, b) => a.s.localeCompare(b.s));
 }
 P.collection = async (m, tab = '') => {
@@ -805,26 +805,59 @@ P.collection = async (m, tab = '') => {
     ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades })[view]($('#cbody'), X);
   };
   function vMine(el, X) {
-    let mode = null, q = '';
+    let q = '', show = 'all', uni = '';
     const total = X.U.reduce((a, u) => a + u.c.length, 0), got = X.U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0);
     if (!got) {
       el.innerHTML = `<div class="card section" style="text-align:center"><h2>Ta collection ${X.label} est vide pour l'instant</h2><p class="mute">Tu n'as rien à cocher toi-même : envoie tes captures du jeu et le site remplit tout seul tes ${X.label} possédées, tes doublons avec leur nombre (×2, ×3…) et les cartes qui te manquent.</p><button class="btn primary" id="cimp2" style="margin-top:8px">📷 Importer mes ${X.label}</button></div>`;
       el.querySelector('#cimp2').onclick = () => rarImport(rk); return;
     }
-    const list = () => { const rows = X.U.map(u => ({ u, c: u.c.filter(c => !q || c[0].toLowerCase().includes(q) || u.s.toLowerCase().includes(q)) })).filter(x => x.c.length);
-      el.querySelector('#cl').innerHTML = rows.map(({ u, c }) => `<div class="card" style="margin:8px 0"><div class="row"><b>${esc(u.s)}</b><span class="sp"></span><span class="small mute">${u.c.filter(x => has(coll, u, x[0])).length}/${u.c.length}</span></div><div class="tiles" style="margin-top:8px" data-u="${esc(u.s)}">${c.map(x => tile(x, has(coll, u, x[0]), dup(coll, u, x[0]))).join('')}</div></div>`).join('') || '<div class="empty">Aucune carte.</div>';
-      el.querySelectorAll('[data-u]').forEach(box => { const u = X.U.find(x => x.s === box.dataset.u); box.querySelectorAll('.tile').forEach(b => b.onclick = async () => { if (!mode) return; const r = uget(coll, u.s), n = b.dataset.c;
-        if (mode === 'own') { if (r.owned.has(n)) { r.owned.delete(n); r.dupes.delete(n); delete r.qty[n]; } else r.owned.add(n); } else { if (r.dupes.has(n)) { r.dupes.delete(n); delete r.qty[n]; } else { r.dupes.add(n); r.owned.add(n); } }
-        await save(u); list(); }); }); };
-    el.innerHTML = `<p class="small mute">Rempli automatiquement par l'import de tes captures : en couleur tes ${X.label} (×N = nombre d'exemplaires), en gris celles qui te manquent. Pour mettre à jour, refais simplement l'import.</p>
-      <input id="cq" placeholder="Rechercher une carte ou un univers" style="width:100%">
-      <details class="small" style="margin-top:8px"><summary>Une carte mal lue ? Corriger à la main</summary><div class="row" style="margin-top:8px"><div class="tabs" id="cm" style="margin:0"><button data-m="own">Je l'ai / je ne l'ai pas</button><button data-m="dupe">En double / pas en double</button></div></div><p class="mute" style="margin:6px 0 0">Choisis un mode puis touche la carte à corriger.</p></details><div id="cl"></div>`;
-    el.querySelectorAll('#cm button').forEach(b => b.onclick = () => { mode = mode === b.dataset.m ? null : b.dataset.m; el.querySelectorAll('#cm button').forEach(x => x.classList.toggle('on', x.dataset.m === mode)); });
+    const st = u => ({ n: u.c.filter(c => has(coll, u, c[0])).length, t: u.c.length });
+    const full = X.U.filter(u => st(u).n === u.c.length), part = X.U.filter(u => st(u).n < u.c.length);
+    el.innerHTML = `<p class="small mute" style="margin-top:0">Comme dans le jeu, rangées par numéro : en couleur tes ${X.label} (×N = exemplaires), en gris celles qui te manquent. <b>Touche une carte</b> pour corriger son nombre d'exemplaires si l'import s'est trompé.</p>
+      <div class="cfilters"><input id="cq" placeholder="Rechercher une carte ou un univers">
+        <div class="tabs" id="cs" style="margin:0">${[['all', `Toutes ${total}`], ['own', `Possédées ${got}`], ['miss', `Manquantes ${total - got}`]].map(([k, l]) => `<button data-s="${k}" class="${k === show ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <select id="cuf"><option value="">✅ Univers complets (${full.length})</option>${full.map(u => `<option value="${esc(u.s)}">${esc(u.s)} · ${u.c.length}/${u.c.length}</option>`).join('')}</select>
+        <select id="cup"><option value="">🧩 Univers incomplets (${part.length})</option>${part.map(u => { const k = st(u); return `<option value="${esc(u.s)}">${esc(u.s)} · ${k.n}/${k.t}</option>`; }).join('')}</select>
+        <button class="btn ghost" id="cux" style="min-height:40px;display:none">✕ Tous les univers</button></div>
+      <p class="small mute" id="cinfo" style="margin:8px 0 0"></p><div id="cl"></div>`;
+    const list = () => {
+      let L = X.U.flatMap(u => u.c.map(c => [u, c, coll[u.s]?.qty?.[c[0]] || (dup(coll, u, c[0]) ? 2 : 1), has(coll, u, c[0])]));
+      if (uni) L = L.filter(x => x[0].s === uni);
+      if (q) L = L.filter(x => x[1][0].toLowerCase().includes(q) || x[0].s.toLowerCase().includes(q));
+      if (show === 'own') L = L.filter(x => x[3]); else if (show === 'miss') L = L.filter(x => !x[3]);
+      L.sort((a, b) => (S.serial?.get(a[1][3]) || 9e9) - (S.serial?.get(b[1][3]) || 9e9));
+      el.querySelector('#cinfo').textContent = `${L.length} carte${L.length > 1 ? 's' : ''} affichée${L.length > 1 ? 's' : ''}${uni ? ' · ' + uni : ''}`;
+      el.querySelector('#cl').innerHTML = mosaic(L, 'Aucune carte.', true);
+      bindEdit(el.querySelector('#cl'), X, list);
+    };
+    const pickUni = v => { uni = v; el.querySelector('#cuf').value = full.some(u => u.s === v) ? v : ''; el.querySelector('#cup').value = part.some(u => u.s === v) ? v : ''; el.querySelector('#cux').style.display = v ? '' : 'none'; list(); };
+    el.querySelector('#cuf').onchange = e => pickUni(e.target.value); el.querySelector('#cup').onchange = e => pickUni(e.target.value); el.querySelector('#cux').onclick = () => pickUni('');
+    el.querySelectorAll('#cs button').forEach(b => b.onclick = () => { show = b.dataset.s; el.querySelectorAll('#cs button').forEach(x => x.classList.toggle('on', x === b)); list(); });
     el.querySelector('#cq').oninput = e => { q = e.target.value.toLowerCase().trim(); list(); }; list();
   }
-  const mosaic = (L, empty) => `<div class="mosaic">${L.map(([u, c, n]) => `<figure class="mcard r${c[1]}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] || ''}${n > 1 ? ` · ×${n}` : ''}</span><figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>`).join('') || `<div class="empty">${empty}</div>`}</div>`;
-  function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2])); const extra = L.reduce((a, x) => a + x[2] - 1, 0); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>` + mosaic(L, 'Aucun doublon. Importe tes captures : les cartes à ×2 et plus y sont ajoutées avec leur nombre.'); }
-  function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c])); el.innerHTML = `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade.</p>` + mosaic(L, 'Rien ne te manque 🎉'); }
+  // Correction à la main : on touche une carte, on règle son nombre d'exemplaires (0 = je ne l'ai pas, 1 = je l'ai, 2+ = en double).
+  function bindEdit(box, X, after) {
+    box.querySelectorAll('.mcard[data-u]').forEach(fg => fg.onclick = () => {
+      const u = X.U.find(x => x.s === fg.dataset.u), c = u?.c.find(x => x[0] === fg.dataset.c); if (!c) return;
+      const r = uget(coll, u.s); let n = r.owned.has(c[0]) ? (r.dupes.has(c[0]) ? (r.qty[c[0]] || 2) : 1) : 0;
+      const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
+      const lab = () => n === 0 ? 'Je ne l\'ai pas (manquante)' : n === 1 ? 'Je l\'ai (1 exemplaire)' : `Je l'ai en double : ${n} exemplaires (${n - 1} à échanger)`;
+      const paint = () => { d.querySelector('#en').textContent = n; d.querySelector('#el').textContent = lab(); };
+      d.innerHTML = `<div class="mbox" style="max-width:360px;text-align:center">${c[2] ? `<img src="${img(c[2])}" alt="" style="width:140px;aspect-ratio:.716;object-fit:cover;border-radius:12px">` : ''}<h2 style="margin:10px 0 2px">${esc(c[0])}</h2><p class="small mute" style="margin:0">${esc(u.s)}</p>
+        <p class="small" style="margin:14px 0 6px">Combien d'exemplaires as-tu dans le jeu ?</p>
+        <div class="row" style="justify-content:center;gap:14px"><button class="btn" id="em" style="min-width:52px;font-size:22px">−</button><b id="en" style="font-size:30px;min-width:40px">${n}</b><button class="btn" id="ep" style="min-width:52px;font-size:22px">+</button></div>
+        <p class="small mute" id="el" style="margin:8px 0 0"></p>
+        <div class="row" style="justify-content:center;margin-top:16px"><button class="btn primary" id="eok">Enregistrer</button><button class="btn ghost" id="ex">Annuler</button></div></div>`;
+      paint();
+      d.querySelector('#em').onclick = () => { n = Math.max(0, n - 1); paint(); }; d.querySelector('#ep').onclick = () => { n = Math.min(99, n + 1); paint(); };
+      d.querySelector('#ex').onclick = () => d.remove(); d.onclick = e => { if (e.target === d) d.remove(); };
+      d.querySelector('#eok').onclick = async () => { if (n === 0) { r.owned.delete(c[0]); r.dupes.delete(c[0]); delete r.qty[c[0]]; } else { r.owned.add(c[0]); if (n >= 2) { r.dupes.add(c[0]); r.qty[c[0]] = n; } else { r.dupes.delete(c[0]); delete r.qty[c[0]]; } }
+        await save(u); d.remove(); toast('Carte corrigée'); after(); };
+    });
+  }
+  const mosaic = (L, empty, color) => `<div class="mosaic">${L.map(([u, c, n, own]) => { const sn = S.serial?.get(c[3]); const o = color ? own : true; return `<figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}" title="Touche pour corriger">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${RN[c[1]] === 'Mythique' ? 'UR' : RN[c[1]] === 'Légendaire' ? 'SSR' : RN[c[1]] || ''}${o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
+  function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2, true])); const extra = L.reduce((a, x) => a + x[2] - 1, 0); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>` + mosaic(L, 'Aucun doublon. Importe tes captures : les cartes à ×2 et plus y sont ajoutées avec leur nombre.', true); bindEdit(el, X, () => vDupes(el, X)); }
+  function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c])); el.innerHTML = `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade.</p>` + mosaic(L, 'Rien ne te manque 🎉'); bindEdit(el, X, () => vMiss(el, X)); }
   function vTrades(el, X) {
     const out = [];
     for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; const give = [], get = [];
@@ -1003,7 +1036,7 @@ function scanButton(label, getCandidates, onAdd) {
 
 // Lecture des captures par l'illustration des cartes (voir scan.js) : étoiles et exemplaires compris.
 async function loadFeats() { if (S.feats) return S.feats; const { data } = await sb.from('content').select('data').eq('key', 'card_feats').maybeSingle(); S.feats = data?.data || { rows: [] }; SCAN.setFeats(S.feats.rows);
-  try { const { data: sr } = await sb.from('content').select('data').eq('key', 'card_serials').maybeSingle(); SCAN.setSerials(sr?.data?.order || []); } catch (e) { /* sans numéros : reconnaissance carte par carte */ }
+  try { const { data: sr } = await sb.from('content').select('data').eq('key', 'card_serials').maybeSingle(); SCAN.setSerials(sr?.data?.order || []); S.serial = new Map((sr?.data?.order || []).map((id, i) => [Number(id), i + 1])); } catch (e) { /* sans numéros : reconnaissance carte par carte */ }
   return S.feats; }
 async function qtyOCR() { const w = await ocrWorker(() => {}); try { await w.setParameters({ tessedit_char_whitelist: 'x×X0123456789', tessedit_pageseg_mode: '7' }); } catch (e) { /* ancien moteur */ } return w; }
 let NAMEOCR = null;
@@ -1108,7 +1141,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=80'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=81'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();

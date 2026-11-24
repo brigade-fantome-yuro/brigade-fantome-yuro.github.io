@@ -280,3 +280,14 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .onbtop .brand b{font-size:18px;white-space:nowrap}
 .onbmain{max-width:980px;margin:0 auto}
 @media (max-width:560px){.onbtop .small{display:none}}
+/* Ma collection : affichage façon jeu */
+.mcard{cursor:pointer}
+.mcard.own img{filter:none}
+.mcard.miss img{filter:grayscale(1) brightness(.45)}
+.mcard.miss{border-color:#2c262b!important;opacity:.8}
+.mcard .mnum{position:absolute;top:6px;right:6px;font-size:10px;font-weight:800;padding:2px 5px;border-radius:6px;background:rgba(0,0,0,.65);color:#fff;font-style:italic}
+.cfilters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.cfilters input{flex:1 1 220px}
+.cfilters select{flex:1 1 200px;min-height:40px;max-width:100%}
+@media (min-width:1100px){.mosaic.big,.mosaic{grid-template-columns:repeat(auto-fill,minmax(124px,1fr))}}
+@media (max-width:560px){.mosaic{grid-template-columns:repeat(3,1fr);gap:8px}.mcard figcaption b{font-size:11px}}
