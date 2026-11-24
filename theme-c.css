@@ -90,3 +90,4 @@ body.th-c .mosaic>.mcell:nth-child(3n+1)>.mcard{animation-duration:4.4s;animatio
 body.th-c .mosaic>.mcell:nth-child(3n+2)>.mcard{animation-duration:5.6s;animation-delay:-1.9s}
 body.th-c .mosaic>.mcell::after{content:"";position:absolute;top:-40px;height:13px;left:calc(var(--cg) / -2 - 1px);right:calc(var(--cg) / -2 - 1px);pointer-events:none;z-index:-1;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 13' preserveAspectRatio='none'%3E%3Cpath d='M0 1.5 Q50 13 100 1.5' fill='none' stroke='white' stroke-width='1.1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat;opacity:.8}
 body.th-c .mosaic>.mcell::before{top:-33px;height:33px}
+body.th-c .card .v{font-optical-sizing:none;font-variation-settings:"opsz" 10;letter-spacing:.01em}
