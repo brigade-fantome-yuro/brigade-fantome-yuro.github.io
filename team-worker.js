@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=67');
+importScripts('castle-engine.js?v=68');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -9,6 +9,8 @@ const isAya = p => /ayanokouji/i.test(p.name), isHeal = p => /seiichi|rimuru/i.t
 const mk = u => ({ key: u.name, name: u.name, image: u.image || '', rarity: u.rarity || 'Secret', maxHp: u.hp, hp: u.hp, attack: u.atk, cooldown: 0 });
 
 // Jeu du château : techniques dès qu'elles sont prêtes, sauf l'échange d'Aya (quand elle est basse) et le soin (quand l'équipe en a besoin).
+// Au-delà du 1er seuil (Aya meurt en 2 coups) : elle échange avec le gardien le MOINS plein qui lui laisse de quoi encaisser un coup de plus, et garde les gardiens pleins pour un échange plus rentable ensuite (technique de Wingz ; testé : ×3 à ×4 de victoires sans soigneur après le seuil).
+function ayaTarget(b, p, T, gAtk, high) { if (p.maxHp > 2 * gAtk) return high; const pc = j => b.enemies[j].hp / b.enemies[j].maxHp; const ok = T.filter(j => Math.round(pc(j) * p.maxHp) > gAtk); return ok.length ? ok.reduce((x, j) => pc(j) < pc(x) ? j : x, ok[0]) : high; }
 function castleMove(b) {
   const i = b.players.findIndex(p => p.hp > 0 && !p.acted); if (i < 0) return null;
   const p = b.players[i], T = b.enemies.map((e, j) => j).filter(j => b.enemies[j].hp > 0 && !b.enemies[j].banished); if (!T.length) return null;
@@ -19,7 +21,7 @@ function castleMove(b) {
   if (ready) {
     // Boucle de la Brigade : le soin passe dès qu'un allié mourrait au prochain coup de gardien ; Aya échange quand un coup de plus la tuerait.
     const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0);
-    if (isAya(p)) { if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', high]); }
+    if (isAya(p)) { if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', ayaTarget(b, p, T, gAtk, high)]); }
     else if (isHeal(p)) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (al.some(u => u.hp <= gAtk && u.hp + Math.round(u.maxHp * .3) > gAtk) || miss >= tot * .3) order.push(['skill', low]); }
     else order.push(['skill', low]);
   }

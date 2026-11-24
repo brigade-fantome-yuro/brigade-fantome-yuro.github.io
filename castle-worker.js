@@ -1,7 +1,7 @@
 // Analyse des coups du simulateur du château.
 // Pour chaque coup possible (carte, action, cible), on rejoue la suite de la chambre avec les mêmes tirages au sort
 // pour tous les coups (comparaison juste), puis on rejoue beaucoup plus de fois les meilleurs pour départager.
-importScripts('castle-engine.js?v=67');
+importScripts('castle-engine.js?v=68');
 const E = self.BFCastle.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -27,7 +27,7 @@ function rollout(b) {
     const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0), ready = !(p.cooldown > 0) && !E.combatSpentSpecial(p) && !E.atomicLocked(p, p, b);
     const aya = /ayanokouji/i.test(p.name), heal = /seiichi|rimuru/i.test(p.name), order = [];
     if (E.canFullPower(p)) order.push(['ultimate', t]); if (E.canHollowPurple(p)) order.push(['purple', t]); if (E.canRage(p)) order.push(['rage', t]);
-    if (ready) { if (aya) { if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', high]); }
+    if (ready) { if (aya) { if (p.hp <= gAtk || p.hp / p.maxHp <= .35) { let tg = high; if (p.maxHp <= 2 * gAtk) { const pc = j => b.enemies[j].hp / b.enemies[j].maxHp, ok = T.filter(j => Math.round(pc(j) * p.maxHp) > gAtk); if (ok.length) tg = ok.reduce((x, j) => pc(j) < pc(x) ? j : x, ok[0]); } order.push(['skill', tg]); } }
       else if (heal) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (al.some(u => u.hp <= gAtk && u.hp + Math.round(u.maxHp * .3) > gAtk) || miss >= tot * .3) order.push(['skill', t]); }
       else order.push(['skill', t]); }
     order.push(['attack', t]);
