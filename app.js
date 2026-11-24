@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=68';
+import * as CFG from './config.js?v=69';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=68';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=68';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=69';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=69';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=68';
-import * as SCAN from './scan.js?v=68';
+import { duelRate } from './ranked.js?v=69';
+import * as SCAN from './scan.js?v=69';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='68';
+const APP_V='69';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -448,10 +448,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=68'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=69'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=68'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=69'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -543,7 +543,7 @@ P.chateausim = m => {
     if ($('#csCeil')) $('#csCeil').innerHTML = `<h3 style="margin-top:16px">Ce que cette équipe peut atteindre</h3>${simBlock(r, [0, 1, 2].map(i => byName.get($('#cs' + i).value.trim().toLowerCase())), Object.fromEntries([0, 1, 2].map(i => [byName.get($('#cs' + i).value.trim().toLowerCase())?.id, +$('#css' + i).value])))}<div class="card" style="margin-top:12px"><h3 style="margin:0">Comment dépasser la chambre max (${r.max}) jusqu'au plafond (${r.ceil})</h3>
       <ul class="list small" style="margin-top:8px"><li><b>Jusqu'à la chambre max</b>, la boucle normale gagne au moins 1 fois sur 5 : Aya encaisse, échange ses PV avec le gardien le plus plein, le soin remonte l'équipe.</li>
       <li><b>Au-delà</b>, les gardiens tapent assez fort pour casser la boucle s'ils visent mal pour toi. Une victoire demande que le hasard tombe bien : les coups doivent se répartir pour qu'<b>Aya ne prenne jamais plus de 2 coups avant son échange</b>, que <b>le soin passe entre deux coups</b> sur la carte basse, et qu'aucune autre carte ne tombe avant que l'échange ait vidé un gardien.</li>
-      <li><b>Après le 1er seuil (Aya meurt en 2 coups) :</b> au lieu d'échanger avec le gardien le plus plein, échange avec un gardien <b>pas plein</b> (ex. 60 % : Aya 3★ remonte à 790 PV) mais qui lui laisse de quoi encaisser <b>un coup de plus</b>. Les gardiens pleins restent pour un échange bien plus rentable quelques tours plus tard, quand Aya est au plus bas. C'est ce qui débloque quelques chambres après le seuil (×3 à ×4 de victoires sans soigneur dans nos simulations).</li>
+      <li><b>Sans soigneur, après le 1er seuil (Aya meurt en 2 coups) :</b> au lieu d'échanger avec le gardien le plus plein, échange avec un gardien <b>pas plein</b> (ex. 60 % : Aya 3★ remonte à 790 PV) mais qui lui laisse de quoi encaisser <b>un coup de plus</b>. Les gardiens pleins restent pour un échange bien plus rentable quelques tours plus tard, quand Aya est au plus bas. C'est ce qui débloque quelques chambres après le seuil (×2 à ×4 de victoires dans nos simulations, et un plafond réel plus haut). Avec un soigneur, on garde l'échange sur le gardien le plus plein : le soin fait mieux.</li>
       <li><b>Ce que tu contrôles :</b> n'échange qu'après 2 coups encaissés (jamais avant), échange sur le gardien qui a le plus de PV, garde le soin pour le moment où une carte mourrait au prochain coup, et achève toujours un gardien tuable.</li>
       <li><b>Le reste, c'est la répétition :</b> une défaite ne coûte rien. À ${Math.round((r.ceilP || .03) * 100)} % par essai à la chambre ${r.ceil}, compte en moyenne ${Math.round(1 / Math.max(.01, r.ceilP || .03))} essais.</li></ul>
       <p class="small mute" style="margin:6px 0 0">Le mieux : regarde une vraie victoire, coup par coup.</p></div>
@@ -581,7 +581,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=68'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=69'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -1041,12 +1041,12 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=68'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=69'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
 function simCastle(team, own, n = 100) {
-  const key = team.map(c => c.id + ':' + (own[c.id] || 0)).sort().join(',') + '|' + n + '|e7';
+  const key = team.map(c => c.id + ':' + (own[c.id] || 0)).sort().join(',') + '|' + n + '|e8';
   if (!SIMC.has(key)) { let c = null; try { c = JSON.parse(localStorage.getItem('bfc:' + key) || 'null'); } catch {}
     SIMC.set(key, c ? Promise.resolve(c) : twCall({ kind: 'castle', team: team.map(x => engUnit(x, own[x.id] || 0)), catalog: castleCatalog(), n }).then(r => { try { localStorage.setItem('bfc:' + key, JSON.stringify(r)); } catch {} return r; })); }
   return SIMC.get(key);
