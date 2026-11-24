@@ -2222,7 +2222,11 @@ renderInfinity=function(){if(__mode!=='duel'){__cRender();__animToggle();return;
   __animToggle();if(__opts.onChange)__opts.onChange(duelApi.info());};
 infinityScheduleAuto=function(){if(__mode!=='duel')return __cAuto();clearTimeout(infinityPlayback.timer);infinityPlayback.timer=null;var D=__D;if(!D||D.winner!=null||infinityPlayback.animating||__di!==__dh.length-1)return;
   var ai=__opts.ai&&__opts.ai[D.s];if(!ai&&!infinityPlayback.auto)return;
-  infinityPlayback.timer=setTimeout(function(){infinityPlayback.timer=null;if(infinityPlayback.animating||__D!==D)return;var m=duelPolicy(D);if(!m)return;infinityPlayback.active=m.i;infinityPlayback.target=m.t;for(const a of m.order){if(duelPerform(a,true))return;}},(ai?900:400)/storySpeed);};
+  infinityPlayback.timer=setTimeout(function(){infinityPlayback.timer=null;if(infinityPlayback.animating||__D!==D)return;
+    var simple=function(){var m=duelPolicy(D);if(!m)return;infinityPlayback.active=m.i;infinityPlayback.target=m.t;for(const a of m.order){if(duelPerform(a,true))return;}};
+    // Ordinateur « fort » : il joue le coup que le coach juge le meilleur (mêmes calculs que l'analyse de tes coups).
+    if(ai&&__opts.aiPick){var tok=D;Promise.resolve(__opts.aiPick(D)).then(function(mv){if(__D!==tok||infinityPlayback.animating)return;if(!mv)return simple();infinityPlayback.active=mv.i;infinityPlayback.target=mv.t;if(!duelPerform(mv.a,true))simple();}).catch(function(){if(__D===tok)simple();});return;}
+    simple();},(ai?600:400)/storySpeed);};
 function duelPerform(action,quiet){var D=__D;if(!D||D.winner!=null||infinityPlayback.animating)return false;var side=D.s,pb=duelPersp(D.b,side),active=infinityPlayback.active,actor=pb.players[active];
   if(!duelReady(actor)){if(!quiet)notify('Cette carte a déjà joué, est figée ou K.O.');return false;}
   if(actor.frozen>0&&action!=='skill'){if(!quiet)notify(actor.name+' est figé : il ne peut pas agir.');return false;}
