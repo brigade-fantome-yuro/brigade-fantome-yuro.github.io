@@ -68,7 +68,7 @@ body.th-c .bar{border-radius:0;height:4px;background:#1c1c1c}body.th-c .bar i{ba
 body.th-c table th{color:#9a9a9a;letter-spacing:.06em}
 body.th-c .alertbar{background:var(--blood);color:#fff}
 @media (prefers-reduced-motion:reduce){body.th-c *,.th-spider{animation:none!important;transition:none!important}}
-@media (max-width:600px){body.th-c .hero::after{width:220px;height:220px}.th-spider{right:14px}}
+@media (max-width:600px){body.th-c .hero::after{width:220px;height:220px}.th-spider{right:8px;height:96px;opacity:.55;z-index:0}.th-spider svg{top:70px;width:24px;height:24px}.th-spider i{left:11px;height:130px}}
 body.th-c .auth{background:#030303}
 body.th-c .auth-card{border-radius:2px;background:radial-gradient(circle at 15% 0%,#1a1a1a,#050505 70%);border-color:#2a2a2a}
 body.th-c .auth-card .moon,body.th-c .boot .moon{border-radius:42% 58% 63% 37%/45% 38% 62% 55%;background:radial-gradient(circle at 32% 28%,#3a3a3a,#0c0c0c 40%,#000 72%);box-shadow:inset 18px 12px 40px rgba(255,255,255,.08);animation:thInk 14s ease-in-out infinite}
