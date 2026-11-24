@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=77';
+import * as CFG from './config.js?v=78';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=77';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=77';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=78';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=78';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=77';
-import * as SCAN from './scan.js?v=77';
+import { duelRate } from './ranked.js?v=78';
+import * as SCAN from './scan.js?v=78';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='77';
+const APP_V='78';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -470,10 +470,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=77'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=78'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=77'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=78'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -603,7 +603,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=77'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=78'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -668,7 +668,7 @@ function collectionWizard(U, coll, save, refresh) {
         <ol class="list"><li>Dans le jeu : <b>Collection</b> → filtre <b>${st.tag}</b> → <b>Possédées</b>.</li><li>Fais défiler et prends des captures jusqu'à voir <b>toutes</b> tes cartes ${st.label} (une carte coupée en haut ou en bas d'une capture est ignorée : fais-les se chevaucher un peu).</li><li>Note le nombre affiché par le jeu à côté du filtre ${st.label} (par ex. « 392 / 414 » → 392).</li></ol>
         <div class="row" style="margin-top:10px"><div style="flex:1;min-width:160px"><label for="wn">Nombre de ${st.label} possédées affiché par le jeu</label><input id="wn" type="number" min="0" placeholder="ex. 392"></div></div>
         <div class="row" style="margin-top:12px">${scanFiles('wf', `Envoyer mes captures ${st.label}`, async files => { const t = $('#wst'); try { res[st.r] = { ...(await runScan(files, [st.r], true, t)), expected: +$('#wn').value || null }; k++; draw(); } catch (e) { t.textContent = 'La lecture a échoué : ' + e.message; } })}<button class="btn ghost" id="wskip">Passer cette étape</button><button class="btn ghost" id="wx">Fermer</button></div><p class="small mute" id="wst"></p></div>`;
-      d.querySelector('#wx').onclick = () => d.remove(); d.querySelector('#wskip').onclick = () => { k++; draw(); }; return; }
+      d.querySelector('#wx').onclick = () => d.remove(); d.querySelector('#wskip').onclick = () => { k++; draw(); }; lockUntilCount(d.querySelector('#wn'), 'wf'); return; }
     // résumé
     const plan = []; let own = 0, dup = 0, miss = 0;
     for (const st of steps) { const r = res[st.r]; if (!r) continue; const got = new Map(r.cards.map(c => [keyOf(c.name, c.series), c]));
@@ -844,6 +844,7 @@ P.collection = async (m, tab = '') => {
       <label for="rn">Nombre de ${X.label} possédées affiché par le jeu (au plus ${X.U.reduce((a, u) => a + u.c.length, 0)})</label><input id="rn" type="number" min="0" max="${X.U.reduce((a, u) => a + u.c.length, 0)}" placeholder="ex. 392" oninput="if(+this.value>+this.max)this.value=this.max;if(+this.value<0)this.value=0">
       <div class="row" style="margin-top:12px">${scanFiles('rf', `Envoyer mes captures ${X.label}`, async files => { const t = d.querySelector('#rst'); try { const res = await runScan(files, [r], true, t); res.expected = +d.querySelector('#rn').value || null; summary(res); } catch (e) { t.textContent = 'La lecture a échoué : ' + e.message; } })}<button class="btn ghost" id="rx">Fermer</button></div><p class="small mute" id="rst"></p></div>`;
     d.querySelector('#rx').onclick = () => d.remove();
+    lockUntilCount(d.querySelector('#rn'), 'rf');
     function summary(res) {
       const got = new Map(res.cards.map(c => [keyOf(c.name, c.series), c]));
       const complete = res.expected ? Math.abs(res.cards.length - res.expected) <= Math.max(1, res.expected * .01) : false;
@@ -872,7 +873,7 @@ P.collection = async (m, tab = '') => {
       <ol class="list"><li>Dans le jeu : <b>Collection</b> → <b>Possédées</b>, puis prends des captures de tes LR, de tes SSR et de tes UR (un filtre après l'autre, en faisant défiler jusqu'en bas). Fais-les se chevaucher un peu.</li><li>Envoie tout d'un coup : les images, ou un <b>.zip</b> qui les regroupe. Le site range chaque carte selon sa rareté.</li><li>Note les nombres affichés par le jeu à côté des filtres SSR et UR (ex. « 402 / 414 » → 402).</li></ol>
       <div class="grid"><div><label for="an1">SSR possédées (au plus ${tot('L')})</label><input id="an1" type="number" min="0" max="${tot('L')}" placeholder="ex. 402" oninput="if(+this.value>+this.max)this.value=this.max"></div><div><label for="an2">UR possédées (au plus ${tot('M')})</label><input id="an2" type="number" min="0" max="${tot('M')}" placeholder="ex. 153" oninput="if(+this.value>+this.max)this.value=this.max"></div></div>
       <div class="row" style="margin-top:12px">${scanFiles('af2', 'Envoyer mes captures (ou un .zip)', async files => { const t = d.querySelector('#ast'); try { const res = await runScan(files, ['S', 'L', 'M'], true, t); const e1 = d.querySelector('#an1').value, e2 = d.querySelector('#an2').value; step(res, e1 === '' ? null : +e1, e2 === '' ? null : +e2); } catch (e) { t.textContent = 'La lecture a échoué : ' + e.message; } })}<button class="btn ghost" id="ax">Fermer</button></div><p class="small mute" id="ast"></p></div>`;
-    d.querySelector('#ax').onclick = () => d.remove();
+    d.querySelector('#ax').onclick = () => d.remove(); lockUntilCount([d.querySelector('#an1'), d.querySelector('#an2')], 'af2');
     function step(res, e1, e2) {
       const lr = { ...res, cards: res.cards.filter(c => c.r === 'S') };
       d.innerHTML = '<div class="mbox"><p class="mute">Vérifie d\'abord tes LR et leurs étoiles…</p></div>';
@@ -1000,7 +1001,9 @@ function scanButton(label, getCandidates, onAdd) {
 }
 
 // Lecture des captures par l'illustration des cartes (voir scan.js) : étoiles et exemplaires compris.
-async function loadFeats() { if (S.feats) return S.feats; const { data } = await sb.from('content').select('data').eq('key', 'card_feats').maybeSingle(); S.feats = data?.data || { rows: [] }; SCAN.setFeats(S.feats.rows); return S.feats; }
+async function loadFeats() { if (S.feats) return S.feats; const { data } = await sb.from('content').select('data').eq('key', 'card_feats').maybeSingle(); S.feats = data?.data || { rows: [] }; SCAN.setFeats(S.feats.rows);
+  try { const { data: sr } = await sb.from('content').select('data').eq('key', 'card_serials').maybeSingle(); SCAN.setSerials(sr?.data?.order || []); } catch (e) { /* sans numéros : reconnaissance carte par carte */ }
+  return S.feats; }
 async function qtyOCR() { const w = await ocrWorker(() => {}); try { await w.setParameters({ tessedit_char_whitelist: 'x×X0123456789', tessedit_pageseg_mode: '7' }); } catch (e) { /* ancien moteur */ } return w; }
 let NAMEOCR = null;
 async function nameOCR() { if (NAMEOCR) return NAMEOCR; try { const T = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.esm.min.js'); const create = T.createWorker || T.default?.createWorker;
@@ -1022,6 +1025,12 @@ async function expandZips(files) {
     for (const e of entries) { const blob = await e.async('blob'); const ext = e.name.split('.').pop().toLowerCase(); out.push(new File([blob], e.name.split('/').pop(), { type: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg' })); }
   }
   return out;
+}
+// Le bouton d'envoi des captures reste bloqué tant que le nombre affiché par le jeu n'est pas indiqué.
+function lockUntilCount(inp, fileId) {
+  setTimeout(() => { const f = document.getElementById(fileId); const ins = (Array.isArray(inp) ? inp : [inp]).filter(Boolean); if (!ins.length || !f) return; const lab = f.closest('label');
+    const upd = () => { const ok = ins.every(i => i.value !== '' && +i.value >= 0); f.disabled = !ok; if (lab) { lab.style.opacity = ok ? '' : '.45'; lab.style.pointerEvents = ok ? '' : 'none'; lab.title = ok ? '' : 'Indique d\'abord le nombre affiché par le jeu'; } };
+    ins.forEach(i => i.addEventListener('input', upd)); upd(); }, 0);
 }
 function scanFiles(id, label, onFiles) {
   setTimeout(() => { const inp = document.getElementById(id); if (!inp) return; inp.onchange = async () => { let files = [...inp.files]; inp.value = ''; if (!files.length) return; try { files = await expandZips(files); } catch (e) { toast('Impossible d\'ouvrir le zip : ' + e.message); return; } if (!files.length) { toast('Aucune image trouvée dans le zip.'); return; } await onFiles(files); }; });
@@ -1098,7 +1107,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=77'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=78'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();

@@ -22,7 +22,21 @@ function findCards(ctx, W, H) {
     const ar = bw / bh, k = Math.round(ar / .72); if (k < 1 || Math.abs(ar / k - .72) > .1) continue;
     for (let j = 0; j < k; j++) boxes.push({ x: x0 * step + j * bw / k, y: y0 * step, w: bw / k, h: bh }); }
   const hs = boxes.map(b => b.h).sort((a, b) => a - b), med = hs[hs.length >> 1] || 0;
-  boxes = boxes.filter(b => b.h > med * .85 && b.h < med * 1.15 && b.y > 1 && b.y + b.h < H - 1);
+  // une carte collée en bas de l'écran garde sa taille : seule la hauteur décide (une carte coupée est plus petite)
+  boxes = boxes.filter(b => b.h > med * .85 && b.h < med * 1.15);
+  // grille : on complète une case manquante (carte collée à un bouton flottant, etc.) si elle est bien occupée par une carte
+  if (boxes.length >= 4) {
+    const mw = boxes.map(b => b.w).sort((a, b) => a - b)[boxes.length >> 1];
+    const clus = (v, t) => { v = [...v].sort((a, b) => a - b); const out = []; for (const x of v) { const c = out[out.length - 1]; if (c && Math.abs(x - c[c.length - 1]) < t) c.push(x); else out.push([x]); } return out.map(c => c.reduce((a, b) => a + b, 0) / c.length); };
+    const cols = clus(boxes.map(b => b.x), mw * .4), rows = clus(boxes.map(b => b.y), med * .4);
+    for (const ry of rows) for (const cx of cols) {
+      if (boxes.some(b => Math.abs(b.x - cx) < mw * .4 && Math.abs(b.y - ry) < med * .4)) continue;
+      if (ry < -2 || ry + med * .9 > H + 2) continue;
+      const x0 = Math.max(0, Math.round(cx)), y0 = Math.max(0, Math.round(ry)), w = Math.min(W - x0, Math.round(mw)), h = Math.min(H - y0, Math.round(med)); if (w < 10 || h < 10) continue;
+      const dd = ctx.getImageData(x0, y0, w, h).data; let br = 0, n = 0; for (let i = 0; i < dd.length; i += 16) { n++; if (Math.max(dd[i], dd[i + 1], dd[i + 2]) > 100) br++; }
+      if (br / n > .5) boxes.push({ x: cx, y: ry, w: mw, h: med });
+    }
+  }
   return boxes.sort((a, b) => (Math.abs(a.y - b.y) < a.h * .3 ? a.x - b.x : a.y - b.y));
 }
 
@@ -55,7 +69,9 @@ function qtyCrop(src, b) {
 }
 
 const hexToArr = h => { const a = new Uint8Array(h.length); for (let i = 0; i < h.length; i++) a[i] = parseInt(h[i], 16); return a; };
-let REF = null;
+let REF = null, SER = null;
+// Numéro de collection du jeu (#001…) : les cartes sont rangées dans cet ordre sur l'écran Collection.
+export function setSerials(order) { SER = new Map(); (order || []).forEach((id, i) => SER.set(Number(id), i + 1)); }
 function zn(a) { const n = a.length; let m = 0; for (const v of a) m += v; m /= n; let s = 0; for (const v of a) s += (v - m) * (v - m); s = Math.sqrt(s / n) || 1; return Array.from(a, v => (v - m) / s); }
 const norm = t => String(t || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 export function setFeats(rows) { REF = rows.map(r => ({ id: r[0], r: r[1], n: r[2], s: r[3], img: r[4], z: zn(hexToArr(r[5])), nn: norm(r[2]), ws: String(r[2] || '').split(/\s+/).map(norm).filter(w => w.length >= 3) })); }
@@ -90,21 +106,43 @@ function match(f, rar) { const z = zn(f); let best = null, second = null; for (c
 export async function analyze(files, rar, ocrWorker, onp, nameWorker) {
   if (!REF) throw Error('empreintes des cartes non chargées');
   const found = new Map(); let nCards = 0, unknown = 0; const dbg = [];
+  // cartes candidates rangées par numéro de collection (si connu)
+  const cands = REF.filter(c => !rar || rar.includes(c.r)); const useSer = SER && SER.size && cands.filter(c => SER.has(Number(c.id))).length >= cands.length * .95;
+  const ordC = useSer ? cands.filter(c => SER.has(Number(c.id))).sort((a, b) => SER.get(Number(a.id)) - SER.get(Number(b.id))) : cands;
   for (let fi = 0; fi < files.length; fi++) {
     const im = await loadImg(files[fi]); const sc = Math.min(1, 1800 / im.naturalWidth);
     const W = Math.round(im.naturalWidth * sc), H = Math.round(im.naturalHeight * sc);
     const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.drawImage(im, 0, 0, W, H);
-    const boxes = findCards(ctx, W, H);
+    const boxes = findCards(ctx, W, H); const info = [];
     for (let bi = 0; bi < boxes.length; bi++) {
       onp?.(fi, files.length, bi, boxes.length); const b = boxes[bi]; nCards++;
       let q = ''; if (nameWorker) { try { const r = await nameWorker.recognize(nameCrop(cv, b)); q = norm(r.data.text); } catch (e) { /* on garde l'illustration */ } }
-      const best = pickCard(distAll(featOf(cv, b), rar), q); dbg.push([Math.round(b.x), Math.round(b.y), q, best?.c.n, best?.d, best?.via]);
+      const z = zn(featOf(cv, b)); const d = ordC.map(c => { let s = 0; for (let i = 0; i < 240; i++) { const t = z[i] - c.z[i]; s += t * t; } return s; });
+      info.push({ b, q, d });
+    }
+    // Alignement : sur une capture, les cartes se suivent dans l'ordre des numéros. On choisit la suite croissante qui colle le mieux
+    // aux noms lus et aux illustrations : une carte douteuse est tranchée par ses voisines.
+    let pick = null;
+    if (useSer && info.length) {
+      const m = ordC.length, n = info.length, sc2 = info.map(it => ordC.map((c, j) => 3 * (it.q.length >= 2 ? nameSim(it.q, c) : 0) - it.d[j] / 100));
+      let prev = Float64Array.from(sc2[0]); const back = [];
+      for (let i = 1; i < n; i++) { const cur = new Float64Array(m).fill(-1e9), bk = new Int32Array(m); let bm = -1e9, bj = -1;
+        for (let j = 1; j < m; j++) { if (prev[j - 1] > bm) { bm = prev[j - 1]; bj = j - 1; } cur[j] = sc2[i][j] + bm; bk[j] = bj; }
+        back.push(bk); prev = cur; }
+      let j = 0; for (let k = 1; k < m; k++) if (prev[k] > prev[j]) j = k; const path = [j]; for (let i = n - 2; i >= 0; i--) { j = back[i][j]; path.push(j); } path.reverse();
+      // contrôle : la suite doit s'accorder avec les noms bien lus (sinon le tri du jeu n'est pas « par numéro » : on revient au cas par cas)
+      let agree = 0, sure = 0; info.forEach((it, i) => { if (it.q.length >= 4) { const bst = ordC.reduce((a, c, k) => { const v = nameSim(it.q, c); return v > a.v ? { v, k } : a; }, { v: 0, k: -1 }); if (bst.v >= .8) { sure++; if (ordC[bst.k].nn === ordC[path[i]].nn) agree++; } } });
+      if (!sure || agree / sure >= .8) pick = path.map((k, i) => ({ c: ordC[k], d: info[i].d[k], via: 'ordre' }));
+    }
+    for (let bi = 0; bi < info.length; bi++) {
+      const it = info[bi], b = it.b;
+      const best = pick ? pick[bi] : pickCard(ordC.map((c, j) => ({ c, d: it.d[j] })), it.q); dbg.push([Math.round(b.x), Math.round(b.y), it.q, best?.c.n, best?.d, best?.via]);
       if (!best) { unknown++; continue; }
       let qty = 1;
-      if (ocrWorker) { try { const r = await ocrWorker.recognize(qtyCrop(cv, b)); const m = String(r.data.text).match(/(\d{1,2})/); if (m) qty = Math.max(1, +m[1]); } catch (e) { /* on garde 1 */ } }
+      if (ocrWorker) { try { const r = await ocrWorker.recognize(qtyCrop(cv, b)); const mm = String(r.data.text).match(/(\d{1,2})/); if (mm) qty = Math.max(1, +mm[1]); } catch (e) { /* on garde 1 */ } }
       const prev = found.get(best.c.id);
-      const it = { id: best.c.id, name: best.c.n, series: best.c.s, r: best.c.r, img: best.c.img, stars: starsOf(ctx, b), qty, conf: Math.max(0, Math.min(1, 1 - best.d / 260)) };
-      if (!prev || it.conf > prev.conf) found.set(best.c.id, it);
+      const itm = { id: best.c.id, name: best.c.n, series: best.c.s, r: best.c.r, img: best.c.img, stars: starsOf(ctx, b), qty, conf: Math.max(0, Math.min(1, 1 - best.d / 260)) };
+      if (!prev || itm.conf > prev.conf) found.set(best.c.id, { ...itm, qty: Math.max(itm.qty, prev?.qty || 0) });
     }
   }
   return { cards: [...found.values()], nCards, unknown, dbg };
