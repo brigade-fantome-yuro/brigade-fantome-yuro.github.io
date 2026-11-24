@@ -275,3 +275,8 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 @media(max-width:420px){.pl-pick{grid-template-columns:44px minmax(0,1fr) 78px;gap:8px}.pl-thumb{width:44px;height:60px}}
 @media(max-width:700px){table.tbl{display:block;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}}
 .cs-frame{display:block;width:100%;border:0;border-radius:var(--r);background:#0d0d14;min-height:560px}
+/* Didacticiel forcé (nouveau membre) : pas de menu */
+.onbtop{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:30;padding:10px 16px;padding-top:max(10px,env(safe-area-inset-top));background:rgba(7,6,7,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.onbtop .brand b{font-size:18px;white-space:nowrap}
+.onbmain{max-width:980px;margin:0 auto}
+@media (max-width:560px){.onbtop .small{display:none}}

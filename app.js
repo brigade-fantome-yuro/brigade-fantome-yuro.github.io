@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=75';
+import * as CFG from './config.js?v=76';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=75';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=75';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=76';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=76';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=75';
-import * as SCAN from './scan.js?v=75';
+import { duelRate } from './ranked.js?v=76';
+import * as SCAN from './scan.js?v=76';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='75';
+const APP_V='76';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 function toast(m) { const t = document.createElement('div'); t.className = 'toast'; t.textContent = m; document.body.appendChild(t); setTimeout(() => t.remove(), 2600); }
 const slug = d => String(d).trim().replace(/^@/, '').toLowerCase().replace(/[^a-z0-9._-]/g, '');
@@ -70,7 +70,7 @@ ${CFG.DISCORD_LOGIN ? `<button class="btn discord" id="dl" style="width:100%;mar
       ${mode === 'signup' ? '<p class="small mute">Un admin vérifie que tu es bien sur le Discord de la Brigade, puis valide ton accès.</p>' : ''}
       <button class="btn primary" style="width:100%;margin-top:16px">${mode === 'login' ? 'Entrer' : 'Envoyer ma demande'}</button>
     </form></details>${note ? `<div class="msg">${esc(note)}</div>` : ''}</div></div>`;
-  if ($('#dl')) $('#dl').onclick = () => sb.auth.signInWithOAuth({ provider: 'discord', options: { scopes: 'identify guilds', redirectTo: location.origin + location.pathname } });
+  if ($('#dl')) $('#dl').onclick = () => discordLogin();
   app.querySelectorAll('.tabs button').forEach(b => b.onclick = () => authView(b.dataset.m));
   $('#af').onsubmit = async e => {
     e.preventDefault(); const d = slug($('#dc').value), pw = $('#pw').value;
@@ -94,7 +94,7 @@ function pendingView(p) {
     <h1>${p.status === 'refused' ? 'Accès refusé' : 'Demande envoyée'}</h1>
     <p>${p.status === 'refused' ? (p.why === 'not_member' ? 'Tu n\'es pas membre de la guilde Brigade Fantôme sur Discord : accès refusé. Rejoins le serveur de la guilde puis reconnecte-toi.' : p.why === 'verif' ? 'La vérification avec Discord n\'a pas abouti. Reconnecte-toi avec Discord pour réessayer.' : 'Ta demande n\'a pas été acceptée. Parle à un admin sur le Discord.') : `Merci <b>${esc(p.discord)}</b>. Un admin vérifie que tu es sur le Discord de la Brigade. Cette page s'ouvrira dès que c'est validé.`}</p>
     <div class="row"><button class="btn" id="rf">${p.status === 'refused' ? 'Se reconnecter avec Discord' : 'Vérifier'}</button><button class="btn ghost" id="lo">Changer de compte</button></div></div></div>`;
-  $('#rf').onclick = p.status === 'refused' ? async () => { await sb.auth.signOut(); sb.auth.signInWithOAuth({ provider: 'discord', options: { scopes: 'identify guilds', redirectTo: location.origin + location.pathname } }); } : boot; $('#lo').onclick = async () => { await sb.auth.signOut(); authView(); };
+  $('#rf').onclick = p.status === 'refused' ? async () => { await sb.auth.signOut(); discordLogin(); } : boot; $('#lo').onclick = async () => { await sb.auth.signOut(); authView(); };
   if (p.status === 'pending') S.timers.push(setTimeout(boot, 30000));
 }
 
@@ -117,6 +117,21 @@ async function loadPrices() {
   S.kb.prices = S.prices;
 }
 
+// Connexion Discord : on garde l'adresse demandée (ex. ?apercu#bienvenue) pour y revenir après la connexion.
+function discordLogin() { try { if (location.search || (location.hash && !location.hash.includes('access_token'))) localStorage.setItem('bf_after', location.search + location.hash); } catch (e) {}
+  return sb.auth.signInWithOAuth({ provider: 'discord', options: { scopes: 'identify guilds', redirectTo: location.origin + location.pathname } }); }
+const isPreview = () => S.profile?.role === 'admin' && new URLSearchParams(location.search).has('apercu');
+// Didacticiel forcé : tant que la collection n'est pas importée (ou en aperçu admin), pas de menu, seulement les étapes d'import.
+const onbMode = () => !S.mylr?.teams?.done || isPreview();
+const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'meslr' || (base === 'collection' && /^[LM]\/moi\/(import|all)$/.test(arg || '')) || (base === 'collection' && arg === 'L/moi/all');
+function shellOnb() {
+  app.innerHTML = `<div class="onbtop"><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div><span class="sp"></span><span class="small mute">${esc(S.profile.discord)}</span><button class="btn ghost" id="lo" style="min-height:36px">Se déconnecter</button></div>
+  <main id="mainw" class="onbmain"><div id="alertbar"></div><div id="onbback"></div><div id="main"></div></main>`;
+  app.dataset.mode = 'onb';
+  $('#lo').onclick = async () => { if (confirmBox('Te déconnecter ? Tu pourras reprendre l\'import plus tard.')) { await sb.auth.signOut(); authView(); } };
+  return $('#main');
+}
+
 /* ---------- Coquille ---------- */
 function shell(route) {
   const isAdmin = S.profile.role === 'admin';
@@ -126,6 +141,7 @@ function shell(route) {
   <div class="shell"><aside class="side" id="side"><div class="brand">${SPIDER}<b>Brigade Fantôme</b></div><nav class="nav">${links}</nav>
   <div class="me"><div class="mute small">Connecté</div><b>${esc(S.profile.discord)}</b><div><button class="btn ghost" id="lo" style="margin-top:8px;min-height:36px">Se déconnecter</button></div></div></aside>
   <main id="mainw"><div id="alertbar"></div><div id="main"></div></main></div>`;
+  app.dataset.mode = 'full';
   $('#lo').onclick = async () => { if (confirmBox('Te déconnecter ? Il faudra retaper ton mot de passe.')) { await sb.auth.signOut(); authView(); } };
   const side = $('#side');
   $('#mn').onclick = () => { side.classList.add('open'); const sc = document.createElement('div'); sc.className = 'scrim'; sc.onclick = () => { side.classList.remove('open'); sc.remove(); }; document.body.appendChild(sc); };
@@ -454,10 +470,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=75'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=76'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=75'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=76'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -587,7 +603,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=75'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=76'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -1007,10 +1023,10 @@ P.bienvenue = async m => {
 
 P.meslr = async m => {
   await loadMyLR(); const own = S.mylr.cards;
-  const onb = !S.mylr.teams?.done;
+  const onb = onbMode();
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">${onb ? 'Bienvenue · étape obligatoire' : 'Indispensable'}</span><h1 style="margin-top:12px">${onb ? 'Avant d\'entrer : tes LR' : 'Mes LR'}</h1><p class="mute">${onb ? 'Pour que le site te conseille (meilleure équipe au château et en ranked, chambre max, Kakashi), indique tes LR et leurs étoiles : à la main en touchant les cartes, ou en envoyant des captures de ta collection.' : 'Indique les LR que tu possèdes et leurs étoiles. C\'est la base de « Meilleure équipe » au château et en ranked.'}</p>${onb ? '<button class="btn primary" id="obd" style="margin-top:12px">Mes LR sont importées → étape suivante</button>' : ''}</section>
     <div class="card section" id="lsum"></div><div class="lrgrid" id="lg"></div>`;
-  const sum = () => { const n = Object.keys(own).length; $('#lsum').innerHTML = `<div class="row"><b>${n} / ${LRS().length} LR possédées</b><span class="sp"></span><a class="btn primary" href="#equipe/chateau" style="min-height:40px">Meilleure équipe château</a><a class="btn" href="#equipe/ranked" style="min-height:40px">Meilleure équipe ranked</a></div><p class="small mute" style="margin:8px 0 0">Touche une carte pour l'ajouter, puis choisis ses étoiles.</p>
+  const sum = () => { const n = Object.keys(own).length; $('#lsum').innerHTML = `<div class="row"><b>${n} / ${LRS().length} LR possédées</b><span class="sp"></span>${onb ? '' : '<a class="btn primary" href="#equipe/chateau" style="min-height:40px">Meilleure équipe château</a><a class="btn" href="#equipe/ranked" style="min-height:40px">Meilleure équipe ranked</a>'}</div><p class="small mute" style="margin:8px 0 0">Touche une carte pour l'ajouter, puis choisis ses étoiles.</p>
     <div class="row" style="margin-top:10px">${scanFiles('lrscan', 'Importer depuis des captures de ma collection', async files => { const st = $('#lrst'); try { const r = await runScan(files, ['S'], false, st); lrScanDialog(r, own, async n => { if (n) S.mylr.teams = { ...(S.mylr.teams || {}), lr: true }; await saveMyLR(); draw(); sum(); toast(n + ' LR enregistrées avec leurs étoiles'); if (onb && n) location.hash = '#bienvenue'; }); } catch (e) { st.textContent = 'La lecture a échoué : ' + e.message; } })}<span class="small mute" id="lrst"></span></div>
     <p class="small mute" style="margin:6px 0 0">Dans le jeu : Collection → filtre LR → Possédées, puis une ou plusieurs captures (fais défiler pour tout montrer). Le site reconnaît chaque carte et lit ses étoiles : tu vérifies avant de valider.</p>`; };
   const draw = () => { $('#lg').innerHTML = LRS().map(c => { const st = own[c.id]; const has = st != null;
@@ -1047,7 +1063,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=75'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=76'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
@@ -1565,9 +1581,13 @@ async function render() {
   const [base, ...rest] = h.split('/'); const arg = rest.join('/');
   const route = ['guide', 'equipe'].includes(base) ? h : base;
   await loadMyLR();
-  if (!S.mylr.teams?.done && !['bienvenue', 'meslr', 'collection'].includes(base)) { location.hash = '#bienvenue'; return; }
+  const onb = onbMode();
+  if (onb && !onbAllowed(base, arg)) { if (location.hash !== '#bienvenue') { location.hash = '#bienvenue'; return; } }
   let m = $('#main');
-  if (!m || !$('#side')) m = shell(route);
+  if (onb) { if (!m || app.dataset.mode !== 'onb') m = shellOnb(); else m.innerHTML = '';
+    $('#onbback').innerHTML = (base !== 'bienvenue' ? '<a class="btn ghost" href="#bienvenue" style="min-height:38px;margin-bottom:12px">← Retour aux étapes</a>' : '') + (isPreview() ? ' <a class="btn ghost" id="qprev" href="#" style="min-height:38px;margin-bottom:12px">Quitter l\'aperçu</a>' : '');
+    const q = $('#qprev'); if (q) q.onclick = e => { e.preventDefault(); location.href = location.pathname + '#accueil'; }; }
+  else if (!m || !$('#side') || app.dataset.mode !== 'full') m = shell(route);
   else { $('#side').querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + route)); m.innerHTML = ''; }
   try { await (P[base] || P.accueil)(m, arg); } catch (e) { m.innerHTML = `<div class="empty">Erreur de chargement : ${esc(e.message)}</div>`; }
   window.scrollTo(0, 0);
@@ -1581,6 +1601,7 @@ async function boot() {
   if (!session) { const q = new URLSearchParams((location.hash.includes('error') ? location.hash.slice(1) : '') || location.search); const err = q.get('error_description');
     if (err) { history.replaceState(null, '', location.pathname); return authView('login', 'Connexion Discord impossible : ' + err.replace(/\+/g, ' ')); } return authView(); }
   S.user = session.user;
+  try { const a = localStorage.getItem('bf_after'); if (a) { localStorage.removeItem('bf_after'); history.replaceState(null, '', location.pathname + a); } } catch (e) {}
   const { data: p } = await sb.from('profiles').select('*').eq('id', S.user.id).single();
   if (!p) return authView('login', 'Profil introuvable.');
   // Ancien compte « mot de passe » dont les données sont passées sur le compte Discord : on renvoie vers la connexion Discord.
