@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=52');
+importScripts('castle-engine.js?v=53');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -47,6 +47,7 @@ function castleReport(team, catalog, n) {
 
 // Ranked : les deux camps jouent avec le même jeu simple (techniques dès qu'elles sont prêtes, cible la plus basse).
 function duelGame(A, B, starter, seed) {
+  self.__pn = .25;
   Math.random = seeded(seed);
   try { let S = D.start(A, B, starter); for (let g = 0; g < 400 && S.winner == null; g++) { const x = D.policyStep(S); if (!x) break; S = x.D; } return S.winner; }
   finally { Math.random = RND; }

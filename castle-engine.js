@@ -2198,9 +2198,12 @@ function duelPolicy(D){var pb=duelPersp(D.b,D.s),T=duelTargets(pb);if(!T.length)
   var open=T.filter(function(j){return !prot(pb.enemies[j]);}),pool=open.length?open:T;
   // Qui joue : en priorité une carte qui peut achever une cible non protégée, sinon la première prête.
   var i=ready[0];for(const k of ready){var a=pb.players[k].attack||0;if(pool.some(function(j){return pb.enemies[j].hp<=a;})){i=k;break;}}
+  // Variété de jeu (seulement pour les évaluations d'équipes) : parfois une autre carte ou une autre cible, comme un vrai joueur.
+  var pn=(typeof self!=='undefined'&&self.__pn)||0;if(pn&&Math.random()<pn)i=ready[Math.floor(Math.random()*ready.length)];
   var p=pb.players[i],atk=p.attack||0;
   var kill=pool.filter(function(j){return pb.enemies[j].hp<=atk;});
   var t=(kill.length?kill:pool).reduce(function(x,j){return pb.enemies[j].hp<pb.enemies[x].hp?j:x;},(kill.length?kill:pool)[0]);
+  if(pn&&Math.random()<pn)t=pool[Math.floor(Math.random()*pool.length)];
   var high=T.reduce(function(x,j){return pb.enemies[j].hp>pb.enemies[x].hp?j:x;},T[0]);
   var acts=duelActions(pb,p).filter(function(a){return a!=='attack';});
   var order=[];
