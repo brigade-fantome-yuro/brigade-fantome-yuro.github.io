@@ -2109,6 +2109,8 @@ function legendBolt(seed){let x=0,y=0,d='M0 0';for(let i=1;i<=6;i++){y-=9+((seed
 var LEGEND_ART='https://yurocollection.fr/assets/broly-legendaire.webp';
 
 // ---- Pilote Brigade Fantôme : branche l'écran de combat du jeu sur le moteur du jeu ----
+// Sans cet ensemble, le son d'impact plantait avant le calcul de la direction des attaques : la carte fonçait tout droit au lieu d'aller vers sa cible.
+var soundedBattleImpacts=(typeof soundedBattleImpacts!=='undefined'&&soundedBattleImpacts&&typeof soundedBattleImpacts.has==='function')?soundedBattleImpacts:new WeakSet();
 var __host=null,__opts=null,__hist=[],__hidx=0,__spect=false,__spTimer=null,__spPlay=false;
 function renderInfinity(){
   if(!__R||!(__R===document||__R.host))return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
@@ -2151,7 +2153,7 @@ var api={
   mount:function(host,opts){__mode='castle';__opts=opts;if(opts.frame){__host=document.documentElement;__R=document;if(!document.__bfc){document.addEventListener('click',__click);document.__bfc=1;}return;}__host=host;var sr=host.shadowRoot||host.attachShadow({mode:'open'});
     sr.innerHTML='<link rel="stylesheet" href="'+opts.css+'"><div id="bfStage" class="bf-castle"></div>';__R=sr;sr.addEventListener('click',__click);},
   // Mode spectateur : rejoue un combat déjà simulé (états du moteur), sans pouvoir le modifier.
-  spectate:function(steps,room){__mode='castle';__stop();__spect=true;__opts.room=room;state.story.preferences.speed=2;storySpeed=2;infinityPlayback.auto=false;
+  spectate:function(steps,room){__mode='castle';__stop();__spect=true;__opts.room=room;state.story.preferences.speed=1;storySpeed=1;infinityPlayback.auto=false;
     __hist=steps.map(function(x,k){return {b:x.b,action:x.action,active:x.active,target:x.target,from:k?steps[k-1].b:null};});__hidx=0;infinityUI.data.me.battle=__hist[0].b;infinityPlayback.active=0;infinityPlayback.target=0;infinityAnimate('start',null);renderInfinity();__spPlay=true;__spTimer=setTimeout(__spStep,900);},
   play:function(on){__spPlay=on==null?!__spPlay:!!on;if(__spPlay)__spStep();else clearTimeout(__spTimer);if(__opts&&__opts.onChange)__opts.onChange(api.info());},
   start:function(room){__mode='castle';__stop();__spect=false;__opts.room=room;var cat=__opts.catalog;var team=__opts.team.map(function(u){return {key:u.name,name:u.name,image:u.image,rarity:u.rarity,maxHp:u.hp,hp:u.hp,attack:u.atk,cooldown:0};});
