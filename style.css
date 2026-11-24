@@ -315,3 +315,4 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 .mstep button.add{width:100%!important}
 .mcard .mtag .st{color:#f5ce65}
 .cfilters select{flex:0 0 auto!important;width:auto!important;max-width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.4)}
