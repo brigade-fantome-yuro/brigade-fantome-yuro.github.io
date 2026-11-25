@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=132';
+import * as CFG from './config.js?v=133';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=132';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=132';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=133';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=133';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=132';
-import * as SCAN from './scan.js?v=132';
+import { duelRate } from './ranked.js?v=133';
+import * as SCAN from './scan.js?v=133';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='132';
+const APP_V = '133';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -192,7 +192,7 @@ function castleReal() {
 }
 
 // Guide château : la meilleure équipe SANS Aya et sa boucle (25/11, moteur du jeu, 5 330 équipes testées). Brouillon visible par l'admin avec ?brouillon tant que Nicolas n'a pas validé.
-const CASTLE_NOAYA_LIVE = false;
+const CASTLE_NOAYA_LIVE = true;
 function noAyaBlock() {
   // Résultats 25/11, moteur du jeu, gardiens tirés dans tout le catalogue, cartes à 5★ (sauf mention).
   const T = [
@@ -202,7 +202,7 @@ function noAyaBlock() {
     ['Xebec · Makima · Lelouch', 'Xebec → Makima → Lelouch', 439, 493, 638, 680, 'GEASS : la prochaine attaque qu\'il reçoit (≈ 700) est renvoyée au gardien. Défense et dégâts en même temps.'],
     ['Xebec · Makima · Janemba', 'Xebec → Makima → Janemba', 547, 551, 639, 669, 'DIMENSION 1,6× et 2 esquives au premier lancement seulement : la plus sûre jusqu\'à ~550.']];
   const step = (n, t, d) => `<div class="nastep"><b class="nan">${n}</b><div><b>${t}</b><div class="small mute">${d}</div></div></div>`;
-  return `<div class="card section noaya"><span class="chip red">Sans Aya</span><h2 class="ctitle" style="margin-top:10px">La boucle Xebec · Makima · 3e carte</h2>
+  return `<details class="card section noaya"><summary class="nasum"><span>Vous n'avez pas Ayanokouji&nbsp;? 👇🏼</span><small class="mute">La boucle Xebec · Makima · 3e carte</small></summary><div class="nabody">
     <p class="mute">Les meilleures équipes sans Ayanokouji parmi les 5 330 possibles, vérifiées une par une avec le moteur du jeu : toutes reposent sur <b>Xebec + Makima</b>. On n'échange pas de PV : on <b>annule</b> les coups avec le Haki, on <b>retourne</b> un gardien contre lui-même avec la Domination, et la 3e carte affaiblit ou marque les gardiens.</p>
     <div class="nasteps">
       ${step(1, 'Xebec ouvre : HAKI', 'Toujours en premier dès qu\'il est prêt (tous les 3 tours) : la prochaine attaque sur chacune de tes 3 cartes est annulée.')}
@@ -212,7 +212,7 @@ function noAyaBlock() {
       ${step(5, 'Le dernier gardien', 'Garde la Domination pour l\'achever : 1,5× son attaque finit souvent les derniers PV.')}
     </div>
     <div class="nateams">${T.map(r => `<div class="nateam"><b>${r[0]}</b><div class="small" style="color:var(--blood2);margin-top:2px">🎯 ${r[1]}</div><div class="small mute" style="margin-top:4px">${r[6]}</div><div class="nag"><div><small>Sûre 90 %</small><b>${r[2]}</b></div><div><small>Jouable 50 %</small><b>${r[3]}</b></div><div><small>Max 20 %</small><b>${r[4]}</b></div><div class="r"><small>Plafond</small><b>${r[5]}</b></div></div></div>`).join('')}</div>
-    <p class="small mute" style="margin:8px 0 0">Avec moins d'étoiles (Xebec 4★, Makima 4★) : Janemba 5★ → max 619, plafond 629 · Chrollo 3★ → jouable 568, max 572, plafond 672 · Mihawk 3★ → jouable 565, max 589. Vérifié avec un vrai joueur de la guilde : Xebec 4★ / Janemba 5★ / Makima 4★ a passé la chambre 628, notre plafond. Escanor et Xebec ont le même rôle (tank) : ils ne vont pas ensemble, et sans Xebec Escanor plafonne vers 500-570.</p></div>`;
+    <p class="small mute" style="margin:8px 0 0">Avec moins d'étoiles (Xebec 4★, Makima 4★) : Janemba 5★ → max 619, plafond 629 · Chrollo 3★ → jouable 568, max 572, plafond 672 · Mihawk 3★ → jouable 565, max 589. Vérifié avec un vrai joueur de la guilde : Xebec 4★ / Janemba 5★ / Makima 4★ a passé la chambre 628, notre plafond. Escanor et Xebec ont le même rôle (tank) : ils ne vont pas ensemble, et sans Xebec Escanor plafonne vers 500-570.</p></div></details>`;
 }
 
 P.guide = (m, key) => {
@@ -512,10 +512,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=132'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=133'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=132'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=133'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -645,7 +645,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=132'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=133'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -1307,7 +1307,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=132'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=133'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
