@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=162';
+import * as CFG from './config.js?v=163';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=162';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=162';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=163';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=163';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=162';
-import * as SCAN from './scan.js?v=162';
+import { duelRate } from './ranked.js?v=163';
+import * as SCAN from './scan.js?v=163';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '162';
+const APP_V = '163';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -545,10 +545,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=162'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=163'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=162'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=163'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -681,7 +681,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=162'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=163'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1360,15 +1360,15 @@ P.clic = async m => {
     m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">${isDesktop() ? 'Sur ordinateur · gratuit' : 'Gratuit · sans captures'}</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">Plus de captures : le site lit ta sauvegarde du jeu (toutes tes cartes, tes exemplaires et les étoiles de tes LR). Rien à installer, 3 gestes.</p></section>
       <div class="card section"><h3 style="margin-top:0">1. Ouvre ta sauvegarde du jeu</h3><p class="small mute">Tu dois être connecté au jeu dans ce navigateur. Une page pleine de texte s'ouvre : c'est normal.</p>
         <a class="btn primary" href="https://yurocollection.fr/api/save" target="_blank" rel="noopener" style="margin-top:6px">📂 Ouvrir ma sauvegarde YURO</a></div>
-      <div class="card section"><h3 style="margin-top:0">2. ${isDesktop() ? 'Copie tout' : 'Enregistre la page en fichier'}</h3><p class="small mute">${isDesktop() ? 'Sur cette page : <b>Ctrl + A</b> puis <b>Ctrl + C</b> (Mac : <b>Cmd + A</b> puis <b>Cmd + C</b>).' : '<b>iPhone (Safari)</b> : bouton <b>Partager</b> (carré avec une flèche) → <b>Copier</b> (ou plus bas <b>Enregistrer dans Fichiers</b>).<br><b>Android (Chrome)</b> : menu <b>⋮</b> → icône <b>Télécharger</b> (flèche vers le bas).<br>Le texte est trop long pour être copié sur téléphone : on passe par un fichier.'}</p></div>
-      <div class="card section"><h3 style="margin-top:0">3. ${isDesktop() ? 'Reviens ici et colle' : 'Reviens ici et choisis le fichier'}</h3><p class="small mute">${isDesktop() ? 'Clique dans la case puis <b>Ctrl + V</b> (Mac : <b>Cmd + V</b>).' : 'Si tu as utilisé <b>Copier</b> : appui long dans la case → <b>Coller</b>. Sinon touche <b>📂 Choisir le fichier de sauvegarde</b> et sélectionne le fichier enregistré (dans Fichiers ou Téléchargements, nommé « save »).'}</p>
+      <div class="card section"><h3 style="margin-top:0">2. ${isDesktop() ? 'Copie tout' : 'Enregistre la page en fichier'}</h3><p class="small mute">${isDesktop() ? 'Sur cette page : <b>Ctrl + A</b> puis <b>Ctrl + C</b> (Mac : <b>Cmd + A</b> puis <b>Cmd + C</b>).' : '<b>iPhone (Safari)</b> : bouton <b>Partager</b> (carré avec une flèche) → touche <b>En voir plus</b> si besoin → <b>Enregistrer dans Fichiers</b> → <b>Enregistrer</b>. (« Copier » ne copie que le lien : ça ne marche pas.)<br><b>Android (Chrome)</b> : menu <b>⋮</b> → icône <b>Télécharger</b> (flèche vers le bas).<br>Le texte est trop long pour être copié sur téléphone : on passe par un fichier.'}</p></div>
+      <div class="card section"><h3 style="margin-top:0">3. ${isDesktop() ? 'Reviens ici et colle' : 'Reviens ici et choisis le fichier'}</h3><p class="small mute">${isDesktop() ? 'Clique dans la case puis <b>Ctrl + V</b> (Mac : <b>Cmd + V</b>).' : 'Touche <b>📂 Choisir le fichier de sauvegarde</b> ci-dessous, puis sélectionne le fichier que tu viens d\'enregistrer (dans Fichiers ou Téléchargements, nommé « save »).'}</p>
         <textarea id="clicTa" rows="3" placeholder="Colle ici (Ctrl + V)" style="width:100%;margin-top:6px"></textarea>
         <div class="row" style="margin-top:10px;align-items:center"><span class="small mute">ou</span><label class="btn ghost" style="cursor:pointer;min-height:40px">📂 Choisir le fichier de sauvegarde<input id="clicFile" type="file" hidden></label></div>
         <p class="small" id="clicMsg" style="margin:6px 0 0"></p></div>
       <p class="small mute section">Le texte collé reste dans ton navigateur : le site n'en garde que la liste de tes cartes, et seulement quand tu cliques sur Enregistrer.</p>
       <div class="row section"><a class="btn ghost" href="${back}">← Retour</a></div>`;
     const ta = $('#clicTa'), msg = $('#clicMsg');
-    const take = txt => { let j = null; try { j = JSON.parse(txt); } catch (e) { const a = txt.indexOf('{"configured"') >= 0 ? txt.indexOf('{"configured"') : txt.indexOf('{"'), b = txt.lastIndexOf('}'); if (a >= 0 && b > a) { try { j = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { j = null; } } }
+    const take = txt => { if (/^\s*https?:\/\/\S+\s*$/.test(txt)) { msg.innerHTML = '<span class="down">C\'est le lien de la page qui a été copié, pas son contenu. ' + (isDesktop() ? 'Ouvre la sauvegarde puis fais Ctrl + A et Ctrl + C sur la page.' : 'Sur iPhone : Partager → Enregistrer dans Fichiers, puis « Choisir le fichier de sauvegarde ».') + '</span>'; return; } let j = null; try { j = JSON.parse(txt); } catch (e) { const a = txt.indexOf('{"configured"') >= 0 ? txt.indexOf('{"configured"') : txt.indexOf('{"'), b = txt.lastIndexOf('}'); if (a >= 0 && b > a) { try { j = JSON.parse(txt.slice(a, b + 1)); } catch (e2) { j = null; } } }
       if (!j) { msg.innerHTML = '<span class="down">Ce n\'est pas le bon texte. Ouvre ta sauvegarde (étape 1), fais Ctrl + A puis Ctrl + C, et recolle.</span>'; return; }
       const g = j?.save?.game || j?.game || j; const q = g?.qty, st = g?.story?.cardStars || {};
       if (!Array.isArray(q) && !(q && typeof q === 'object')) { msg.innerHTML = '<span class="down">Sauvegarde vide : connecte-toi au jeu dans ce navigateur, puis recommence l\'étape 1.</span>'; return; }
@@ -1456,7 +1456,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=162'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=163'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
