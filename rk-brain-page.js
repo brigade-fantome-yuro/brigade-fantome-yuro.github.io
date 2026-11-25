@@ -6,7 +6,7 @@
 (function () {
   if (window.__ob && window.__ob.alive) return;
   const BASE = 'https://brigade-fantome-yuro.github.io/';
-  const OB = window.__ob = { alive: true, on: true, log: [], obs: [], seen: new Set(), pending: null, matchId: null, prior: null, saved: new Set(), lastErr: null, decisions: 0, fallback: 0 };
+  const OB = window.__ob = { alive: true, on: !window.__obStartOff, armNext: !!window.__obStartOff, log: [], obs: [], seen: new Set(), pending: null, matchId: null, prior: null, saved: new Set(), lastErr: null, decisions: 0, fallback: 0 };
   const L = m => { OB.log.push(new Date().toISOString().slice(11, 19) + ' ' + m); if (OB.log.length > 200) OB.log.shift(); };
   let W = null, seq = 0; const wait = new Map();
   OB.build = async () => {
@@ -37,11 +37,12 @@
   }
   async function tick() {
     try {
-      if (!OB.on || !W) return;
+      if (!W) return;
       const d = typeof rankedUI !== 'undefined' && rankedUI.data, m = d && d.match;
       if (!m || !m.battle) return;
       const b = m.battle, me = m.side, opp = (m.names || [])[1 - me];
-      if (m.id !== OB.matchId) { OB.matchId = m.id; OB.obs = []; OB.seen = new Set(); OB.open = false; const F = fiches(); const key = teamKey(b.teams[1 - me]); OB.prior = F[opp]?.scenarios?.[key]?.brain?.w || null; OB.oppKey = key; OB.opp = opp; OB.turnSince = 0; L('match ' + m.id.slice(0, 8) + ' vs ' + opp + ' [' + key + ']' + (OB.prior ? ' (fiche)' : '')); }
+      if (m.id !== OB.matchId) { OB.matchId = m.id; OB.obs = []; OB.seen = new Set(); OB.open = false; const F = fiches(); const key = teamKey(b.teams[1 - me]); OB.prior = F[opp]?.scenarios?.[key]?.brain?.w || null; OB.oppKey = key; OB.opp = opp; OB.turnSince = 0; if (OB.armNext && m.status === 'active') { OB.on = true; OB.armNext = false; L('cerveau activé'); } L('match ' + m.id.slice(0, 8) + ' vs ' + opp + ' [' + key + ']' + (OB.prior ? ' (fiche)' : '')); }
+      if (!OB.on) return;
       // Coups de l'adversaire observés (état juste avant + coup joué)
       const last = b.last, lk = m.id + ':' + m.revision;
       if (last && last.side === 1 - me && last.oldTeams && !OB.seen.has(lk)) { OB.seen.add(lk); OB.obs.push({ S: mkS(last.oldTeams, 1 - me, 1 - me), m: { i: last.active, a: actOf(last.action), t: last.target } }); if (OB.obs.length > 60) OB.obs.shift(); }
