@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=163';
+import * as CFG from './config.js?v=164';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=163';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=163';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=164';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=164';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=163';
-import * as SCAN from './scan.js?v=163';
+import { duelRate } from './ranked.js?v=164';
+import * as SCAN from './scan.js?v=164';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '163';
+const APP_V = '164';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -545,10 +545,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=163'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=164'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=163'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=164'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -681,7 +681,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=163'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=164'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1349,13 +1349,30 @@ P.basses = async (m, r = 'C') => {
 
 // Favori « Import Brigade » : lancé sur yurocollection.fr, il lit la collection affichée par le jeu (cartes, exemplaires, étoiles des LR)
 // et ouvre le site avec ces données. Gratuit, rien à installer, sur ordinateur.
-const CLIC_CODE = `(()=>{const T=m=>{const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:2147483647;background:#14141a;color:#fff;border:2px solid #e3123a;border-radius:12px;padding:14px 18px;font:15px system-ui;max-width:90vw;box-shadow:0 8px 30px #000a';document.body.appendChild(d);setTimeout(()=>d.remove(),7000)};try{if(!/(^|\\.)yurocollection\\.fr$/.test(location.hostname)){T('Import Brigade : ouvre d\\'abord yurocollection.fr (connecté à ton compte), puis clique à nouveau sur ce favori.');return}const S=state,C=cards,by=new Map(C.map(c=>[c.id,c])),o=[];for(const k in S.qty){const q=+S.qty[k];if(!(q>0))continue;const c=by.get(+k);if(!c)continue;const s=/secret/i.test(c.rarity||'')?cardStarCount(c):0;o.push(k+'.'+q+(s?'.'+s:''))}if(o.length<5){T('Import Brigade : ta collection n\\'est pas encore chargée. Attends que le jeu soit ouvert, puis réessaie.');return}const w=window.open('https://brigade-fantome-yuro.github.io/#clic='+o.join(','),'_blank');if(!w)T('Import Brigade : ton navigateur a bloqué l\\'ouverture de l\\'onglet. Autorise les fenêtres pour yurocollection.fr puis réessaie.');else T('Import Brigade : '+o.length+' cartes envoyées vers le site de la Brigade ✓')}catch(e){T('Import Brigade : ouvre le jeu (page chargée, connecté), puis réessaie.')}})()`;
+const CLIC_CODE = `(()=>{const T=m=>{const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:2147483647;background:#14141a;color:#fff;border:2px solid #e3123a;border-radius:12px;padding:14px 18px;font:15px system-ui;max-width:90vw;box-shadow:0 8px 30px #000a';document.body.appendChild(d);setTimeout(()=>d.remove(),7000)};try{if(!/(^|\\.)yurocollection\\.fr$/.test(location.hostname)){T('Import Brigade : ouvre d\\'abord yurocollection.fr (connecté à ton compte), puis clique à nouveau sur ce favori.');return}const S=state,C=cards,by=new Map(C.map(c=>[c.id,c])),o=[];for(const k in S.qty){const q=+S.qty[k];if(!(q>0))continue;const c=by.get(+k);if(!c)continue;const s=/secret/i.test(c.rarity||'')?cardStarCount(c):0;o.push(k+'.'+q+(s?'.'+s:''))}if(o.length<5){T('Import Brigade : ta collection n\\'est pas encore chargée. Attends que le jeu soit ouvert, puis réessaie.');return}T('Import Brigade : '+o.length+' cartes lues, ouverture du site…');location.href='https://brigade-fantome-yuro.github.io/#clic='+o.join(',')}catch(e){T('Import Brigade : ouvre le jeu (page chargée, connecté), puis réessaie.')}})()`;
 const CLIC_LIVE = true; const isDesktop = () => !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) && !(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) && !matchMedia('(pointer:coarse)').matches;
 const CLIC = () => (CLIC_LIVE && isDesktop()) || (S.profile?.role === 'admin' && new URLSearchParams(location.search).has('clic'));
 const clicHref = () => 'javascript:' + encodeURIComponent(CLIC_CODE);
 P.clic = async m => {
   const prev = isPreview(); let pay = null; try { pay = JSON.parse(localStorage.getItem('bf_clic') || 'null'); } catch (e) { pay = null; }
   const back = onbMode() ? '#bienvenue' : '#collection';
+  if (!pay?.d && !isDesktop()) {
+    m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Téléphone · gratuit</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">On crée une fois un favori « Import Brigade ». Ensuite, depuis le jeu, un seul toucher sur ce favori envoie toute ta collection ici (cartes, doublons, étoiles des LR).</p></section>
+      <div class="card section"><h3 style="margin-top:0">1. Copie le code du favori</h3><button class="btn primary" id="clicCopy">📋 Copier le code</button> <span id="clicOk" class="up small"></span></div>
+      <div class="card section"><h3 style="margin-top:0">2. Crée le favori (une seule fois)</h3><ol class="list small">
+        <li><b>iPhone (Safari)</b> : sur cette page, bouton <b>Partager</b> → <b>Ajouter un signet</b> → <b>Enregistrer</b>. Puis bouton <b>Signets</b> (le livre) → <b>Modifier</b> → touche le signet que tu viens de créer → renomme-le <b>Import Brigade</b> → efface l'adresse et <b>colle</b> le code → <b>OK</b>.</li>
+        <li><b>Android (Chrome)</b> : menu <b>⋮</b> → étoile ☆ (ajoute la page aux favoris) → <b>Modifier</b> → nom <b>Import Brigade</b>, URL : efface et <b>colle</b> le code → retour.</li></ol></div>
+      <div class="card section"><h3 style="margin-top:0">3. À chaque import</h3><p class="small mute">Ouvre <a href="https://yurocollection.fr" target="_blank" rel="noopener">yurocollection.fr</a> (connecté, jeu chargé). <b>iPhone</b> : touche la barre d'adresse et choisis <b>Import Brigade</b> dans tes favoris. <b>Android</b> : tape <b>Import Brigade</b> dans la barre d'adresse et touche la suggestion avec l'étoile. Le site de la Brigade s'ouvre avec ta collection : vérifie, puis <b>Enregistrer</b>.</p></div>
+      <details class="card section small"><summary><b>Autre méthode : fichier de sauvegarde</b></summary><p class="small mute">Ouvre <a href="https://yurocollection.fr/api/save" target="_blank" rel="noopener">ta sauvegarde</a> → Partager → Enregistrer dans Fichiers (ou ⋮ → Télécharger sur Android), puis :</p><label class="btn ghost" style="cursor:pointer;min-height:40px">📂 Choisir le fichier de sauvegarde<input id="clicFile" type="file" hidden></label><p class="small" id="clicMsg" style="margin:6px 0 0"></p></details>
+      <div class="row section"><a class="btn ghost" href="${back}">← Retour</a></div>`;
+    $('#clicCopy').onclick = async () => { const t = 'javascript:' + CLIC_CODE; try { await navigator.clipboard.writeText(t); } catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } $('#clicOk').textContent = '✓ Copié'; toast('Code copié'); };
+    const msg = $('#clicMsg');
+    $('#clicFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; msg.textContent = 'Lecture du fichier…'; try { const txt = await f.text(); let j = null; try { j = JSON.parse(txt); } catch (er) { const a = txt.indexOf('{"configured"'), b = txt.lastIndexOf('}'); if (a >= 0 && b > a) try { j = JSON.parse(txt.slice(a, b + 1)); } catch (e3) {} }
+      const g = j?.save?.game || j?.game; const q = g?.qty, st = g?.story?.cardStars || {}; if (!q) { msg.innerHTML = '<span class="down">Ce fichier n\'est pas ta sauvegarde YURO.</span>'; return; }
+      const o = []; for (const k of Object.keys(q)) { const n = +q[k]; if (n > 0) { const s2 = +st[k] || 0; o.push(k + '.' + n + (s2 ? '.' + s2 : '')); } }
+      localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: o.join(',') })); P.clic(m); } catch (er) { msg.innerHTML = '<span class="down">Impossible de lire ce fichier.</span>'; } };
+    return;
+  }
   if (!pay?.d) {
     m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">${isDesktop() ? 'Sur ordinateur · gratuit' : 'Gratuit · sans captures'}</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">Plus de captures : le site lit ta sauvegarde du jeu (toutes tes cartes, tes exemplaires et les étoiles de tes LR). Rien à installer, 3 gestes.</p></section>
       <div class="card section"><h3 style="margin-top:0">1. Ouvre ta sauvegarde du jeu</h3><p class="small mute">Tu dois être connecté au jeu dans ce navigateur. Une page pleine de texte s'ouvre : c'est normal.</p>
@@ -1456,7 +1473,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=163'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=164'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
