@@ -53,7 +53,7 @@
       if (rankedUI.busy || rankedUI.animating || OB.pending === lk) return;
       OB.pending = lk;
       const S = mkS(b.teams, me, me);
-      const r = await ask({ kind: 'decide', S, obs: OB.obs, prior: OB.prior, ms: 1500 }, 6000);
+      const r = await ask({ kind: 'decide', S, obs: OB.obs, prior: OB.prior, ms: 2500 }, 8000);
       const m2 = rankedUI.data && rankedUI.data.match;
       if (!m2 || m2.id !== m.id || m2.revision !== m.revision || m2.battle.turn !== me) { OB.pending = null; return; }
       if (r.err || !r.r || !r.r.best) { OB.lastErr = r.err || 'aucun coup'; L('erreur cerveau : ' + OB.lastErr); OB.pending = null; return; }

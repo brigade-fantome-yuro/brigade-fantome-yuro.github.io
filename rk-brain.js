@@ -6,6 +6,7 @@
 const D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const hpf = t => t.reduce((a, u) => a + Math.max(0, u.hp), 0) / Math.max(1, t.reduce((a, u) => a + u.maxHp, 0));
 const isHealer = u => /seiichi|rimuru|alucard/i.test(u.name);
 const isSei = u => /seiichi|rimuru/i.test(u.name);
 const isThief = u => /chrollo|all for one/i.test(u.name);
@@ -35,10 +36,21 @@ const STYLES = {
   healer(S) { const pb = sideView(S), T = alive(pb); if (!T.length) return []; const H = T.filter(j => isHealer(pb.enemies[j])); if (!H.length) return STYLES.ai(S); const t = H[0]; const R = pb.players.map((u, i) => i).filter(i => ready(pb.players[i])); const out = []; for (const i of R) for (const a of ['purple', 'rage', 'ultimate', 'skill', 'attack']) out.push({ i, a, t }); return out; },
   // La carte adverse la plus forte (attaque) d'abord.
   strong(S) { const pb = sideView(S), T = alive(pb); if (!T.length) return []; const t = T.reduce((x, j) => pb.enemies[j].attack > pb.enemies[x].attack ? j : x, T[0]); const R = pb.players.map((u, i) => i).filter(i => ready(pb.players[i])); const out = []; for (const i of R) for (const a of ['purple', 'rage', 'ultimate', 'skill', 'attack']) out.push({ i, a, t }); return out; },
+  // Joueur fort : essaie chaque coup possible et garde celui qui laisse la meilleure position (PV, cartes tuées, contrôles).
+  smart(S) { const o = D.options(S); if (!o.length) return []; const me = S.s; let best = null;
+    for (const m of o) { let nx; try { nx = D.step(S, m); } catch (e) { continue; } const v = evalFor(nx, me); if (!best || v > best.v) best = { m, v }; }
+    return best ? [best.m].concat(STYLES.ai(S)) : STYLES.ai(S); },
   // Joueur imprévisible.
   random(S) { const o = D.options(S); if (!o.length) return []; const m = o[Math.floor(Math.random() * o.length)]; return [m].concat(STYLES.ai(S)); },
 };
 const STYLE_NAMES = Object.keys(STYLES);
+// Valeur d'une position pour le camp « side » (0 = nous) : PV restants des deux côtés, cartes tuées, cartes figées ou privées de technique.
+function evalFor(S, side) {
+  if (S.winner === side) return 9; if (S.winner != null && S.winner !== 'draw') return -9;
+  const own = side === 0 ? S.b.players : S.b.enemies, en = side === 0 ? S.b.enemies : S.b.players;
+  const dead = t => t.filter(u => !(u.hp > 0)).length, ctl = t => t.filter(u => u.hp > 0 && (u.frozen > 0 || u.sealed)).length;
+  return hpf(own) - hpf(en) + .35 * (dead(en) - dead(own)) + .12 * (ctl(en) - ctl(own));
+}
 
 // Notre jeu pour la suite des simulations : le jeu du site, sans soin inutile (SUZAKU seulement s'il rend au moins 1× l'ATQ du soigneur).
 function ourMoves(S) {
@@ -51,29 +63,36 @@ function ourMoves(S) {
 function pickStyle(w) { let s = 0; for (const k of STYLE_NAMES) s += w[k] || 0; let r = Math.random() * s; for (const k of STYLE_NAMES) { r -= w[k] || 0; if (r <= 0) return k; } return 'ai'; }
 // Suite du match : nous (camp 0) avec notre jeu, l'adversaire avec un style tiré selon ses poids (un style par simulation, comme un vrai joueur qui garde sa façon de jouer).
 function rollout(S, w) {
-  const style = pickStyle(w);
+  const style = pickStyle(w); let om = 0;
   for (let g = 0; g < 300 && S.winner == null; g++) {
-    const nx = S.s === 0 ? pick(S, ourMoves(S)) : (pick(S, STYLES[style](S)) || pick(S, STYLES.ai(S)));
+    let nx;
+    if (S.s === 0) nx = pick(S, ourMoves(S));
+    else { const st = style === 'smart' || (om < 4 && style !== 'random') ? (om < 4 ? 'smart' : style) : style; om++; nx = pick(S, STYLES[st](S)) || pick(S, STYLES.ai(S)); }
     if (!nx) break; S = nx;
   }
   return S;
 }
+// Note d'une fin de simulation : la victoire d'abord, puis la marge (PV qui nous restent / PV qui leur restent), pour préférer
+// la ligne qui gagne avec le plus de marge : c'est elle qui tient encore si l'adversaire joue mieux que nos modèles.
 const score = S => {
-  if (S.winner === 0) return 1; if (S.winner === 'draw') return .5; if (S.winner === 1) return 0;
-  const hp = t => t.reduce((a, u) => a + Math.max(0, u.hp) / u.maxHp, 0); return hp(S.b.players) > hp(S.b.enemies) ? .5 : .25;
+  if (S.winner === 0) return .6 + .4 * hpf(S.b.players);
+  if (S.winner === 'draw') return .5;
+  if (S.winner === 1) return .4 * (1 - hpf(S.b.enemies));
+  return hpf(S.b.players) > hpf(S.b.enemies) ? .5 : .3;
 };
 // Décision : toutes les options, simulées à tour de rôle avec les mêmes tirages pour chaque option (comparaison juste), jusqu'au budget de temps.
 function decide(S, w, ms) {
   const opts = D.options(S); if (!opts.length) return { best: null, res: [] };
-  const R = opts.map(o => ({ o, n: 0, s: 0, ok: true }));
+  const R = opts.map(o => ({ o, n: 0, s: 0, w: 0, ok: true }));
   const t0 = Date.now(); let k = 0;
   while (Date.now() - t0 < ms && k < 4000) {
-    for (const r of R) { if (!r.ok) continue; Math.random = seeded(1000003 * (k + 1)); try { const nx = D.step(S, r.o); r.s += score(nx.winner != null ? nx : rollout(nx, w)); r.n++; } catch (e) { r.ok = false; } }
+    for (const r of R) { if (!r.ok) continue; Math.random = seeded(1000003 * (k + 1)); try { const nx = D.step(S, r.o); const E = nx.winner != null ? nx : rollout(nx, w); r.s += score(E); if (E.winner === 0) r.w++; r.n++; } catch (e) { r.ok = false; } }
     Math.random = RND; k++;
-    if (k === 30) { const top = R.filter(r => r.ok).sort((a, b) => b.s / b.n - a.s / a.n); const cut = top[Math.min(top.length - 1, 7)]; if (cut) for (const r of R) if (r.ok && r.s / r.n < cut.s / cut.n - .15) r.ok = false; }
+    if (k === 30) { const top = R.filter(r => r.ok).sort((a, b) => b.s / b.n - a.s / a.n); const cut = top[Math.min(top.length - 1, 7)]; if (cut) for (const r of R) if (r.ok && r.s / r.n < cut.s / cut.n - .1) r.ok = false; }
   }
   Math.random = RND;
-  const res = R.filter(r => r.n).map(r => ({ i: r.o.i, a: r.o.a, t: r.o.t, p: r.s / r.n, n: r.n })).sort((a, b) => b.p - a.p);
+  const res = R.filter(r => r.n).map(r => ({ i: r.o.i, a: r.o.a, t: r.o.t, p: r.w / r.n, v: r.s / r.n, n: r.n }))
+    .sort((a, b) => b.v - a.v);
   return { best: res[0] || null, res: res.slice(0, 8), iters: k };
 }
 // Quels styles expliquent les coups observés de cet adversaire ? (état avant le coup, coup joué)
