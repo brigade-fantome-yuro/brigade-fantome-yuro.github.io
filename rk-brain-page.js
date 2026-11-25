@@ -54,13 +54,19 @@
       // Coups de l'adversaire observés (état juste avant + coup joué)
       const last = b.last, lk = m.id + ':' + m.revision;
       if (last && last.side === 1 - me && last.oldTeams && !OB.seen.has(lk)) { OB.seen.add(lk); OB.obs.push({ S: mkS(last.oldTeams, 1 - me, 1 - me), m: { i: last.active, a: actOf(last.action), t: last.target } }); if (OB.obs.length > 60) OB.obs.shift(); }
-      if (m.status === 'finished') { await finish(m); return; }
-      if (m.status !== 'active' || b.turn !== me) { OB.turnSince = 0; return; }
-      // Le chrono du filet ne court que quand l'écran est prêt (pas pendant les animations).
-      if (rankedUI.busy || rankedUI.animating) { OB.turnSince = Date.now(); return; }
-      if (!OB.turnSince) OB.turnSince = Date.now();
-      // Filet : 15 s de notre tour sans action → l'ancien bot peut jouer ce coup.
-      if (Date.now() - OB.turnSince > 15000 && !OB.open) { OB.open = true; OB.fallback++; L('filet de sécurité : porte ouverte'); setTimeout(() => { OB.open = false; }, 4000); }
+      if (OB.open && OB.revSince && OB.revSince.k !== lk) OB.open = false;
+      if (m.status === 'finished') { OB.open = false; await finish(m); return; }
+      if (m.status !== 'active' || b.turn !== me) { OB.turnSince = 0; OB.revSince = null; return; }
+      // Chrono par révision : il court même pendant les animations (25/11 : une animation restée
+      // « en cours » après DOMINATION a bloqué le cerveau ET le filet → défaite au temps).
+      if (!OB.revSince || OB.revSince.k !== lk) OB.revSince = { k: lk, t: Date.now() };
+      const age = Date.now() - OB.revSince.t;
+      // On attend la fin des animations, mais 6 s au plus.
+      if ((rankedUI.busy || rankedUI.animating) && age < 6000) return;
+      if (!OB.turnSince) OB.turnSince = OB.revSince.t;
+      // Filet : 20 s de notre tour sans action → porte ouverte jusqu'au prochain coup (l'ancien bot peut jouer).
+      if (age > 20000 && !OB.open) { OB.open = true; OB.fallback++; L('filet de sécurité : porte ouverte (cerveau sans coup depuis 20 s)'); }
+      if (OB.open && age > 20000) { if (OB.pending === lk && age > 30000) OB.pending = null; }
       if (OB.pending === lk) return;
       OB.pending = lk;
       const S = mkS(b.teams, me, me);
