@@ -429,3 +429,5 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 .cmp .win{color:#7ee2a0}
 @media (max-width:600px){.cmp-r>div{padding:8px 6px;font-size:12px}.cmp-r{grid-template-columns:82px 1fr 1fr}}
 .gcard .bav{width:40px;height:40px;flex:none}.bav.bav-l{width:64px;height:64px;font-size:26px;flex:none}
+.nasteps{display:grid;gap:8px;margin-top:12px}.nastep{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);background:#0b0b0b;border-radius:3px}
+.nastep .nan{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--blood);color:#fff;font-size:14px}

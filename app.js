@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=127';
+import * as CFG from './config.js?v=128';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=127';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=127';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=128';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=128';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=127';
-import * as SCAN from './scan.js?v=127';
+import { duelRate } from './ranked.js?v=128';
+import * as SCAN from './scan.js?v=128';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='127';
+const APP_V='128';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -191,11 +191,30 @@ function castleReal() {
   <li>Tes seuils exacts, avec tes étoiles, se lisent aussi dans les <a href="#calculs">Calculateurs</a> (Two-shot).</li></ul></div>`;
 }
 
+// Guide château : la meilleure équipe SANS Aya et sa boucle (25/11, moteur du jeu, 5 330 équipes testées). Brouillon visible par l'admin avec ?brouillon tant que Nicolas n'a pas validé.
+const CASTLE_NOAYA_LIVE = false;
+function noAyaBlock() {
+  const rows = [['Xebec 4★ · Janemba 5★ · Makima 3★', 516, 521, 590, 609], ['Xebec 4★ · Janemba 5★ · Makima 4★', 516, 530, 618, 628], ['Xebec 5★ · Janemba 5★ · Makima 5★', 547, 551, 631, 669]];
+  const step = (n, t, d) => `<div class="nastep"><b class="nan">${n}</b><div><b>${t}</b><div class="small mute">${d}</div></div></div>`;
+  return `<div class="card section noaya"><span class="chip red">Sans Aya</span><h2 class="ctitle" style="margin-top:10px">La boucle Xebec · Makima · Janemba</h2>
+    <p class="mute">La meilleure équipe sans Ayanokouji : on a testé toutes les équipes de 3 LR possibles (5 330) avec le moteur du jeu. Pas d'échange de PV ici : on <b>annule</b> les coups avec le Haki de Xebec, on <b>retourne</b> un gardien contre lui-même avec Makima et on <b>esquive</b> avec Janemba.</p>
+    <div class="nasteps">
+      ${step(1, 'Xebec ouvre : HAKI', 'Toujours en premier dès qu\'il est prêt (tous les 3 tours) : la prochaine attaque sur chacune de tes 3 cartes est annulée.')}
+      ${step(2, 'Makima : DOMINATION', 'Sur le gardien que tu tapes, <b>avant qu\'il ait riposté ce tour</b> : il se frappe pour 1,5× son attaque (≈ 1 000 dégâts) et reste figé, donc il perd sa riposte.')}
+      ${step(3, 'Janemba : DIMENSION', '1,6× son attaque, et ses 2 esquives au premier lancement : les 2 coups suivants sur lui ratent.')}
+      ${step(4, 'Focus et attaques', 'Les 3 cartes tapent le même gardien, le plus bas, jusqu\'à sa mort. Techniques relancées dès qu\'elles sont prêtes, dans le même ordre : Xebec, Makima, Janemba.')}
+      ${step(5, 'Le dernier gardien', 'Garde la Domination pour l\'achever : 1,5× son attaque suffit souvent à finir les 500 derniers PV.')}
+    </div>
+    <div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Équipe</th><th class="n">Sûre<br><small>90 %</small></th><th class="n">Jouable<br><small>50 %</small></th><th class="n">Max<br><small>20 %</small></th><th class="n">Plafond<br><small>1 victoire</small></th></tr></thead><tbody>${rows.map(r => `<tr><td>${r[0]}</td><td class="n">${r[1]}</td><td class="n">${r[2]}</td><td class="n"><b>${r[3]}</b></td><td class="n"><b class="bone">${r[4]}</b></td></tr>`).join('')}</tbody></table></div>
+    <p class="small mute" style="margin:8px 0 0">Vérifié avec un vrai joueur de la guilde : Xebec 4★ / Janemba 5★ / Makima 4★ a passé la chambre 628, notre plafond pour cette équipe. L'ordre compte énormément : Xebec → Makima → Janemba gagne 2 à 30 fois plus souvent que l'ordre de l'équipe selon la chambre.</p></div>`;
+}
+
 P.guide = (m, key) => {
   if (key === 'eveil') return evoGuide(m); if (key === 'raids') return raidGuide(m); if (key === 'roles') { location.hash = '#persos'; return; }
   const g = S.kb.guides?.[key]; if (!g) { m.innerHTML = '<div class="empty">Guide introuvable.</div>'; return; }
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guide</span><h1 style="margin-top:12px">${esc(g.title)}</h1></section>
     ${key === 'temps' ? tempsCalc() : ''}
+    ${key === 'chateau' && (CASTLE_NOAYA_LIVE || (S.profile.role === 'admin' && new URLSearchParams(location.search).has('brouillon'))) ? noAyaBlock() : ''}
     ${key === 'chateau' ? castleWidget() + `<div class="card section"><h2 class="ctitle">Les boucles d'Aya</h2><p class="focusnote"><b>Le focus :</b> tout le monde tape le même gardien tant que l'échange n'est pas fait. Dès qu'un gardien est échangé, on l'achève en priorité, puis on revient au gardien de départ.</p><div class="loops">${loopSVG(false)}${loopSVG(true)}</div>
       <div class="wzc"><h3 style="margin-top:16px">Boucle de secours sans soigneur (après le 1er seuil)</h3>
       <p class="small">Elle permet de <b>repousser le plafond de la boucle sans soigneur</b> et d'aller chercher <b>quelques chambres de plus</b> après le 1er seuil, là où la boucle normale ne gagne plus.</p>
@@ -487,10 +506,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=127'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=128'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=127'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=128'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -620,7 +639,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=127'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=128'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -1282,7 +1301,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=127'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=128'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
