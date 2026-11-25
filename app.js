@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=145';
+import * as CFG from './config.js?v=146';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=145';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=145';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=146';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=146';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=145';
-import * as SCAN from './scan.js?v=145';
+import { duelRate } from './ranked.js?v=146';
+import * as SCAN from './scan.js?v=146';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '145';
+const APP_V = '146';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -149,6 +149,8 @@ async function openBell() {
 // Fusion Collection Prestige → Ma collection (aperçu admin avec ?fusion tant que FUSION_LIVE est false).
 const FUSION_LIVE = true;
 const FUS = () => FUSION_LIVE || (S.profile?.role === 'admin' && new URLSearchParams(location.search).has('fusion'));
+const CG_LIVE = false;
+const CGV2 = () => CG_LIVE || (S.profile?.role === 'admin' && new URLSearchParams(location.search).has('cgv2'));
 const memHref = id => FUS() ? '#collection/L/m:' + id : '#checklist/m:' + id;
 function shell(route) {
   const isAdmin = S.profile.role === 'admin';
@@ -540,10 +542,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=145'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=146'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=145'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=146'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -676,7 +678,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=145'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=146'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -711,9 +713,12 @@ P.chateausim = m => {
       const allOwn = x => x.t.every(c => own[c.id] != null);
       $('#cgOut').innerHTML = !ok.length ? `<div class="msg" style="margin-top:10px">Aucune équipe ${mode === 'mine' ? 'de ta collection ' : ''}ne gagne la chambre ${room} dans nos combats simulés. ${mode === 'mine' ? 'Essaie « Toutes les LR » pour voir quelles cartes il te manque, ou ' : 'Essaie '}une chambre plus basse.</div>`
         : `<p class="small" style="margin:12px 0 8px"><b>${ok.length} équipe${ok.length > 1 ? 's' : ''}</b> ${ok.length > 1 ? 'passent' : 'passe'} la chambre ${room}${ok.length >= 40 ? ' (les 40 meilleures)' : ''}. % = part des essais gagnés à cette chambre, en jouant dans l'ordre indiqué (40 combats simulés, les gardiens visent au hasard).</p>
-          <div class="cggrid">${ok.map((x, i) => `<div class="cgrow"><div class="cgpct ${x.p >= .5 ? 'up' : ''}">${Math.round(x.p * 100)} %</div><div style="flex:1;min-width:0"><b>${x.t.map((c, k) => `${nm(c)} <span class="small mute">${x.s[k]}★</span>`).join(' · ')}</b>${mode === 'all' && allOwn(x) ? ' <span class="chip ok" style="font-size:10px">tu les as</span>' : ''}
+          ${CGV2() ? `<div class="cggrid">${ok.map((x, i) => { const ord = x.pol?.perm || [0, 1, 2]; return `<div class="cgcard"><div class="cghead"><span class="cgpct ${x.p >= .5 ? 'up' : ''}">${Math.round(x.p * 100)} %</span><span class="small mute">de victoires à la chambre ${room}</span>${mode === 'all' && allOwn(x) ? '<span class="chip ok" style="font-size:10px;margin-left:auto">tu les as</span>' : ''}</div>
+            <div class="cgimgs">${ord.map((k, n) => { const c = x.t[k]; return `<figure class="cgimg"><span class="cgn">${n + 1}</span><img src="${esc(lrImg(c))}" alt="${esc(c.n)}" loading="lazy"><figcaption><b>${nm(c)}</b><span>${x.s[k]}★</span></figcaption></figure>`; }).join('')}</div>
+            <div class="small mute cgord">Joue dans l'ordre 1 → 2 → 3${x.pol?.dom === 'unstruck' && x.t.some(c => /makima/i.test(c.n)) ? ' · Domination sur un gardien qui n\'a pas encore frappé' : ''}</div>
+            <div class="cgbtns"><button class="btn primary small" data-cgw="${i}">👁 Voir le combat gagnant</button><button class="btn ghost small" data-cgp="${i}">Jouer moi-même</button></div></div>`; }).join('')}</div>` : `<div class="cggrid">${ok.map((x, i) => `<div class="cgrow"><div class="cgpct ${x.p >= .5 ? 'up' : ''}">${Math.round(x.p * 100)} %</div><div style="flex:1;min-width:0"><b>${x.t.map((c, k) => `${nm(c)} <span class="small mute">${x.s[k]}★</span>`).join(' · ')}</b>${mode === 'all' && allOwn(x) ? ' <span class="chip ok" style="font-size:10px">tu les as</span>' : ''}
             <div class="small" style="color:var(--blood2);margin-top:2px">🎯 ${(x.pol?.perm || [0, 1, 2]).map(k => nm(x.t[k])).join(' → ')}${x.pol?.dom === 'unstruck' && x.t.some(c => /makima/i.test(c.n)) ? ' · Domination sur un gardien qui n\'a pas encore frappé' : ''}</div>
-            <div class="row" style="margin-top:6px;gap:6px"><button class="btn primary small" data-cgw="${i}">👁 Voir le combat gagnant</button><button class="btn ghost small" data-cgp="${i}">Jouer moi-même</button></div></div></div>`).join('')}</div>`;
+            <div class="row" style="margin-top:6px;gap:6px"><button class="btn primary small" data-cgw="${i}">👁 Voir le combat gagnant</button><button class="btn ghost small" data-cgp="${i}">Jouer moi-même</button></div></div></div>`).join('')}</div>``}`;
       const put = x => { x.t.forEach((c, k) => { const inp = $('#cs' + k); inp.value = lab(c); inp.dispatchEvent(new Event('input')); $('#css' + k).value = x.s[k]; }); $('#csRoom').value = room; };
       $('#cgOut').querySelectorAll('[data-cgw]').forEach(b => b.onclick = () => { const x = ok[+b.dataset.cgw]; put(x); lastCeil = null; lastPol = x.pol || null; spectate(room, x.T); });
       $('#cgOut').querySelectorAll('[data-cgp]').forEach(b => b.onclick = () => { const x = ok[+b.dataset.cgp]; put(x); $('#csGo').click(); });
@@ -1379,7 +1384,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=145'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=146'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
