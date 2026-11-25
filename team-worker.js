@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=139');
+importScripts('castle-engine.js?v=140');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -48,7 +48,7 @@ function castleFight(room, team, catalog, seed, ord = 0, pol = null) {
 // Combat gagnant à regarder en spectateur : on rejoue la chambre avec des tirages différents jusqu'à une victoire, en gardant chaque état du combat.
 function castleWin(room, team, catalog, tries, pol = null) {
   for (let s = 0; s < tries; s++) {
-    const seed = 7 + (s >> 1) * 7919 + room * 104729; Math.random = seeded(seed); ORD = s & 1; POL = pol && (s & 1) ? pol : null;
+    const seed = 7 + (s >> 1) * 7919 + room * 104729; Math.random = seeded(seed); ORD = pol ? 0 : s & 1; POL = pol || null;
     try {
       let b = C.towerCreateBattle(room, team.map(mk), catalog); b.players = team.map(mk); const steps = [{ b }]; let swaps = 0, heals = 0;
       for (let g = 0; g < 500 && !b.result; g++) {
@@ -98,8 +98,20 @@ function duelGame(A, B, starter, seed) {
 }
 function duelRate(A, B, n) { let w = 0, t = 0; for (let s = 0; s < n; s++) for (const st of [0, 1]) { const r = duelGame(A, B, st, 1 + s * 7919 + st * 31337); t++; if (r === 0) w++; else if (r === 'draw') w += .5; } return w / t; }
 
+
+// « Je veux atteindre la chambre X » : tri rapide de toutes les équipes (6 ordres de jeu × 3 tirages), puis % précis sur les finalistes avec leur meilleur ordre.
+function polsFor(team) { const doms = team.some(isMakima) ? ['low', 'unstruck'] : ['low']; const out = [null]; for (const perm of PERMS) for (const dom of doms) out.push({ perm, dom }); return out; }
+function roomQuick(room, team, catalog) { let w = 0, pre = false; for (const perm of [[0, 1, 2], [1, 2, 0], [2, 0, 1]]) if (castleFight(Math.max(1, room - 150), team, catalog, 3 + perm[0] * 7919, 0, { perm, dom: 'unstruck' })) { pre = true; break; } if (!pre) return 0; const P = polsFor(team); for (let k = 0; k < P.length; k++) for (let s = 0; s < 2; s++) if (castleFight(room, team, catalog, 11 + (k * 2 + s) * 7919 + room * 104729, 0, P[k])) w++; return w / (P.length * 2); }
+function roomRate(room, team, catalog, n) {
+  let best = null; for (const pol of polsFor(team)) { let w = 0; for (let s = 0; s < 12; s++) if (castleFight(room, team, catalog, 5 + s * 7919 + room * 104729, 0, pol)) w++; if (!best || w > best.w) best = { pol, w }; }
+  let w = 0; for (let s = 0; s < n; s++) if (castleFight(room, team, catalog, 900001 + s * 7919 + room * 104729, 0, best.pol)) w++;
+  return { p: w / n, pol: best.pol };
+}
+
 onmessage = ({ data }) => {
   const { id, kind } = data;
+  if (kind === 'roomQuick') { postMessage({ id, r: data.teams.map(t => roomQuick(data.room, t, data.catalog)) }); return; }
+  if (kind === 'roomRate') { postMessage({ id, r: data.teams.map(t => roomRate(data.room, t, data.catalog, data.n || 40)) }); return; }
   if (kind === 'castleWin') { postMessage({ id, r: castleWin(data.room, data.team, data.catalog, data.tries || 400, data.pol || null) }); return; }
   if (kind === 'castle') { postMessage({ id, r: castleReport(data.team, data.catalog, data.n || 100) }); return; }
   if (kind === 'ranked') { const res = data.opps.map(o => ({ name: o.name, w: duelRate(data.A, o.B, data.n || 6) })); postMessage({ id, r: { avg: res.reduce((a, x) => a + x.w, 0) / Math.max(1, res.length), res } }); return; }

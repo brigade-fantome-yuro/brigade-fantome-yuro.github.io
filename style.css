@@ -454,3 +454,8 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 .bfnews .bfgo{display:inline-block;margin-top:6px;color:var(--blood2)}
 .bfbell.dsk{position:fixed;top:18px;right:22px;z-index:35;background:rgba(7,6,7,.85);backdrop-filter:blur(6px)}
 @media (max-width:900px){.bfbell.dsk{display:none}}
+
+.cggrid{display:flex;flex-direction:column;gap:8px}
+.cgrow{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:14px;padding:12px}
+.cgpct{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;min-width:58px;text-align:right}
+@media(max-width:600px){.cgrow{padding:10px;gap:10px}.cgpct{font-size:17px;min-width:46px}}
