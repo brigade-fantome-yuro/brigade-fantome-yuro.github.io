@@ -42,17 +42,19 @@
       const d = typeof rankedUI !== 'undefined' && rankedUI.data, m = d && d.match;
       if (!m || !m.battle) return;
       const b = m.battle, me = m.side, opp = (m.names || [])[1 - me];
-      if (m.id !== OB.matchId) { OB.matchId = m.id; OB.obs = []; OB.seen = new Set(); OB.open = false; const F = fiches(); const key = teamKey(b.teams[1 - me]); OB.prior = F[opp]?.scenarios?.[key]?.brain?.w || null; OB.oppKey = key; OB.opp = opp; OB.turnSince = 0; if (OB.armNext && m.status === 'active') { OB.on = true; OB.armNext = false; L('cerveau activé'); } L('match ' + m.id.slice(0, 8) + ' vs ' + opp + ' [' + key + ']' + (OB.prior ? ' (fiche)' : '')); }
+      if (m.id !== OB.matchId) { OB.matchId = m.id; OB.obs = []; OB.seen = new Set(); OB.open = false; const F = fiches(); const key = teamKey(b.teams[1 - me]); OB.prior = F[opp]?.scenarios?.[key]?.brain?.w || null; if (!OB.prior && b.teams[1 - me].some(u => /chrollo|all for one/i.test(u.name))) OB.prior = { ai: 1, asapLow: 1, thief: 4, healer: 1, strong: 1, smart: 2, random: .5 }; OB.oppKey = key; OB.opp = opp; OB.turnSince = 0; if (OB.armNext && m.status === 'active') { OB.on = true; OB.armNext = false; L('cerveau activé'); } L('match ' + m.id.slice(0, 8) + ' vs ' + opp + ' [' + key + ']' + (OB.prior ? ' (fiche)' : '')); }
       if (!OB.on) return;
       // Coups de l'adversaire observés (état juste avant + coup joué)
       const last = b.last, lk = m.id + ':' + m.revision;
       if (last && last.side === 1 - me && last.oldTeams && !OB.seen.has(lk)) { OB.seen.add(lk); OB.obs.push({ S: mkS(last.oldTeams, 1 - me, 1 - me), m: { i: last.active, a: actOf(last.action), t: last.target } }); if (OB.obs.length > 60) OB.obs.shift(); }
       if (m.status === 'finished') { await finish(m); return; }
       if (m.status !== 'active' || b.turn !== me) { OB.turnSince = 0; return; }
+      // Le chrono du filet ne court que quand l'écran est prêt (pas pendant les animations).
+      if (rankedUI.busy || rankedUI.animating) { OB.turnSince = Date.now(); return; }
       if (!OB.turnSince) OB.turnSince = Date.now();
-      // Filet : 8 s de notre tour sans action → l'ancien bot peut jouer ce coup.
-      if (Date.now() - OB.turnSince > 8000 && !OB.open) { OB.open = true; OB.fallback++; L('filet de sécurité : porte ouverte'); setTimeout(() => { OB.open = false; }, 4000); }
-      if (rankedUI.busy || rankedUI.animating || OB.pending === lk) return;
+      // Filet : 15 s de notre tour sans action → l'ancien bot peut jouer ce coup.
+      if (Date.now() - OB.turnSince > 15000 && !OB.open) { OB.open = true; OB.fallback++; L('filet de sécurité : porte ouverte'); setTimeout(() => { OB.open = false; }, 4000); }
+      if (OB.pending === lk) return;
       OB.pending = lk;
       const S = mkS(b.teams, me, me);
       const r = await ask({ kind: 'decide', S, obs: OB.obs, prior: OB.prior, ms: 2500 }, 8000);

@@ -97,7 +97,7 @@ function decide(S, w, ms) {
 }
 // Quels styles expliquent les coups observés de cet adversaire ? (état avant le coup, coup joué)
 function fitStyles(obs, prior) {
-  const w = {}; for (const k of STYLE_NAMES) w[k] = (prior && prior[k] != null ? prior[k] : 1);
+  const w = {}; for (const k of STYLE_NAMES) w[k] = (prior && prior[k] != null ? prior[k] : (k === 'smart' ? 2 : 1));
   for (const ob of obs || []) {
     for (const k of STYLE_NAMES) {
       if (k === 'random') continue;
