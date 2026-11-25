@@ -228,7 +228,7 @@ function noAyaBlock() {
   const T = [
     ['Xebec · Makima · Chrollo', 'Xebec → Chrollo → Makima', 482, 624, 658, 733, 'SKILL HUNTER au 1er tour : un gardien sans technique perd 25 % de son attaque pour tout le combat, et Chrollo la gagne.'],
     ['Xebec · Makima · All For One', 'Xebec → All For One → Makima', 444, 620, 667, 669, 'ALTER au 1er tour : All For One gagne +25 % d\'attaque, mais le gardien ne perd rien. Moins fort que Chrollo, qui affaiblit aussi le gardien (−25 % pour tout le combat) : prends Chrollo si tu l\'as.'],
-    ['Xebec · Makima · Mihawk', 'Xebec → Makima → Mihawk', 444, 640, 641, 669, 'Lame noire (recharge 3) : 1,2× sur la cible, 0,5× sur les 2 autres, puis la cible est marquée 2 tours : +30 % de dégâts sur les attaques et techniques de tes cartes contre elle. Exception : la Domination de Makima n’en profite pas, car c'est le gardien qui se frappe lui-même.'],
+    ['Xebec · Makima · Mihawk', 'Xebec → Makima → Mihawk', 444, 640, 641, 669, 'Lame noire (recharge 3) : 1,2× sur la cible, 0,5× sur les 2 autres, puis la cible est marquée 2 tours : +30 % de dégâts sur les attaques et techniques de tes cartes contre elle. Exception : la Domination de Makima n’en profite pas, car c’est le gardien qui se frappe lui-même.'],
     ['Xebec · Makima · Lelouch', 'Xebec → Makima → Lelouch', 439, 493, 638, 680, 'GEASS : la prochaine attaque qu\'il reçoit (≈ 700) est renvoyée au gardien. Défense et dégâts en même temps.'],
     ['Xebec · Makima · Janemba', 'Xebec → Makima → Janemba', 547, 551, 639, 669, 'DIMENSION 1,6× et 2 esquives au premier lancement seulement : la plus sûre jusqu\'à ~550.']];
   const step = (n, t, d) => `<div class="nastep"><b class="nan">${n}</b><div><b>${t}</b><div class="small mute">${d}</div></div></div>`;
