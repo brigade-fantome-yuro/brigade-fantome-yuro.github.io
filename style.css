@@ -362,3 +362,4 @@ details.alt summary{cursor:pointer;color:var(--mute);font-size:14px;font-weight:
 body.th-c .bbet{border-radius:2px;background:#050505}body.th-c .bopt{border-radius:2px;background:#0b0b0b}
 body.th-c .bopt.sel,body.th-c .bopt:not(:disabled):hover{border-color:#fff;background:#151515}
 .bres{margin-top:6px;line-height:1.5}
+.tabs>button{min-width:max-content!important;white-space:nowrap;flex-shrink:0}#mrf{gap:4px;flex-wrap:wrap}#mrf button{padding:6px 12px!important;width:auto!important}
