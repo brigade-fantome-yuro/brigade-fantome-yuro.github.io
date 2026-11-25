@@ -1,0 +1,14 @@
+[
+  {"id": 12, "d": "2026-11-25", "t": "Château : la boucle sans Ayanokouji", "x": "Pas d'Ayanokouji ? Le guide du château a maintenant un bloc « Vous n'avez pas Ayanokouji ? » avec la boucle Xebec · Makima · 3e carte, l'ordre de jeu et les chambres atteignables pour 5 équipes.", "h": "#guide/chateau"},
+  {"id": 11, "d": "2026-11-25", "t": "Nouvelle vidéo de bienvenue", "x": "Les nouveaux membres découvrent le site avec une vidéo d'une minute, juste après leur première connexion."},
+  {"id": 10, "d": "2026-11-25", "t": "Plafonds du château recalculés", "x": "Les chambres max et plafonds de chaque équipe tiennent compte du meilleur ordre de jeu et de gardiens réalistes. Le simulateur t'indique aussi l'ordre à suivre.", "h": "#chateau"},
+  {"id": 9, "d": "2026-11-25", "t": "Photo Discord sur les profils", "x": "Les profils de la guilde affichent maintenant ta photo Discord.", "h": "#guilde"},
+  {"id": 8, "d": "2026-11-25", "t": "Ma collection beaucoup plus rapide", "x": "Fini le lag sur la collection, sur téléphone comme sur PC. Le graphique de valeur a des axes et le « +XXXX » est expliqué."},
+  {"id": 7, "d": "2026-11-25", "t": "Page Réglages", "x": "Le partage de ta collection avec la guilde se règle maintenant dans ⚙️ Réglages (en bas du menu).", "h": "#reglages"},
+  {"id": 6, "d": "2026-11-25", "t": "Grilles 4 par ligne et nouvelle police", "x": "Tes LR et les fiches perso s'affichent par 4, avec le détail au toucher. Titres plus lisibles. Sur téléphone, glisse depuis le bord gauche pour revenir à l'accueil."},
+  {"id": 5, "d": "2026-11-25", "t": "Alertes refaites pour mobile", "x": "La page Alertes est plus claire sur téléphone, avec un vrai pas-à-pas pour activer les notifications sur iPhone.", "h": "#alertes"},
+  {"id": 4, "d": "2026-11-25", "t": "Marché : dernières transactions", "x": "Nouvelle rubrique avec les ventes des dernières 24 h (LR et UR évoluées), vendeur, acheteur et filtres.", "h": "#marche"},
+  {"id": 3, "d": "2026-11-25", "t": "Kakashi plus discret", "x": "Sur Discord, les réponses de Kakashi ne sont visibles que par toi, aux couleurs du site."},
+  {"id": 2, "d": "2026-11-24", "t": "Tournoi de guildes : inscriptions et paris", "x": "Inscription au tournoi depuis Discord, et paris entre membres avec des jetons virtuels."},
+  {"id": 1, "d": "2026-11-24", "t": "Nouveau thème « La toile »", "x": "Le site passe en noir et blanc avec des fils d'araignée, plus fluide sur mobile, et s'installe comme une appli."}
+]

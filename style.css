@@ -442,3 +442,13 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 .noaya>summary.nasum::after{content:'▾';position:absolute;right:4px;top:50%;transform:translateY(-50%);color:var(--blood2);transition:transform .2s}
 .noaya[open]>summary.nasum::after{transform:translateY(-50%) rotate(180deg)}
 .noaya .nabody{margin-top:12px}
+
+.bfbell{position:relative;background:none;border:1px solid var(--line);color:inherit;border-radius:999px;width:38px;height:38px;display:grid;place-items:center;cursor:pointer;flex-shrink:0}
+.bfbell:hover{border-color:var(--blood2)}
+.bfdot{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:var(--blood2,#e0123c);color:#fff;font:700 11px/18px 'Space Grotesk',sans-serif;font-style:normal;text-align:center}
+.bfdot[hidden]{display:none}
+.side .brand{align-items:center}
+.bfnews .bfn{border-top:1px solid var(--line);padding:12px 0}
+.bfnews .bfn.new b{color:#fff}
+.bfnews .bfnew{color:var(--blood2)}
+.bfnews .bfgo{display:inline-block;margin-top:6px;color:var(--blood2)}

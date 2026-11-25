@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=135';
+import * as CFG from './config.js?v=136';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=135';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=135';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=136';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=136';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=135';
-import * as SCAN from './scan.js?v=135';
+import { duelRate } from './ranked.js?v=136';
+import * as SCAN from './scan.js?v=136';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '135';
+const APP_V = '136';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -118,17 +118,41 @@ function shellOnb() {
   <main id="mainw" class="onbmain"><div id="alertbar"></div><div id="onbback"></div><div id="main"></div></main>`;
   app.dataset.mode = 'onb';
   try { ONB_OBS?.disconnect(); ONB_OBS = new MutationObserver(() => lockOnb(app)); ONB_OBS.observe(app, { childList: true, subtree: true }); } catch (e) { /* rien */ }
+  initBell();
   $('#lo').onclick = async () => { if (confirmBox('Te déconnecter ? Tu pourras reprendre l\'import plus tard.')) { await sb.auth.signOut(); authView(); } };
   return $('#main');
 }
 
 /* ---------- Coquille ---------- */
+// Cloche : mises à jour du site (news.json). Non lues = id plus grand que le dernier vu (localStorage bfNewsSeen).
+const BELL = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+let NEWS = null;
+const newsSeen = () => { try { return +localStorage.getItem('bfNewsSeen') || 0; } catch (e) { return 0; } };
+async function loadNews() { if (NEWS) return NEWS; try { NEWS = await (await fetch(`news.json?v=${APP_V}`)).json(); } catch (e) { NEWS = []; } return NEWS; }
+function bellDots() { const seen = newsSeen(); const n = (NEWS || []).filter(x => x.id > seen).length; const k = seen ? n : Math.min(n, 3);
+  document.querySelectorAll('[data-bell] .bfdot').forEach(d => { d.hidden = !k; d.textContent = k > 9 ? '9+' : k; }); }
+async function initBell() {
+  document.querySelectorAll('[data-bell]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); openBell(); });
+  await loadNews(); bellDots();
+}
+async function openBell() {
+  await loadNews(); const seen = newsSeen(); const top = NEWS.reduce((a, x) => Math.max(a, x.id), 0);
+  const d = document.createElement('div'); d.className = 'modal';
+  const fd = s => new Date(s + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+  d.innerHTML = `<div class="modal-card bfnews"><div class="row" style="align-items:center;flex-wrap:nowrap"><h2 style="margin:0;flex:1">Quoi de neuf sur le site</h2><button class="btn ghost" data-x aria-label="Fermer" style="min-height:36px">✕</button></div>
+    <p class="small mute" style="margin:6px 0 12px">Les améliorations du site, au fil des mises à jour. Une idée ? Pose-la dans la boîte à questions.</p>
+    ${NEWS.map(n => `<div class="bfn${seen && n.id > seen ? ' new' : ''}"><div class="small mute">${fd(n.d)}${seen && n.id > seen ? ' · <b class="bfnew">Nouveau</b>' : ''}</div><b>${esc(n.t)}</b><div class="small" style="margin-top:3px;opacity:.85">${esc(n.x)}</div>${n.h ? `<a class="small bfgo" href="${n.h}" data-x>Voir →</a>` : ''}</div>`).join('') || '<div class="empty">Rien pour l\'instant.</div>'}</div>`;
+  document.body.appendChild(d);
+  const close = () => d.remove(); d.onclick = e => { if (e.target === d || e.target.closest('[data-x]')) close(); };
+  try { localStorage.setItem('bfNewsSeen', top); } catch (e) { /* rien */ } bellDots();
+}
+
 function shell(route) {
   const isAdmin = S.profile.role === 'admin';
   const links = ROUTES.map(r => r[0] === 'sep' ? `<div class="sep">${r[1]}</div>` : `<a href="#${r[0]}" class="${route === r[0] ? 'on' : ''}">${ico(r[2])}${r[1]}</a>`).join('')
     + (isAdmin ? `<div class="sep">Admin</div><a href="#admin" class="${route === 'admin' ? 'on' : ''}">${ico('shield')}Administration</a>` : '');
-  app.innerHTML = `<div class="top"><button class="btn" id="mn" aria-label="Menu">☰</button><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div></div>
-  <div class="shell"><aside class="side" id="side"><div class="brand">${SPIDER}<b>Brigade Fantôme</b></div><nav class="nav">${links}</nav>
+  app.innerHTML = `<div class="top"><button class="btn" id="mn" aria-label="Menu">☰</button><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div><span class="sp"></span><button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button></div>
+  <div class="shell"><aside class="side" id="side"><div class="brand">${SPIDER}<b>Brigade Fantôme</b><span class="sp"></span><button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button></div><nav class="nav">${links}</nav>
   <div class="me"><div class="mute small">Connecté</div><b>${esc(S.profile.discord)}</b><div class="row" style="margin-top:8px;gap:6px"><a class="btn ghost" href="#reglages" style="min-height:36px">⚙️ Réglages</a><button class="btn ghost" id="lo" style="min-height:36px">Se déconnecter</button></div></div></aside>
   <main id="mainw"><div id="alertbar"></div><div id="main"></div></main></div>`;
   app.dataset.mode = 'full'; try { ONB_OBS?.disconnect(); } catch (e) { /* rien */ }
@@ -512,10 +536,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=135'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=136'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=135'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=136'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -645,7 +669,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=135'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=136'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -1307,7 +1331,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=135'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=136'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
