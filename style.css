@@ -378,5 +378,5 @@ body.th-c .bopt.sel,body.th-c .bopt:not(:disabled):hover{border-color:#fff;backg
 .txrow img,.txi{width:44px;height:58px;object-fit:cover;border-radius:6px;border:1px solid var(--line);display:block;background:var(--bg2)}
 .txc{min-width:0;display:flex;flex-direction:column}.txc b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.txc span{font-size:12px;color:var(--mute)}
 .txp{font-weight:800;white-space:nowrap;color:var(--bone)}.txp small{font-weight:500;color:var(--mute)}
-.txw{display:flex;gap:16px;font-size:13px;justify-content:flex-end}.txw span{display:flex;flex-direction:column;min-width:80px}.txw small{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.txw{display:flex;gap:16px;font-size:13px;justify-content:flex-end}.txw span{display:flex;flex-direction:column;width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.txw small{font-size:11px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
 @media (max-width:640px){.txrow{grid-template-columns:48px 40px 1fr auto;row-gap:6px}.txrow img,.txi{width:40px;height:52px}.txw{grid-column:1/-1;justify-content:flex-start}}
