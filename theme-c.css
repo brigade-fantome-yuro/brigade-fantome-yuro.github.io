@@ -91,3 +91,8 @@ body.th-c .mosaic>.mcell:nth-child(3n+2)>.mcard{animation-duration:5.6s;animatio
 body.th-c .mosaic>.mcell::after{content:"";position:absolute;top:-40px;height:13px;left:calc(var(--cg) / -2 - 1px);right:calc(var(--cg) / -2 - 1px);pointer-events:none;z-index:-1;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 13' preserveAspectRatio='none'%3E%3Cpath d='M0 1.5 Q50 13 100 1.5' fill='none' stroke='white' stroke-width='1.1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat;opacity:.8}
 body.th-c .mosaic>.mcell::before{top:-33px;height:33px}
 body.th-c .card .v{font-optical-sizing:none;font-variation-settings:"opsz" 10;letter-spacing:.01em}
+/* 25/11 : titres épurés (fini le Bodoni gras), même famille que le texte, poids moyen */
+body.th-c h1,body.th-c h2,body.th-c h3,body.th-c .brand b,body.th-c .card .v,body.th-c .cd,body.th-c .pl-over,body.th-c .pl-vsmark,body.th-c .btitle{font-family:"Space Grotesk",Manrope,system-ui,sans-serif!important;font-weight:600!important;letter-spacing:-.02em!important}
+body.th-c h1{font-size:clamp(26px,4.2vw,38px)}body.th-c h2{font-size:clamp(20px,2.8vw,26px)}body.th-c h3{font-size:17px}
+body.th-c .brand b{font-size:19px;letter-spacing:.01em!important}
+body.th-c .cd{font-size:26px}

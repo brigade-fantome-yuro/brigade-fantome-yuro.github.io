@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=123';
+import * as CFG from './config.js?v=124';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=123';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=123';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=124';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=124';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=123';
-import * as SCAN from './scan.js?v=123';
+import { duelRate } from './ranked.js?v=124';
+import * as SCAN from './scan.js?v=124';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -43,13 +43,13 @@ const ROUTES = [
   ['sep', 'Collection et Prestige'], ['collection', 'Ma collection', 'check'], ['checklist', 'Collection Prestige', 'check'], ['guide/prestige', 'Guide Prestige', 'book'], ['guide/eveil', 'Éveil des cartes', 'book'], ['guide/raids', 'Raids et farm', 'book'],
   ['sep', 'Cartes'], ['persos', 'Fiches perso', 'users'],
   ['sep', 'Marché'], ['prix', 'Prix marché', 'chart'], ['transactions', 'Dernières transactions', 'chart'], ['alertes', 'Alertes marché', 'bell'],
-  ['sep', 'Tournoi'], ['tournoi', 'Tournoi de clans', 'layers'],
+  ['sep', 'Tournoi'], ['tournoi', 'Tournoi de guildes', 'layers'],
   ['sep', 'Guilde'], ['guilde', 'Profils de la guilde', 'users'], ['discord', 'Espace Discord', 'chat'],
   ['sep', 'Brigade'], ['calendrier', 'Calendrier', 'cal'], ['nouveautes', 'Nouveautés', 'bell'], ['lexique', 'Lexique', 'text']
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V='123';
+const APP_V='124';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -108,10 +108,16 @@ const isPreview = () => S.profile?.role === 'admin' && new URLSearchParams(locat
 // Didacticiel forcé : tant que la collection n'est pas importée (ou en aperçu admin), pas de menu, seulement les étapes d'import.
 const onbMode = () => !S.mylr?.teams?.done || isPreview();
 const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'meslr' || base === 'basses' || (base === 'collection' && /^[LM]\/moi\/(import|all)$/.test(arg || '')) || (base === 'collection' && arg === 'L/moi/all');
+// Pendant l'accueil : aucun lien vers une autre page n'est affiché ni cliquable, seulement les étapes.
+const onbLinkOk = a => { const h = a.getAttribute('href') || ''; if (!h.startsWith('#')) return !/^https?:/.test(h) || a.target === '_blank'; const [b, ...r] = h.slice(1).split('/'); return !b || onbAllowed(b, r.join('/')); };
+function lockOnb(root) { if (app.dataset.mode !== 'onb') return; root.querySelectorAll('a[href]').forEach(a => { if (!onbLinkOk(a)) a.remove(); }); }
+document.addEventListener('click', e => { if (app.dataset.mode !== 'onb') return; const a = e.target.closest?.('a[href]'); if (a && !onbLinkOk(a)) { e.preventDefault(); e.stopPropagation(); } }, true);
+let ONB_OBS = null;
 function shellOnb() {
   app.innerHTML = `<div class="onbtop"><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div><span class="sp"></span><span class="small mute">${esc(S.profile.discord)}</span><button class="btn ghost" id="lo" style="min-height:36px">Se déconnecter</button></div>
   <main id="mainw" class="onbmain"><div id="alertbar"></div><div id="onbback"></div><div id="main"></div></main>`;
   app.dataset.mode = 'onb';
+  try { ONB_OBS?.disconnect(); ONB_OBS = new MutationObserver(() => lockOnb(app)); ONB_OBS.observe(app, { childList: true, subtree: true }); } catch (e) { /* rien */ }
   $('#lo').onclick = async () => { if (confirmBox('Te déconnecter ? Tu pourras reprendre l\'import plus tard.')) { await sb.auth.signOut(); authView(); } };
   return $('#main');
 }
@@ -123,9 +129,9 @@ function shell(route) {
     + (isAdmin ? `<div class="sep">Admin</div><a href="#admin" class="${route === 'admin' ? 'on' : ''}">${ico('shield')}Administration</a>` : '');
   app.innerHTML = `<div class="top"><button class="btn" id="mn" aria-label="Menu">☰</button><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div></div>
   <div class="shell"><aside class="side" id="side"><div class="brand">${SPIDER}<b>Brigade Fantôme</b></div><nav class="nav">${links}</nav>
-  <div class="me"><div class="mute small">Connecté</div><b>${esc(S.profile.discord)}</b><div><button class="btn ghost" id="lo" style="margin-top:8px;min-height:36px">Se déconnecter</button></div></div></aside>
+  <div class="me"><div class="mute small">Connecté</div><b>${esc(S.profile.discord)}</b><div class="row" style="margin-top:8px;gap:6px"><a class="btn ghost" href="#reglages" style="min-height:36px">⚙️ Réglages</a><button class="btn ghost" id="lo" style="min-height:36px">Se déconnecter</button></div></div></aside>
   <main id="mainw"><div id="alertbar"></div><div id="main"></div></main></div>`;
-  app.dataset.mode = 'full';
+  app.dataset.mode = 'full'; try { ONB_OBS?.disconnect(); } catch (e) { /* rien */ }
   $('#lo').onclick = async () => { if (confirmBox('Te déconnecter ? Il faudra retaper ton mot de passe.')) { await sb.auth.signOut(); authView(); } };
   const side = $('#side');
   $('#mn').onclick = () => { side.classList.add('open'); const sc = document.createElement('div'); sc.className = 'scrim'; sc.onclick = () => { side.classList.remove('open'); sc.remove(); }; document.body.appendChild(sc); };
@@ -255,20 +261,22 @@ P.persos = m => {
     <select id="so" style="width:auto" aria-label="Trier"><option value="">Ordre du jeu</option><option value="hyb">Meilleures stats (PV + ATQ)</option><option value="atk">Attaque</option><option value="hp">PV</option></select>
     <button class="btn" id="dir" style="min-height:46px" aria-label="Sens du tri">↓ Décroissant</button></div>
     <div class="tabs" style="margin:12px 0 0;max-width:520px" id="rt"><button data-r="lr" class="on">LR</button><button data-r="ex">EX</button><button data-r="tr">Transcendantes</button></div>
-    <div class="grid" id="cl" style="margin-top:16px"></div>`;
+    <p class="small mute" style="margin:10px 0 0">Touche une carte pour voir ses techniques.</p><div class="pgrid4" id="cl" style="margin-top:10px"></div>`;
   let desc = true;
   const draw = () => {
     const q = $('#q').value.toLowerCase(), rf = $('#rf').value, st = +$('#st').value, so = $('#so').value;
     let list = (tab === 'lr' ? LR : tab === 'ex' ? EX : TR).filter(c => (!q || (c.n + ' ' + c.a).toLowerCase().includes(q)) && (!rf || c.c === rf)).map(c => ({ c, s: statsOf(c, st) }));
     const key = x => so === 'atk' ? x.s.atk : so === 'hp' ? x.s.hp : x.s.hp + x.s.atk;
     if (so) list.sort((a, b) => desc ? key(b) - key(a) : key(a) - key(b));
-    $('#cl').innerHTML = list.map(({ c, s }, i) => {
+    const full = ({ c, s }, i) => {
       const p = S.prices.find(x => x.card === c.n); const iu = c.ex ? c.img : lrImg(c);
-      return `<div class="card pcard">${iu ? `<div class="pimg">${so ? `<span class="rank">${i + 1}</span>` : ''}<img loading="lazy" src="${iu}" alt="${esc(c.n)}"></div>` : ''}<div class="row"><span class="chip ${c.r === 'Transcendant' ? 'warn' : 'red'}">${c.ex ? 'EX' : c.r || 'LR'}</span>${c.c ? `<span class="chip">${ROLE[c.c] || c.c}</span>` : ''}${c.p ? '<span class="chip">Éveil</span>' : ''}</div>
+      return `<div class="card pcard">${iu ? `<div class="pimg"><img loading="lazy" src="${iu}" alt="${esc(c.n)}"></div>` : ''}<div class="row"><span class="chip ${c.r === 'Transcendant' ? 'warn' : 'red'}">${c.ex ? 'EX' : c.r || 'LR'}</span>${c.c ? `<span class="chip">${ROLE[c.c] || c.c}</span>` : ''}${c.p ? '<span class="chip">Éveil</span>' : ''}</div>
       <h3 style="margin-top:10px">${esc(c.n)}</h3><div class="mute small">${esc(c.a)}</div>
       <div class="row" style="margin:10px 0"><span><b>${fmt(s.hp)}</b> <span class="mute small">PV</span></span><span><b>${fmt(s.atk)}</b> <span class="mute small">ATQ</span></span>${so === 'hyb' ? `<span class="small mute">= ${fmt(s.hp + s.atk)}</span>` : ''}${p ? `<span class="sp"></span><span class="small bone">${fmt(p.median)} KI</span>` : ''}</div>
       ${(c.t || []).map(t => `<div class="tech"><b>${esc(t[0])}</b><div class="small mute">${esc(t[1])}</div></div>`).join('') || '<div class="small mute">Pas de technique spéciale.</div>'}</div>`;
-    }).join('') || '<div class="empty">Aucune carte.</div>';
+    };
+    $('#cl').innerHTML = list.map(({ c, s }, i) => { const iu = c.ex ? c.img : lrImg(c); return `<button class="pmini" data-i="${i}">${iu ? `<img loading="lazy" src="${iu}" alt="">` : '<div class="noimg" style="aspect-ratio:3/3.8"></div>'}<span class="pm-r">${c.ex ? 'EX' : c.r === 'Transcendant' ? 'TR' : 'LR'}</span>${so ? `<span class="rank">${i + 1}</span>` : ''}<span class="pm-b"><b>${esc(c.n)}</b><small>${fmt(s.hp)} PV · ${fmt(s.atk)} ATQ</small></span></button>`; }).join('') || '<div class="empty">Aucune carte.</div>';
+    $('#cl').querySelectorAll('.pmini').forEach(b => b.onclick = () => { const d = document.createElement('div'); d.className = 'modal'; d.innerHTML = `<div class="mbox">${full(list[+b.dataset.i], +b.dataset.i)}<div class="row" style="margin-top:12px"><button class="btn ghost" data-x>Fermer</button></div></div>`; d.onclick = e => { if (e.target === d || e.target.closest('[data-x]')) d.remove(); }; document.body.appendChild(d); });
   };
   ['q', 'rf', 'st', 'so'].forEach(id => $('#' + id).oninput = draw);
   $('#dir').onclick = () => { desc = !desc; $('#dir').textContent = desc ? '↓ Décroissant' : '↑ Croissant'; if (!$('#so').value) $('#so').value = 'hyb'; draw(); };
@@ -479,10 +487,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=123'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=124'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=123'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=124'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -612,7 +620,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=123'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=124'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; } });
@@ -646,7 +654,7 @@ const SHARE_TXT = 'En activant le partage, les membres de la Brigade connectés 
 const RN = { S: 'LR', M: 'Mythique', L: 'SSR', E: 'Épique', R: 'Rare', C: 'Commune', T: 'Transcendante' };
 const img = h => !h ? '' : /^https?:/.test(h) ? h : `${S.kb.prestige_series?.base || 'https://yurocollection.fr/card-art/'}${h}.webp`;
 async function loadCollections() {
-  const [{ data: rows }, { data: profs }] = await Promise.all([sb.from('checklist').select('user_id,universe,owned,dupes,qty'), sb.from('profiles').select('id,discord,share,status,nen,level').eq('status', 'approved')]);
+  const [{ data: rows }, { data: profs }] = await Promise.all([sb.from('checklist').select('user_id,universe,owned,dupes,qty'), sb.from('profiles').select('id,discord,share,status,nen,level,avatar').eq('status', 'approved')]);
   const C = {}; for (const r of rows || []) { const u = (C[r.user_id] = C[r.user_id] || {}); u[r.universe] = { owned: new Set(r.owned || []), dupes: new Set(r.dupes || []), qty: r.qty || {} }; }
   S.coll = C; S.members = profs || []; return C;
 }
@@ -698,7 +706,10 @@ function collectionWizard(U, coll, save, refresh) {
 }
 
 // Prix médian réel d'une carte (ventes des 14 derniers jours, toutes raretés), publié depuis le marché.
-function cardPrice(name, series) { const pick = M => { let v = M[name + '|' + series]; if (v == null) { const ks = Object.keys(M).filter(k => k.startsWith(name + '|')); if (ks.length === 1) v = M[ks[0]]; } return v; };
+// Index nom → clés construit une seule fois par table de prix (avant : parcours de toutes les clés pour chaque carte, très lent).
+const CPX = new WeakMap();
+function cpIdx(M) { let ix = CPX.get(M); if (!ix) { ix = new Map(); for (const k of Object.keys(M)) { const n = k.slice(0, k.lastIndexOf('|')); const a = ix.get(n); if (a) a.push(k); else ix.set(n, [k]); } CPX.set(M, ix); } return ix; }
+function cardPrice(name, series) { const pick = M => { let v = M[name + '|' + series]; if (v == null) { const ks = cpIdx(M).get(name) || []; if (ks.length === 1) v = M[ks[0]]; } return v; };
   const v = pick(S.kb.card_prices?.p || {}); if (v) return { med: v[0], n: v[1] }; const l = pick(S.kb.card_prices?.l || {}); return l ? { med: l, list: true } : null; }
 // Ce qu'il manque pour compléter chaque univers du Prestige, avec le prix réel de chaque carte manquante.
 function viewComplete(el, U, PS) {
@@ -736,14 +747,11 @@ function viewMine(el, U, PS) {
   const save = u => { const r = uget(coll, u.s); return sb.from('checklist').upsert({ user_id: S.user.id, universe: u.s, done: ownN(coll, u) === u.c.length, owned: [...r.owned], dupes: [...r.dupes], missing: '' }); };
   el.innerHTML = `<p class="mute">Les ${U.length} univers qui comptent pour le Prestige (au moins ${PS.min} cartes, hors Exclusives et Transcendantes). Touche les cartes que tu as : un univers complet rapporte <b>${PS.tokens || 3} jetons</b> avec « Récupérer +3 » dans l'onglet Prestige du jeu.</p>
     <div class="card section" id="sum"></div>
-    <div class="card section"><div class="row"><div style="flex:1;min-width:220px"><b>Partager ma collection avec la Brigade</b><div class="small mute">${SHARE_TXT}</div></div><label class="switch"><input type="checkbox" id="sh" ${S.profile.share ? 'checked' : ''}><span></span></label></div></div>
-    <div class="card section"><b>Importer toute ma collection</b><p class="small mute" style="margin:4px 0 10px">Assistant en 2 étapes avec des captures de ta collection dans le jeu : d'abord les SSR, puis les UR. Le site reconnaît chaque carte par son illustration, coche celles que tu as, ajoute tes doublons (×2 et plus) à tes cartes à échanger et tes manquantes à tes cartes recherchées.</p><button class="btn primary" id="wiz">📷 Lancer l'import (SSR puis UR)</button></div>
     <div class="row"><div class="tabs" id="md" style="margin:0"><button data-m="own" class="on">Je l'ai</button><button data-m="dupe">Doublon à échanger</button></div><input id="q" placeholder="Rechercher un univers ou une carte" style="flex:1;min-width:200px"><select id="fl" style="width:auto"><option value="">Tous</option><option value="near">Presque complets (≤ 3 manquantes)</option><option value="todo">À compléter</option><option value="done">Complétés</option></select></div>
     <p class="small mute" id="mh" style="margin-top:8px"></p><div id="ul" style="display:grid;gap:10px;margin-top:6px"></div>`;
-  $('#sh').onchange = async e => { if (e.target.checked && !confirmBox(SHARE_TXT + '\n\nActiver le partage ?')) { e.target.checked = false; return; } const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; toast(e.target.checked ? 'Collection partagée avec la Brigade' : 'Collection privée'); };
   const mh = () => $('#mh').textContent = mode === 'own' ? 'Touche une carte pour dire que tu l\'as. En gris : celles qui te manquent.' : 'Touche une carte que tu as en double : elle apparaîtra dans les échanges de la Brigade.';
   $('#md').querySelectorAll('button').forEach(b => b.onclick = () => { mode = b.dataset.m; $('#md').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); mh(); list(); }); mh();
-  setTimeout(() => { const b = $('#wiz'); if (b) b.onclick = () => collectionWizard(U, coll, save, () => { sum(); list(); }); });
+
   const sum = () => { const done = U.filter(u => ownN(coll, u) === u.c.length).length, cards = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + ownN(coll, u), 0), du = U.reduce((a, u) => a + (coll[u.s]?.dupes.size || 0), 0);
     $('#sum').innerHTML = `<div class="row"><b>${done} / ${U.length} univers complétés</b><span class="sp"></span><span class="bone">${done * (PS.tokens || 3)} jetons</span></div><div class="bar" style="margin-top:10px"><i style="width:${done / U.length * 100}%"></i></div><div class="small mute" style="margin-top:8px">${fmt(got)} / ${fmt(cards)} cartes · ${du} doublon${du > 1 ? 's' : ''} à échanger</div>`; };
   const list = () => {
@@ -836,17 +844,19 @@ P.collection = async (m, tab = '') => {
     coll = rk === 'S' ? lrColl() : realColl;
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
-    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">${X.low ? '✍️ Mettre à jour' : '📷 Importer / mettre à jour'} mes ${X.label}</button><button class="btn ghost" id="call2" style="min-height:40px">📦 Tout réimporter</button>` : ''}<a class="btn ghost" href="#basses/C" style="min-height:40px">✍️ Communes / Rares / SR</a></div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
+    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">${X.low ? '✍️ Mettre à jour' : '📷 Importer / mettre à jour'} mes ${X.label}</button>` : ''}<a class="btn ghost" href="#basses/C" style="min-height:40px">✍️ Communes / Rares / SR</a></div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
       <div id="chist"></div>
       <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', S: '秘' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
       <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
-        <div class="row" style="margin-top:12px"><button class="btn primary" id="call">📦 Tout importer d'un coup (LR + SSR + UR)</button><button class="btn ghost" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
-        ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans Collection Prestige → Ma collection pour apparaître dans les échanges.</p>'}</div>
+        <div class="row" style="margin-top:12px"><button class="btn primary" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
+        ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans <a href="#reglages">Réglages</a> pour apparaître dans les échanges.</p>'}</div>
       <div class="tabs" id="cv2" style="max-width:640px">${[['moi', 'Ma collection'], ['doublons', 'Mes doublons'], ['manquantes', 'Manquantes'], ['echanges', 'Échanges']].map(([k, l]) => `<button data-v="${k}" class="${k === view ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="cbody" style="margin-top:14px"></div>`;
-    m.querySelectorAll('#cr button').forEach(b => b.onclick = () => { rk = b.dataset.k; draw(); });
-    m.querySelectorAll('#cv2 button').forEach(b => b.onclick = () => { view = b.dataset.v; draw(); });
-    $('#cimp').onclick = () => impFor(rk); const cu = $('#cupd'); if (cu) cu.onclick = () => impFor(rk); const ca = $('#call2'); if (ca) ca.onclick = () => allImport(); $('#call').onclick = () => allImport();
+    // Sélection affichée tout de suite, puis la grille est construite à l'image suivante (plus de délai ressenti au clic).
+    const later = f => requestAnimationFrame(() => setTimeout(f, 0));
+    m.querySelectorAll('#cr button').forEach(b => b.onclick = () => { if (b.dataset.k === rk) return; rk = b.dataset.k; m.querySelectorAll('#cr button').forEach(x => x.classList.toggle('on', x === b)); $('#cbody').style.opacity = '.35'; later(draw); });
+    m.querySelectorAll('#cv2 button').forEach(b => b.onclick = () => { if (b.dataset.v === view) return; view = b.dataset.v; m.querySelectorAll('#cv2 button').forEach(x => x.classList.toggle('on', x === b)); $('#cbody').style.opacity = '.35'; later(draw); });
+    $('#cimp').onclick = () => impFor(rk); const cu = $('#cupd'); if (cu) cu.onclick = () => impFor(rk); 
     ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades })[view]($('#cbody'), X);
     drawHist();
   };
@@ -854,16 +864,24 @@ P.collection = async (m, tab = '') => {
   const collValue = () => { const seen = new Set(); let v = 0, n = 0; const add = (name, ser) => { const k = name + '|' + ser; if (seen.has(k)) return; seen.add(k); const p = cardPrice(name, ser); if (p && !p.list) { v += p.med; n++; } };
     for (const [ser, r] of Object.entries(realColl)) for (const name of r.owned || []) add(name, ser);
     for (const u of R.S.U) for (const c of u.c) if (S.mylr.cards[c[3]] != null) add(c[0], u.s); return { v, n }; };
-  let hist = null;
-  const drawHist = () => { const el = $('#chist'); if (!el || !hist) return; const cv = collValue(), H = hist.slice(-60), me = hist.me;
+  let hist = null, cvC = null; const collValueC = () => cvC || (cvC = collValue());
+  const drawHist = () => { const el = $('#chist'); if (!el || !hist) return; const cv = collValueC(), H = hist.slice(-60), me = hist.me;
     const pts = H.filter(h => h.lr_value != null); const max = Math.max(1, ...pts.map(h => +h.lr_value)), min = Math.min(...pts.map(h => +h.lr_value), max);
-    const path = pts.length > 1 ? pts.map((h, i) => `${(i / (pts.length - 1) * 300).toFixed(1)},${(56 - ((+h.lr_value - min) / Math.max(1, max - min)) * 50).toFixed(1)}`).join(' ') : '';
+    const dd = d => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }), kfmt = v => v >= 1e6 ? (v / 1e6).toFixed(2).replace('.', ',') + ' M' : Math.round(v / 1000) + ' k';
+    // Graphique : axe vertical = valeur de la collection (KI), axe horizontal = jours (une mesure par jour).
+    const W = 300, X0 = 44, Y0 = 8, Y1 = 66, xs = i => X0 + (pts.length > 1 ? i / (pts.length - 1) : 0) * (W - X0 - 4), ys = v => Y1 - ((v - min) / Math.max(1, max - min)) * (Y1 - Y0);
+    const path = pts.length > 1 ? pts.map((h, i) => `${xs(i).toFixed(1)},${ys(+h.lr_value).toFixed(1)}`).join(' ') : '';
     const first = pts[0], diff = first ? cv.v - first.lr_value : 0;
-    el.innerHTML = `<div class="card section"><div class="row"><div><div class="small mute">Valeur estimée de ta collection</div><div class="cd">${fmt(cv.v)} <span class="small mute">KI</span></div></div><div><div class="small mute">Du jeu possédé</div><div class="cd">${me ? String(me.pct).replace('.', ',') + ' %' : '—'}</div></div>${first && pts.length > 1 ? `<div><div class="small mute">Depuis le ${new Date(first.day).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</div><div class="cd ${diff >= 0 ? 'up' : 'red'}">${diff >= 0 ? '+' : ''}${fmt(diff)}</div></div>` : ''}<span class="sp"></span><a class="btn ghost" href="#checklist/classement" style="min-height:36px">🏆 Classement</a></div>
-      ${path ? `<svg viewBox="0 0 300 60" class="spark" preserveAspectRatio="none" style="width:100%;height:60px;margin-top:8px"><polyline points="${path}" fill="none" stroke="#ff3b54" stroke-width="2"/></svg>` : '<p class="small mute" style="margin:8px 0 0">La courbe d\'évolution apparaîtra dès demain (une mesure par jour).</p>'}
-      <p class="small mute" style="margin:6px 0 0">Somme des prix médians réels (ventes des 14 derniers jours) de tes cartes, ${cv.n} cartes avec un prix connu. Les doublons ne sont pas comptés.</p></div>`; };
+    el.innerHTML = `<div class="card section"><div class="row"><div><div class="small mute">Valeur estimée de ta collection</div><div class="cd">${fmt(cv.v)} <span class="small mute">KI</span></div></div><div><div class="small mute">Du jeu possédé</div><div class="cd">${me ? String(me.pct).replace('.', ',') + ' %' : '—'}</div></div>${first && pts.length > 1 ? `<div><div class="small mute">Gagné depuis ta 1re mesure (${dd(first.day)})</div><div class="cd ${diff >= 0 ? 'up' : 'red'}">${diff >= 0 ? '+' : ''}${fmt(diff)} <span class="small mute">KI</span></div></div>` : ''}<span class="sp"></span><a class="btn ghost" href="#checklist/classement" style="min-height:36px">🏆 Classement</a></div>
+      ${path ? `<div class="small mute" style="margin-top:10px">Évolution de la valeur de ta collection (KI), une mesure par jour</div><svg viewBox="0 0 ${W} 84" class="spark" style="width:100%;height:auto;margin-top:4px;overflow:visible" role="img" aria-label="Valeur de la collection par jour">
+        <line x1="${X0}" y1="${Y0}" x2="${X0}" y2="${Y1}" stroke="#333" stroke-width="1"/><line x1="${X0}" y1="${Y1}" x2="${W - 4}" y2="${Y1}" stroke="#333" stroke-width="1"/>
+        <line x1="${X0}" y1="${Y0}" x2="${W - 4}" y2="${Y0}" stroke="#222" stroke-dasharray="3 3"/>
+        <text x="${X0 - 4}" y="${Y0 + 3}" text-anchor="end" font-size="8" fill="#9a9a9a">${kfmt(max)}</text><text x="${X0 - 4}" y="${Y1 + 3}" text-anchor="end" font-size="8" fill="#9a9a9a">${kfmt(min)}</text>
+        <text x="${X0}" y="${Y1 + 13}" font-size="8" fill="#9a9a9a">${dd(first.day)}</text><text x="${W - 4}" y="${Y1 + 13}" text-anchor="end" font-size="8" fill="#9a9a9a">${dd(pts[pts.length - 1].day)}</text>
+        <polyline points="${path}" fill="none" stroke="#ff3b54" stroke-width="2" stroke-linejoin="round"/>${pts.map((h, i) => `<circle cx="${xs(i).toFixed(1)}" cy="${ys(+h.lr_value).toFixed(1)}" r="2.2" fill="#ff3b54"><title>${dd(h.day)} : ${fmt(h.lr_value)} KI</title></circle>`).join('')}</svg>` : '<p class="small mute" style="margin:8px 0 0">La courbe d\'évolution apparaîtra dès demain (une mesure par jour).</p>'}
+      <p class="small mute" style="margin:6px 0 0">Valeur = somme des prix médians réels (ventes des 14 derniers jours) de tes cartes, ${cv.n} cartes avec un prix connu, doublons non comptés. Elle monte quand tu ajoutes des cartes ou quand leurs prix montent.</p></div>`; };
   (async () => { try { const [{ data: h }, { data: rk }] = await Promise.all([sb.from('coll_snap').select('day,pct,lr_value').eq('user_id', S.user.id).order('day'), sb.rpc('collection_ranking')]);
-    hist = h || []; hist.me = (rk || []).find(r => r.user_id === S.user.id) || null; const today = new Date().toISOString().slice(0, 10), cv = collValue();
+    hist = h || []; hist.me = (rk || []).find(r => r.user_id === S.user.id) || null; const today = new Date().toISOString().slice(0, 10), cv = collValueC();
     if (cv.v > 0 && !hist.some(x => x.day === today)) { const row = { user_id: S.user.id, day: today, pct: hist.me?.pct ?? null, owned: hist.me?.owned ?? null, total: hist.me?.total ?? null, lr_value: Math.round(cv.v) }; await sb.from('coll_snap').upsert(row); hist.push(row); }
     drawHist(); } catch (e) { /* rien */ } })();
   function vMine(el, X) {
@@ -902,11 +920,11 @@ P.collection = async (m, tab = '') => {
     box.querySelectorAll('.mstep').forEach(bar => bar.onclick = async e => {
       const bt = e.target.closest('button'); if (!bt || bt.disabled) return;
       const u = X.U.find(x => x.s === bar.dataset.u), c = u?.c.find(x => x[0] === bar.dataset.c); if (!c) return;
-      if (c[1] === 'S') { S.mylr.dupes = S.mylr.dupes || {}; if (bt.dataset.ld != null) { const x = Math.max(0, Math.min(99, (+S.mylr.dupes[c[3]] || 0) + (+bt.dataset.ld))); if (x) S.mylr.dupes[c[3]] = x; else delete S.mylr.dupes[c[3]]; } else if (bt.dataset.x != null) { delete S.mylr.cards[c[3]]; delete S.mylr.dupes[c[3]]; } else if (bt.dataset.sk != null) { const k = +bt.dataset.sk, cur = +(S.mylr.cards[c[3]] || 0); S.mylr.cards[c[3]] = cur === k ? k - 1 : k; } else S.mylr.cards[c[3]] = +bt.dataset.st; await saveMyLR(); after(); return; }
+      if (c[1] === 'S') { S.mylr.dupes = S.mylr.dupes || {}; if (bt.dataset.ld != null) { const x = Math.max(0, Math.min(99, (+S.mylr.dupes[c[3]] || 0) + (+bt.dataset.ld))); if (x) S.mylr.dupes[c[3]] = x; else delete S.mylr.dupes[c[3]]; } else if (bt.dataset.x != null) { delete S.mylr.cards[c[3]]; delete S.mylr.dupes[c[3]]; } else if (bt.dataset.sk != null) { const k = +bt.dataset.sk, cur = +(S.mylr.cards[c[3]] || 0); S.mylr.cards[c[3]] = cur === k ? k - 1 : k; } else S.mylr.cards[c[3]] = +bt.dataset.st; cvC = null; await saveMyLR(); after(); return; }
       const r = uget(realColl, u.s); let n = r.owned.has(c[0]) ? (r.dupes.has(c[0]) ? (r.qty[c[0]] || 2) : 1) : 0; n = Math.max(0, Math.min(999, n + (+bt.dataset.d)));
       if (n === 0) { r.owned.delete(c[0]); r.dupes.delete(c[0]); delete r.qty[c[0]]; } else { r.owned.add(c[0]); if (n >= 2) { r.dupes.add(c[0]); r.qty[c[0]] = n; } else { r.dupes.delete(c[0]); delete r.qty[c[0]]; } }
       bar.querySelector('b') && (bar.querySelector('b').textContent = n ? '×' + n : 'Manquante');
-      clearTimeout(bindEdit.t); bindEdit.t = setTimeout(async () => { await save(u); after(); }, 500);
+      cvC = null; clearTimeout(bindEdit.t); bindEdit.t = setTimeout(async () => { await save(u); after(); }, 500);
     });
   }
   const mosaic = (L, empty, color) => `<div class="mosaic">${L.map(([u, c, n, own]) => { const sn = S.serial?.get(c[3]); const o = color ? own : true; const lr = c[1] === 'S'; const st = lr ? S.mylr.cards[c[3]] : null;
@@ -991,7 +1009,7 @@ P.collection = async (m, tab = '') => {
         d2.remove(); toast('Collection enregistrée'); if (!S.mylr.teams.done) { location.hash = '#bienvenue'; return; } draw(); };
     }
   }
-  draw(); if (autoImp === 'import') rarImport(rk); if (autoImp === 'all') allImport();
+  draw(); if (autoImp === 'import' || autoImp === 'all') rarImport(rk);
 };
 
 /* ---------- Alertes marché : notification dès qu'une carte est mise en vente à ton prix ou moins ---------- */
@@ -1016,18 +1034,10 @@ async function pushSub(create) {
 P.alertes = async m => {
   await Promise.all([loadWatch(), loadAlerts()]);
   const lr = S.kb.cards.filter(c => !c.r).map(c => c.n).sort((a, b) => a.localeCompare(b));
-  m.innerHTML = `<h1>Alertes marché</h1><p class="mute">Choisis une LR (ou une UR utile aux évolutions : Pucci, Ichigo, Saitama, Aizen, Sukuna, Vegeta) et ton prix max. Dès qu'une annonce de cette carte est mise en vente à ton prix <b>ou moins</b>, tu reçois une notification sur ton téléphone ou ton ordinateur, même site fermé : « ALERTE : Carte a été listé sur le marché à X ki ». La notification part 3 minutes après la mise en vente.</p>
-    <div class="card section"><h2>Nos alertes ou celles du jeu ?</h2><p class="small mute" style="margin-top:4px">Les deux te préviennent quand une carte est mise en vente sous ton prix. Voici ce qui change.</p><div class="tablewrap"><table><thead><tr><th></th><th>Alertes Brigade Fantôme</th><th>Alertes du jeu</th></tr></thead><tbody>
-      <tr><td><b>Nombre d'alertes</b></td><td class="up">Illimité</td><td>20 maximum</td></tr>
-      <tr><td><b>Où tu es prévenu</b></td><td class="up">Notification sur ton téléphone ou ton ordinateur</td><td>Seulement dans le jeu (pastille et message)</td></tr>
-      <tr><td><b>Jeu fermé</b></td><td class="up">Tu es prévenu quand même</td><td>Rien : l'onglet du jeu doit être ouvert et affiché à l'écran</td></tr>
-      <tr><td><b>Inactif sur le jeu</b></td><td class="up">Tu es prévenu quand même</td><td>Plus de vérification tant que tu ne joues pas</td></tr>
-      <tr><td><b>Sur plusieurs appareils</b></td><td class="up">Tes alertes te suivent : elles sont liées à ton compte</td><td>Enregistrées sur un seul appareil : à refaire sur chaque téléphone ou ordinateur</td></tr>
-      <tr><td><b>Rapidité</b></td><td>Environ 3 minutes après la mise en vente</td><td class="up">Vérification toutes les minutes (si le jeu est ouvert et que tu joues)</td></tr>
-    </tbody></table></div></div>
-    <div class="card section"><h2>Notifications</h2><div class="row"><button class="btn primary" id="an">${ico('bell')} Activer les notifications sur cet appareil</button><button class="btn ghost" id="at" style="display:none">Envoyer une notification de test</button></div><p class="small mute" id="ans" style="margin-top:8px"></p></div>
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Marché</span><h1 style="margin-top:12px">Alertes marché</h1><p class="mute">Choisis une LR (ou une UR d'évolution : Pucci, Ichigo, Saitama, Aizen, Sukuna, Vegeta) et ton prix max. Dès qu'elle est mise en vente à ton prix <b>ou moins</b>, tu reçois une notification, même site fermé.</p></section>
+    <div class="notifcard" id="ncard"><div class="nc-ico">${SPIDER}</div><div class="nc-t"><b>Notifications Brigade</b><span id="ans">Vérification…</span></div><div class="nc-act"><button class="btn primary" id="an">${ico('bell')} Activer</button><button class="btn ghost" id="at" style="display:none">Tester</button></div><ol class="nc-ios" id="nios" style="display:none"><li><i>⬆️</i>Touche <b>Partager</b> en bas de Safari</li><li><i>➕</i>Choisis <b>Sur l'écran d'accueil</b></li><li><i>🕷</i>Ouvre le site depuis l'icône, puis reviens ici</li></ol></div>
     <div class="card section"><h2>Nouvelle alerte</h2><div class="row"><div style="flex:2;min-width:200px"><label for="ac">Carte</label><select id="ac"><optgroup label="LR">${lr.map(n => `<option>${esc(n)}</option>`).join('')}</optgroup><optgroup label="UR (pour les évolutions)">${ALERT_UR.map(n => `<option>${esc(n)}</option>`).join('')}</optgroup></select></div><div style="flex:1;min-width:160px"><label for="ap">Ton prix max (KI)</label><input id="ap" type="number" min="1" placeholder="ex. 60000"></div><div style="align-self:flex-end"><button class="btn primary" id="aa">Ajouter</button></div></div><p class="small mute" id="ah"></p></div>
-    <div id="al"></div><div class="section"><h2>Dernières alertes reçues</h2><p class="small mute">Les notifications envoyées pour tes alertes, avec le repère du guide des prix : en vert, une vraie bonne affaire (sous le bon prix).</p><div class="tablewrap"><table><thead><tr><th>Quand</th><th>Carte</th><th class="n">Prix</th><th class="n hide-sm">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="ahist"><tr><td colspan="5" class="mute">Chargement…</td></tr></tbody></table></div></div><div class="section"><h2>Moins chères en vente</h2><p class="small mute" id="wat"></p><div class="tablewrap"><table><thead><tr><th>Carte</th><th class="n hide-sm">En vente</th><th class="n">Moins chère</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="wt"></tbody></table></div></div>`;
+    <div id="al"></div><div class="section"><h2>Dernières alertes reçues</h2><p class="small mute">Les notifications envoyées pour tes alertes, avec le repère du guide des prix : en vert, une vraie bonne affaire (sous le bon prix).</p><div class="tablewrap"><table><thead><tr><th>Quand</th><th>Carte</th><th class="n">Prix</th><th class="n hide-sm">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="ahist"><tr><td colspan="5" class="mute">Chargement…</td></tr></tbody></table></div></div><details class="card section cmpbox"><summary><b>Nos alertes ou celles du jeu ?</b><span class="small mute"> Ce qui change</span></summary><div class="cmp"><div class="cmp-r cmp-h"><div></div><div>Brigade</div><div>Jeu</div></div><div class="cmp-r"><div class="cmp-l">Nombre d\'alertes</div><div class="cmp-a win">Illimité</div><div class="cmp-b ">20 maximum</div></div><div class="cmp-r"><div class="cmp-l">Où tu es prévenu</div><div class="cmp-a win">Notification sur ton téléphone ou ton ordinateur</div><div class="cmp-b ">Seulement dans le jeu</div></div><div class="cmp-r"><div class="cmp-l">Jeu fermé</div><div class="cmp-a win">Tu es prévenu quand même</div><div class="cmp-b ">Rien</div></div><div class="cmp-r"><div class="cmp-l">Inactif sur le jeu</div><div class="cmp-a win">Tu es prévenu quand même</div><div class="cmp-b ">Plus de vérification</div></div><div class="cmp-r"><div class="cmp-l">Plusieurs appareils</div><div class="cmp-a win">Liées à ton compte, partout</div><div class="cmp-b ">À refaire sur chaque appareil</div></div><div class="cmp-r"><div class="cmp-l">Rapidité</div><div class="cmp-a ">≈ 3 min après la mise en vente</div><div class="cmp-b win">Chaque minute, jeu ouvert</div></div></div></details><div class="section"><h2>Moins chères en vente</h2><p class="small mute" id="wat"></p><div class="tablewrap"><table><thead><tr><th>Carte</th><th class="n hide-sm">En vente</th><th class="n">Moins chère</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="wt"></tbody></table></div></div>`;
   const hint = () => { const p = S.prices.find(x => x.card === $('#ac').value); $('#ah').textContent = p ? `Repère : bon prix ${fmt(p.good)} KI · prix médian ${fmt(p.median)} KI (ventes des 7 derniers jours)` : ALERT_UR.includes($('#ac').value) ? 'UR de base (pas la version éveillée) : l\'alerte ne concerne que la carte normale.' : ''; };
   const draw = () => { const W = S.watch.cards || {}, fired = new Set(firedAlerts().map(a => a.card));
     $('#al').innerHTML = S.alerts.length ? `<div class="grid">${S.alerts.map(a => { const w = W[a.card], on = fired.has(a.card);
@@ -1040,13 +1050,14 @@ P.alertes = async m => {
   $('#ac').oninput = hint; hint();
   $('#aa').onclick = async () => { const card = $('#ac').value, v = Math.round(+$('#ap').value) || null; if (!v) return toast('Indique ton prix max'); const { error } = await sb.from('alerts').upsert({ user_id: S.user.id, card, max_price: v }); if (error) return toast(error.message); toast('Alerte ajoutée'); $('#ap').value = ''; await loadAlerts(); draw(); };
   const ns = async () => { if (!$('#ans')) return; const t = $('#ans'), on = $('#an'), test = $('#at');
-    if (isIOS() && !standalone()) { t.innerHTML = 'Sur iPhone : touche <b>Partager</b> puis <b>Sur l\'écran d\'accueil</b>, ouvre le site depuis cette icône, puis reviens ici pour activer les notifications (obligatoire pour Apple, iOS 16.4 ou plus).'; on.disabled = true; return; }
+    const nc = $('#ncard'); nc.classList.remove('ok', 'warn');
+    if (isIOS() && !standalone()) { t.textContent = 'Sur iPhone, ajoute d\'abord le site à ton écran d\'accueil (exigé par Apple, iOS 16.4+) :'; on.style.display = 'none'; $('#nios').style.display = ''; nc.classList.add('warn'); return; }
     if (!pushOk()) { t.textContent = 'Ce navigateur ne sait pas recevoir de notifications. Essaie Chrome, Edge, Firefox ou Safari récent.'; on.disabled = true; return; }
     if (Notification.permission === 'denied') { t.textContent = 'Les notifications sont bloquées pour ce site dans les réglages du navigateur : autorise-les puis recharge la page.'; return; }
     let sub = null; if (Notification.permission === 'granted') { try { sub = await pushSub(false); } catch {} }
     if (!$('#ans')) return;
     on.style.display = sub ? 'none' : ''; test.style.display = sub ? '' : 'none';
-    t.textContent = sub ? '✓ Activées sur cet appareil. Fais pareil sur chaque appareil où tu veux être prévenu.' : 'Pas encore activées sur cet appareil.'; };
+    nc.classList.toggle('ok', !!sub); t.textContent = sub ? 'Activées sur cet appareil. Fais pareil sur chaque appareil où tu veux être prévenu.' : 'Pas encore activées sur cet appareil.'; };
   $('#an').onclick = async () => { try { if (await Notification.requestPermission() !== 'granted') return ns(); await pushSub(true); toast('Notifications activées'); } catch (e) { toast('Impossible d\'activer : ' + e.message); } ns(); };
   $('#at').onclick = async () => { const { data, error } = await sb.functions.invoke('market-alert', { body: { test: true } }); toast(error ? 'Échec du test : ' + error.message : data?.sent ? 'Notification envoyée' : 'Aucun appareil abonné : réactive les notifications'); };
   const hist = async () => { const { data } = await sb.from('alert_sent').select('card,price,sent_at').eq('user_id', S.user.id).order('sent_at', { ascending: false }).limit(30); const el = $('#ahist'); if (!el) return;
@@ -1177,9 +1188,10 @@ P.bienvenue = async m => {
     $('#tgo').onclick = async () => { if ($('#tgo').disabled) return; if (prev) { window.__bfVidSeen = true; P.bienvenue(m); return; } S.mylr.teams = { ...(S.mylr.teams || {}), video: true }; await saveMyLR(); P.bienvenue(m); };
     return;
   }
-  m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection</h1><p class="mute">Avant d'entrer, envoie les captures de ta collection du jeu. Le site lit tout seul tes cartes, leurs étoiles et tes doublons : meilleures équipes, chambre max, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil. D'abord Communes, Rares et SR en donnant juste ton nombre de cartes, puis SSR, UR et LR par captures.</p></section>${S.profile.share ? '<p class="small mute" style="margin:-8px 0 16px">🕷 Ta collection est partagée avec la Brigade pour trouver des échanges. Tu peux couper le partage quand tu veux dans Collection Prestige.</p>' : ''}
+  m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection</h1><p class="mute">Avant d'entrer, envoie les captures de ta collection du jeu. Le site lit tout seul tes cartes, leurs étoiles et tes doublons : meilleures équipes, chambre max, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil. D'abord Communes, Rares et SR en donnant juste ton nombre de cartes, puis SSR, UR et LR par captures.</p></section><div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><div style="flex:1;min-width:0"><b>Partager ma collection avec la Brigade</b><div class="small mute">${SHARE_TXT} Tu pourras le changer plus tard dans Réglages.</div></div><label class="switch"><input type="checkbox" id="wsh" ${S.profile.share || prev ? 'checked' : ''}><span></span></label></div></div>
     ${steps.map(([k, t, how, href], i) =>  `<div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">${T[k] ? '✅' : (i + 1) + '.'} ${t}</b>${T[k] ? '<span class="small up">Importé</span>' : ''}<a class="btn ${T[k] ? 'ghost' : 'primary'}" href="${href}" style="min-height:40px;flex-shrink:0;white-space:nowrap">${T[k] ? 'Refaire' : ['c', 'r', 'sr'].includes(k) ? '✍️ Remplir' : '📷 Importer'}</a></div><p class="small mute" style="margin:6px 0 0">Dans le jeu : ${how}${['c', 'r', 'sr'].includes(k) ? ', note le nombre affiché, puis cherche par nom les cartes qui te manquent (pas de captures).' : ', puis des captures en faisant défiler jusqu\'en bas.'}${['ssr', 'ur'].includes(k) ? ' Note aussi le nombre affiché par le jeu (ex. 402 / 414) : l\'import n\'est validé que si le compte est bon.' : ''}</p></div>`).join('')}
     <div class="row section"><button class="btn primary" id="wgo" ${all ? '' : 'disabled'}>Entrer dans le repaire →</button>${all ? '' : '<span class="small mute">Toutes les étapes sont nécessaires pour entrer.</span>'}</div>`;
+  const ws = $('#wsh'); if (ws) ws.onchange = async e => { if (prev) return; const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; };
   const g = $('#wgo'); if (g && prev) g.onclick = () => toast('Aperçu : rien n\'est enregistré.'); else if (g) g.onclick = async () => { S.mylr.teams = { ...(S.mylr.teams || {}), done: true }; await saveMyLR(); location.hash = '#accueil'; };
 };
 
@@ -1237,7 +1249,7 @@ P.meslr = async m => {
     <p class="small mute" style="margin:6px 0 0">Dans le jeu : Collection → filtre LR → Possédées, puis une ou plusieurs captures (fais défiler pour tout montrer). Le site reconnaît chaque carte et lit ses étoiles : tu vérifies avant de valider.</p>`; };
   const draw = () => { $('#lg').innerHTML = LRS().map(c => { const st = own[c.id]; const has = st != null; const dp = +(S.mylr.dupes?.[c.id] || 0);
     return `<div class="lr ${has ? 'on' : ''}" data-id="${c.id}"><button class="lrimg" data-t="${c.id}" aria-pressed="${has}">${lrImg(c) ? `<img loading="lazy" src="${lrImg(c)}" alt="">` : ''}<span>${esc(c.n)}</span></button>
-      ${has ? `<div class="stars stars5">${[1, 2, 3, 4, 5].map(k => `<button data-s="${k}" class="${st >= k ? 'on' : ''}" aria-label="${k} étoile${k > 1 ? 's' : ''}">★</button>`).join('')}</div><div class="mstep ldup"><button data-ld="-1" ${dp ? '' : 'disabled'} aria-label="Un doublon de moins">−</button><b>Doublons ${dp}</b><button data-ld="1" aria-label="Un doublon de plus">+</button></div>` : ''}</div>`; }).join('');
+      ${has ? `<div class="stars stars5">${[1, 2, 3, 4, 5].map(k => `<button data-s="${k}" class="${st >= k ? 'on' : ''}" aria-label="${k} étoile${k > 1 ? 's' : ''}">★</button>`).join('')}</div><div class="mstep ldup"><button data-ld="-1" ${dp ? '' : 'disabled'} aria-label="Un doublon de moins">−</button><b><small>doubl.</small>${dp}</b><button data-ld="1" aria-label="Un doublon de plus">+</button></div>` : ''}</div>`; }).join('');
     $('#lg').querySelectorAll('.lrimg').forEach(b => b.onclick = async () => { const id = b.dataset.t; if (own[id] != null) { delete own[id]; if (S.mylr.dupes) delete S.mylr.dupes[id]; } else own[id] = 0; draw(); sum(); await saveMyLR(); });
     $('#lg').querySelectorAll('.stars button').forEach(b => b.onclick = async () => { const id = b.closest('.lr').dataset.id, k = +b.dataset.s; own[id] = (+own[id] || 0) === k ? k - 1 : k; draw(); await saveMyLR(); });
     $('#lg').querySelectorAll('.ldup button').forEach(b => b.onclick = async () => { const id = b.closest('.lr').dataset.id; S.mylr.dupes = S.mylr.dupes || {}; const x = Math.max(0, Math.min(99, (+S.mylr.dupes[id] || 0) + (+b.dataset.ld))); if (x) S.mylr.dupes[id] = x; else delete S.mylr.dupes[id]; draw(); await saveMyLR(); }); };
@@ -1270,7 +1282,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=123'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=124'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 const castleCatalog = () => (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) }));
 const SIMC = new Map();
@@ -1590,7 +1602,7 @@ P.guilde = async (m, id) => {
     const inc = U.map(u => ({ u, miss: u.c.filter(c => !coll[u.s]?.owned.has(c[0])) })).filter(x => x.miss.length && x.miss.length < x.u.c.length).sort((a, b) => a.miss.length - b.miss.length);
     const lrOwned = LRS().filter(c => own[c.id] != null).sort((a, b) => (own[b.id] || 0) - (own[a.id] || 0));
     m.innerHTML = `<a href="#guilde" class="btn ghost" style="min-height:36px">← Guilde</a>
-      <section class="hero" style="margin-top:12px"><div class="moon"></div><span class="chip red">Profil</span>${p.nen ? ` <span class="chip">🕷 ${esc(p.nen)}${p.level != null ? ' · niv. ' + p.level : ''}</span>` : ''}<h1 style="margin-top:12px">${esc(p.discord)}</h1><p class="mute">${lrOwned.length} LR · ${dupes.length} doublons</p></section>
+      <section class="hero" style="margin-top:12px"><div class="moon"></div><span class="chip red">Profil</span>${p.nen ? ` <span class="chip">🕷 ${esc(p.nen)}${p.level != null ? ' · niv. ' + p.level : ''}</span>` : ''}<div class="row" style="margin-top:12px;align-items:center;gap:12px;flex-wrap:nowrap">${brAv({ name: p.discord, avatar: p.avatar }).replace('class="bav', 'class="bav bav-l')}<h1 style="margin:0">${esc(p.discord)}</h1></div><p class="mute">${lrOwned.length} LR · ${dupes.length} doublons</p></section>
       <div class="grid">${tblock('chateau', 'Équipe château')}${tblock('ranked', 'Équipe ranked')}</div>
       <div class="section"><h2>Ses LR</h2><div class="tiles">${lrOwned.map(c => `<div class="tile on rS">${lrImg(c) ? `<img loading="lazy" src="${lrImg(c)}" alt="">` : '<div class="noimg"></div>'}<b class="dup">${own[c.id] || 0}★</b><span>${esc(c.n)}</span></div>`).join('') || '<div class="mute">Pas encore renseignées.</div>'}</div></div>
       <div class="section"><h2>Ses doublons</h2><p class="small mute">En vert : ceux qui te manquent.</p><div class="tiles">${dupes.map(([u, c]) => tile(c, !mine[u.s]?.owned.has(c[0]), false)).join('') || '<div class="mute">Aucun doublon déclaré.</div>'}</div></div>
@@ -1598,9 +1610,9 @@ P.guilde = async (m, id) => {
       ${inc.map(x => `<div class="card" style="margin:10px 0"><div class="row"><b>${esc(x.u.s)}</b><span class="sp"></span><span class="small mute">${x.miss.length} manquante${x.miss.length > 1 ? 's' : ''}</span></div><div class="tiles" style="margin-top:10px">${x.miss.map(c => tile(c, !!mine[x.u.s]?.dupes.has(c[0]), false)).join('')}</div></div>`).join('') || '<div class="mute">Rien à afficher.</div>'}</div>`;
     return;
   }
-  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guilde</span><h1 style="margin-top:12px">Profils de la guilde</h1><p class="mute">Les membres qui partagent leur profil : leurs équipes château et ranked, leurs LR, leurs doublons et les cartes qui leur manquent.</p>${S.profile.share ? '' : '<a class="btn primary" href="#discord">Partager mon profil</a>'}</section>
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guilde</span><h1 style="margin-top:12px">Profils de la guilde</h1><p class="mute">Les membres qui partagent leur profil : leurs équipes château et ranked, leurs LR, leurs doublons et les cartes qui leur manquent.</p>${S.profile.share ? '' : '<a class="btn primary" href="#reglages">Partager mon profil</a>'}</section>
     <div class="grid">${sharing.map(p => { const lr = LRm[p.id] || {}; const own = lr.cards || {}; const ct = (lr.teams?.chateau || []).map(byId).filter(Boolean); const rt = (lr.teams?.ranked || []).map(byId).filter(Boolean); const s = memberStats(p.id, U);
-      return `<a class="card" href="#guilde/${p.id}"><h3>${esc(p.discord)}</h3><div class="small mute">${Object.keys(own).length} LR · ${s.done} univers complets · ${s.du} doublons</div>${ct.length ? `<div class="small" style="margin-top:8px"><span class="mute">Château :</span> ${ct.map(c => esc(c.n)).join(', ')}</div>` : ''}${rt.length ? `<div class="small"><span class="mute">Ranked :</span> ${rt.map(c => esc(c.n)).join(', ')}</div>` : ''}</a>`; }).join('') || '<div class="empty">Personne ne partage encore son profil.</div>'}</div>`;
+      return `<a class="card gcard" href="#guilde/${p.id}"><div class="row" style="flex-wrap:nowrap;align-items:center;gap:10px">${brAv({ name: p.discord, avatar: p.avatar })}<h3 style="margin:0">${esc(p.discord)}</h3></div><div class="small mute">${Object.keys(own).length} LR · ${s.done} univers complets · ${s.du} doublons</div>${ct.length ? `<div class="small" style="margin-top:8px"><span class="mute">Château :</span> ${ct.map(c => esc(c.n)).join(', ')}</div>` : ''}${rt.length ? `<div class="small"><span class="mute">Ranked :</span> ${rt.map(c => esc(c.n)).join(', ')}</div>` : ''}</a>`; }).join('') || '<div class="empty">Personne ne partage encore son profil.</div>'}</div>`;
 };
 
 P.discord = async m => {
@@ -1609,7 +1621,7 @@ P.discord = async m => {
    <div class="card"><h2>Boîte à questions</h2><form id="qf"><textarea id="qb" placeholder="Ta question pour la Brigade"></textarea><button class="btn primary" style="margin-top:8px">Envoyer</button></form><div id="ql" style="margin-top:14px"></div></div>
    <div class="card"><h2>Mur des records</h2><form id="rf" class="row"><input id="rc" type="number" placeholder="Record château" style="flex:1;min-width:120px"><input id="re" type="number" placeholder="Elo ranked" style="flex:1;min-width:120px"><button class="btn">Mettre à jour</button></form><div id="rl" style="margin-top:14px"></div></div>
    <div class="card" style="grid-column:1/-1"><h2>Mon profil d'échange</h2><p class="small mute">Rempli automatiquement depuis ta <a href="#checklist">Collection Prestige</a> : tes doublons et les cartes qui te manquent dans les univers presque complets.</p><div id="mp"></div>
-     <div class="row" style="margin-top:12px;align-items:flex-start"><label class="switch"><input type="checkbox" id="sh2"><span></span></label><div style="flex:1;min-width:220px"><b>Partager mon profil avec la guilde</b><div class="small mute">${SHARE_TXT}</div></div></div></div>
+     <p class="small mute" style="margin-top:12px">${S.profile.share ? '🕷 Ton profil est partagé avec la guilde.' : 'Ton profil n\'est pas partagé.'} Ça se règle dans <a href="#reglages">Réglages</a>.</p></div>
   </div>`;
   const { data: profs } = await sb.from('profiles').select('id,discord').eq('status', 'approved'); const who = id => (profs || []).find(p => p.id === id)?.discord || 'Membre';
   const loadQ = async () => { const { data } = await sb.from('questions').select('*').order('at', { ascending: false }).limit(30); $('#ql').innerHTML = (data || []).map(q => `<div style="border-top:1px solid var(--line);padding:10px 0"><div class="small mute">${esc(who(q.user_id))}</div><div>${esc(q.body)}</div>${q.answer ? `<div class="small bone" style="margin-top:4px">↳ ${esc(q.answer)}</div>` : ''}</div>`).join('') || '<div class="small mute">Aucune question.</div>'; };
@@ -1623,8 +1635,16 @@ P.discord = async m => {
     const near = U.map(u => ({ u, miss: u.c.filter(c => !mine[u.s]?.owned.has(c[0])) })).filter(x => x.miss.length && x.miss.length <= 3).sort((a, b) => a.miss.length - b.miss.length);
     $('#mp').innerHTML = `<div class="small mute" style="margin-top:6px">Mes doublons (${du.length})</div><div class="tiles">${du.map(c => tile(c, true, true)).join('') || '<span class="small mute">Aucun doublon déclaré : marque-les dans Collection Prestige (mode « Doublon à échanger »).</span>'}</div>
       <div class="small mute" style="margin-top:12px">Je cherche (univers presque complets)</div>${near.map(x => `<div style="margin-top:8px"><b class="small">${esc(x.u.s)}</b><div class="tiles" style="margin-top:6px">${x.miss.map(c => tile(c, false, false)).join('')}</div></div>`).join('') || '<span class="small mute">Rien pour l\'instant : coche tes cartes dans Collection Prestige.</span>'}`;
-    const sh = $('#sh2'); sh.checked = !!S.profile.share; sh.onchange = async e => { if (e.target.checked && !confirmBox(SHARE_TXT + '\n\nActiver le partage ?')) { e.target.checked = false; return; } const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; toast(e.target.checked ? 'Profil partagé avec la guilde' : 'Profil privé'); }; }
+  }
   loadQ(); loadR(); loadT();
+};
+
+P.reglages = async m => {
+  m.innerHTML = `<h1>Réglages</h1><p class="mute">Ton profil sur le site de la Brigade.</p>
+    <div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><div style="flex:1;min-width:0"><b>Partager ma collection avec la Brigade</b><div class="small mute">${SHARE_TXT}</div></div><label class="switch"><input type="checkbox" id="rsh" ${S.profile.share ? 'checked' : ''}><span></span></label></div></div>
+    <div class="card section"><b>Compte</b><p class="small mute" style="margin:4px 0 10px">Connecté avec Discord : ${esc(S.profile.discord)}</p><button class="btn ghost" id="rlo">Se déconnecter</button></div>`;
+  $('#rsh').onchange = async e => { const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; toast(e.target.checked ? 'Collection partagée avec la Brigade' : 'Collection privée'); };
+  $('#rlo').onclick = async () => { if (confirmBox('Te déconnecter ?')) { await sb.auth.signOut(); authView(); } };
 };
 
 P.admin = async m => {
@@ -1652,7 +1672,7 @@ P.admin = async m => {
 };
 
 
-/* ---------- Tournoi de clans ---------- */
+/* ---------- Tournoi de guildes ---------- */
 const T_RULES = [
   ['Univers', 'Même univers : les 3 cartes viennent du même anime.'],
   ['Rôles', 'Interdit : healer.'],
@@ -1810,7 +1830,7 @@ P.tournoi = async m => {
   const pool = T_RULES;
   const { data: rm } = await sb.from('content').select('data').eq('key', 'ranked_meta').maybeSingle();
   const tiers = rm?.data?.tiers || []; const byT = {}; tiers.forEach(([id, , t]) => { const c = LRS().find(x => x.id === id); if (c) (byT[t] = byT[t] || []).push(c.n); });
-  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Tournoi</span><h1 style="margin-top:12px">Tournoi de duels entre clans</h1>
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Tournoi</span><h1 style="margin-top:12px">Tournoi de duels entre guildes</h1>
     <p class="mute">Mise de 5 000 à 10 000 KI par joueur, cagnotte redistribuée comme au poker, et des règles tirées au sort pour que tout le monde puisse jouer avec sa collection.</p></section>
     <div id="brk"></div>
     <div class="card section"><h2>Calculer la cagnotte</h2>
@@ -1907,3 +1927,9 @@ async function boot() {
 }
 sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') authView(); });
 boot();
+// Glisser du bord gauche de l'écran vers la droite : retour à l'accueil (sans ouvrir le menu).
+(() => { let x0 = null, y0 = 0, t0 = 0;
+  document.addEventListener('touchstart', e => { const t = e.touches[0]; x0 = (e.touches.length === 1 && t.clientX < 28) ? t.clientX : null; y0 = t.clientY; t0 = Date.now(); }, { passive: true });
+  document.addEventListener('touchend', e => { if (x0 == null) return; const t = e.changedTouches[0], dx = t.clientX - x0, dy = Math.abs(t.clientY - y0); x0 = null;
+    if (dx > 80 && dy < 60 && Date.now() - t0 < 700 && app.dataset.mode === 'full' && !document.querySelector('.modal') && !$('#side')?.classList.contains('open') && (location.hash || '#accueil') !== '#accueil') location.hash = '#accueil'; }, { passive: true });
+})();
