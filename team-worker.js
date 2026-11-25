@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=171');
+importScripts('castle-engine.js?v=172');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -14,25 +14,36 @@ function ayaTarget(b, p, T, gAtk, high) { if (p.maxHp > 2 * gAtk || b.players.so
 let ORD = 0, POL = null; // POL : ordre de jeu imposé (perm) et cible de la Domination de Makima (dom), testés pour chaque équipe
 const isMakima = p => /makima/i.test(p.name);
 function castleMove(b) {
-  // Ordre de jeu : ORD=1 → Aya joue en dernier dans le tour, ORD=0 → ordre de l'équipe. Selon l'équipe et la chambre, l'un ou l'autre gagne bien plus souvent : les calculs gardent le meilleur des deux (un joueur peut choisir).
+  // Ordre de jeu : POL.perm impose l'ordre ; sinon ORD=1 → Aya joue en dernier dans le tour, ORD=0 → ordre de l'équipe.
   let i = -1; if (POL?.perm) { for (const k of POL.perm) { const q = b.players[k]; if (q && q.hp > 0 && !q.acted) { i = k; break; } } }
-  else { i = ORD ? b.players.findIndex(p => p.hp > 0 && !p.acted && !isAya(p)) : -1; if (i < 0) i = b.players.findIndex(p => p.hp > 0 && !p.acted); } if (i < 0) return null;
+  if (i < 0) { i = ORD ? b.players.findIndex(p => p.hp > 0 && !p.acted && !isAya(p)) : -1; if (i < 0) i = b.players.findIndex(p => p.hp > 0 && !p.acted); } if (i < 0) return null;
   const p = b.players[i], T = b.enemies.map((e, j) => j).filter(j => b.enemies[j].hp > 0 && !b.enemies[j].banished); if (!T.length) return null;
   const low = T.reduce((x, j) => b.enemies[j].hp < b.enemies[x].hp ? j : x, T[0]), high = T.reduce((x, j) => b.enemies[j].hp > b.enemies[x].hp ? j : x, T[0]);
+  const kill = T.filter(j => b.enemies[j].hp <= p.attack), atkT = kill.length ? kill[0] : low;
   const ready = !(p.cooldown > 0) && !C.combatSpentSpecial(p) && !C.atomicLocked(p, p, b);
+  const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0);
+  const warded = p.xebecWard > 0, threat = b.enemies.some(e => e.hp > 0 && !(e.frozen > 0));
   const order = [];
   if (C.canFullPower(p)) order.push(['ultimate', low]); if (C.canHollowPurple(p)) order.push(['purple', low]); if (C.canRage(p)) order.push(['rage', low]);
   if (ready) {
     // Boucle de la Brigade : le soin passe dès qu'un allié mourrait au prochain coup de gardien ; Aya échange quand un coup de plus la tuerait.
-    const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0);
-    if (isAya(p)) { if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', ayaTarget(b, p, T, gAtk, high)]); }
+    if (isAya(p)) {
+      // Garde d'Aya (autorisée au château, 25/11) : quand un coup la tuerait mais qu'elle est encore au-dessus de ~35 %, elle GARDE (dégâts ×0,45) pour descendre plus bas sans mourir,
+      // puis elle échange au tour suivant avec le gardien le plus plein : l'échange retire bien plus de PV. Indispensable dès qu'Aya meurt en 2 coups (chambre 650+ à 5★).
+      if (POL?.ayaGuard && p.hp <= gAtk && p.hp / p.maxHp > .35 && !warded && threat && p.hp > Math.round(gAtk * .45)) order.push(['guard', low]);
+      if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', ayaTarget(b, p, T, gAtk, high)]);
+    }
     else if (isHeal(p)) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (al.some(u => u.hp <= gAtk && u.hp + Math.round(u.maxHp * .3) > gAtk) || miss >= tot * .3) order.push(['skill', low]); }
     else if (isMakima(p) && POL?.dom === 'unstruck') { const U = T.filter(j => !b.enemies[j].struck && !(b.enemies[j].frozen > 0)); order.push(['skill', U.length ? U.reduce((x, j) => b.enemies[j].hp < b.enemies[x].hp ? j : x, U[0]) : low]); }
     else order.push(['skill', low]);
   }
-  order.push(['attack', low]);
+  // Garde des autres cartes (option testée par équipe) : une carte qu'un coup tuerait, sans voile de Haki et sans gardien à achever, garde au lieu d'attaquer.
+  if (POL?.guard && threat && !warded && !kill.length && p.hp <= gAtk && p.hp > Math.round(gAtk * .45)) order.push(['guard', low]);
+  order.push(['attack', atkT]);
   return { i, order };
 }
+// Fin de combat : 1 = victoire ; sinon part des PV des gardiens retirée (sert à classer les équipes qui ne gagnent pas encore).
+let LASTB = null;
 function castleFight(room, team, catalog, seed, ord = 0, pol = null) {
   Math.random = seeded(seed); ORD = ord; POL = pol;
   try {
@@ -42,7 +53,7 @@ function castleFight(room, team, catalog, seed, ord = 0, pol = null) {
       for (const [a, t] of m.order) { try { nb = C.advance(b, a, m.i, t); break; } catch (e) { } }
       if (!nb) break; b = nb;
     }
-    return b.result === 'win';
+    LASTB = b; return b.result === 'win';
   } finally { Math.random = RND; POL = null; }
 }
 // Combat gagnant à regarder en spectateur : on rejoue la chambre avec des tirages différents jusqu'à une victoire, en gardant chaque état du combat.
@@ -66,8 +77,8 @@ function castleWin(room, team, catalog, tries, pol = null) {
 // (ex. Xebec 4★ / Janemba 5★ / Makima 4★ : Xebec, puis Makima, puis Janemba, Domination sur un gardien qui n'a pas encore frappé → 28 % à la chambre 615 au lieu de 0 %).
 const PERMS = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
 function bestPolicy(team, catalog, rooms, k) {
-  const doms = team.some(isMakima) ? ['low', 'unstruck'] : ['low']; let best = null;
-  for (const perm of PERMS) for (const dom of doms) { const pol = { perm: perm.filter(x => x < team.length), dom }; let sc = 0;
+  let best = null;
+  for (const pol of polsFor(team)) { let sc = 0;
     for (const [r, wgt] of rooms) { let w = 0; for (let s = 0; s < k; s++) if (castleFight(r, team, catalog, 3 + s * 7919 + r * 104729, 0, pol)) w++; sc += wgt * w / k; }
     if (!best || sc > best.sc) best = { pol, sc }; }
   return best.pol;
@@ -99,19 +110,32 @@ function duelGame(A, B, starter, seed) {
 function duelRate(A, B, n) { let w = 0, t = 0; for (let s = 0; s < n; s++) for (const st of [0, 1]) { const r = duelGame(A, B, st, 1 + s * 7919 + st * 31337); t++; if (r === 0) w++; else if (r === 'draw') w += .5; } return w / t; }
 
 
-// « Je veux atteindre la chambre X » : tri rapide de toutes les équipes (6 ordres de jeu × 3 tirages), puis % précis sur les finalistes avec leur meilleur ordre.
-function polsFor(team) { const doms = team.some(isMakima) ? ['low', 'unstruck'] : ['low']; const out = [null]; for (const perm of PERMS) for (const dom of doms) out.push({ perm, dom }); return out; }
-function roomQuick(room, team, catalog) { let w = 0, pre = false; for (const perm of [[0, 1, 2], [1, 2, 0], [2, 0, 1]]) if (castleFight(Math.max(1, room - 150), team, catalog, 3 + perm[0] * 7919, 0, { perm, dom: 'unstruck' })) { pre = true; break; } if (!pre) return 0; const P = polsFor(team); for (let k = 0; k < P.length; k++) for (let s = 0; s < 2; s++) if (castleFight(room, team, catalog, 11 + (k * 2 + s) * 7919 + room * 104729, 0, P[k])) w++; return w / (P.length * 2); }
+// « Je veux atteindre la chambre X » (corrigé le 25/11) :
+// - stratégies testées pour chaque équipe : 6 ordres de jeu × cible de la Domination × garde des cartes en danger × garde d'Aya ;
+// - plus de pré-test à la chambre X-150 : le % ne baisse pas toujours avec la chambre (paliers où Aya meurt en 2 coups), ce pré-test écartait à tort de bonnes équipes ;
+// - au-delà de la chambre 600, une victoire tient souvent à quelques % : le tri garde aussi la progression (PV des gardiens retirés) et le % final se mesure sur 150 combats.
+function polsFor(team) {
+  const doms = team.some(isMakima) ? ['low', 'unstruck'] : ['low'], ag = team.some(isAya) ? [0, 1] : [0], out = [];
+  for (const perm of PERMS) for (const dom of doms) for (const guard of [0, 1]) for (const ayaGuard of ag) out.push({ perm: perm.filter(x => x < team.length), dom, guard, ayaGuard });
+  return out;
+}
+const fightScore = (room, team, catalog, seed, pol) => { if (castleFight(room, team, catalog, seed, 0, pol)) return 1; const b = LASTB; if (!b) return 0; const tot = b.enemies.reduce((a, e) => a + e.maxHp, 0) || 1; return .4 * (1 - b.enemies.reduce((a, e) => a + Math.max(0, e.hp), 0) / tot); };
+// Tri rapide : 6 ordres × avec/sans garde × 2 tirages (garde d'Aya et Domination « gardien qui n'a pas encore frappé » activées) → victoires + progression moyenne.
+function roomQuick(room, team, catalog) {
+  let s = 0, n = 0; const dom = team.some(isMakima) ? 'unstruck' : 'low';
+  for (let k = 0; k < PERMS.length; k++) for (const guard of [0, 1]) for (let r = 0; r < 2; r++) { s += fightScore(room, team, catalog, 11 + (k * 4 + guard * 2 + r) * 7919 + room * 104729, { perm: PERMS[k].filter(x => x < team.length), dom, guard, ayaGuard: 1 }); n++; }
+  return s / n;
+}
 function roomRate(room, team, catalog, n) {
-  let best = null; for (const pol of polsFor(team)) { let w = 0; for (let s = 0; s < 12; s++) if (castleFight(room, team, catalog, 5 + s * 7919 + room * 104729, 0, pol)) w++; if (!best || w > best.w) best = { pol, w }; }
+  let best = null; for (const pol of polsFor(team)) { let w = 0; for (let s = 0; s < 20; s++) { const f = fightScore(room, team, catalog, 5 + s * 7919 + room * 104729, pol); w += f === 1 ? 1 : f * .1; } if (!best || w > best.w) best = { pol, w }; }
   let w = 0; for (let s = 0; s < n; s++) if (castleFight(room, team, catalog, 900001 + s * 7919 + room * 104729, 0, best.pol)) w++;
-  return { p: w / n, pol: best.pol };
+  return { p: w / n, pol: best.pol, n };
 }
 
 onmessage = ({ data }) => {
   const { id, kind } = data;
   if (kind === 'roomQuick') { postMessage({ id, r: data.teams.map(t => roomQuick(data.room, t, data.catalog)) }); return; }
-  if (kind === 'roomRate') { postMessage({ id, r: data.teams.map(t => roomRate(data.room, t, data.catalog, data.n || 40)) }); return; }
+  if (kind === 'roomRate') { postMessage({ id, r: data.teams.map(t => roomRate(data.room, t, data.catalog, data.n || 150)) }); return; }
   if (kind === 'castleWin') { postMessage({ id, r: castleWin(data.room, data.team, data.catalog, data.tries || 400, data.pol || null) }); return; }
   if (kind === 'castle') { postMessage({ id, r: castleReport(data.team, data.catalog, data.n || 100) }); return; }
   if (kind === 'ranked') { const res = data.opps.map(o => ({ name: o.name, w: duelRate(data.A, o.B, data.n || 6) })); postMessage({ id, r: { avg: res.reduce((a, x) => a + x.w, 0) / Math.max(1, res.length), res } }); return; }
