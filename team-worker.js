@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=126');
+importScripts('castle-engine.js?v=127');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -11,10 +11,12 @@ const mk = u => ({ key: u.name, name: u.name, image: u.image || '', rarity: u.ra
 // Jeu du château : techniques dès qu'elles sont prêtes, sauf l'échange d'Aya (quand elle est basse) et le soin (quand l'équipe en a besoin).
 // Sans soigneur et au-delà du 1er seuil (Aya meurt en 2 coups) : elle échange avec le gardien le MOINS plein qui lui laisse de quoi encaisser un coup de plus, et garde les gardiens pleins pour un échange plus rentable ensuite (boucle de secours sans soigneur ; testé : ×3 à ×4 de victoires sans soigneur après le seuil).
 function ayaTarget(b, p, T, gAtk, high) { if (p.maxHp > 2 * gAtk || b.players.some(u => u.hp > 0 && isHeal(u))) return high; const pc = j => b.enemies[j].hp / b.enemies[j].maxHp; const ok = T.filter(j => Math.round(pc(j) * p.maxHp) > gAtk); return ok.length ? ok.reduce((x, j) => pc(j) < pc(x) ? j : x, ok[0]) : high; }
-let ORD = 0;
+let ORD = 0, POL = null; // POL : ordre de jeu imposé (perm) et cible de la Domination de Makima (dom), testés pour chaque équipe
+const isMakima = p => /makima/i.test(p.name);
 function castleMove(b) {
   // Ordre de jeu : ORD=1 → Aya joue en dernier dans le tour, ORD=0 → ordre de l'équipe. Selon l'équipe et la chambre, l'un ou l'autre gagne bien plus souvent : les calculs gardent le meilleur des deux (un joueur peut choisir).
-  let i = ORD ? b.players.findIndex(p => p.hp > 0 && !p.acted && !isAya(p)) : -1; if (i < 0) i = b.players.findIndex(p => p.hp > 0 && !p.acted); if (i < 0) return null;
+  let i = -1; if (POL?.perm) { for (const k of POL.perm) { const q = b.players[k]; if (q && q.hp > 0 && !q.acted) { i = k; break; } } }
+  else { i = ORD ? b.players.findIndex(p => p.hp > 0 && !p.acted && !isAya(p)) : -1; if (i < 0) i = b.players.findIndex(p => p.hp > 0 && !p.acted); } if (i < 0) return null;
   const p = b.players[i], T = b.enemies.map((e, j) => j).filter(j => b.enemies[j].hp > 0 && !b.enemies[j].banished); if (!T.length) return null;
   const low = T.reduce((x, j) => b.enemies[j].hp < b.enemies[x].hp ? j : x, T[0]), high = T.reduce((x, j) => b.enemies[j].hp > b.enemies[x].hp ? j : x, T[0]);
   const ready = !(p.cooldown > 0) && !C.combatSpentSpecial(p) && !C.atomicLocked(p, p, b);
@@ -25,13 +27,14 @@ function castleMove(b) {
     const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0);
     if (isAya(p)) { if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', ayaTarget(b, p, T, gAtk, high)]); }
     else if (isHeal(p)) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (al.some(u => u.hp <= gAtk && u.hp + Math.round(u.maxHp * .3) > gAtk) || miss >= tot * .3) order.push(['skill', low]); }
+    else if (isMakima(p) && POL?.dom === 'unstruck') { const U = T.filter(j => !b.enemies[j].struck && !(b.enemies[j].frozen > 0)); order.push(['skill', U.length ? U.reduce((x, j) => b.enemies[j].hp < b.enemies[x].hp ? j : x, U[0]) : low]); }
     else order.push(['skill', low]);
   }
   order.push(['attack', low]);
   return { i, order };
 }
-function castleFight(room, team, catalog, seed, ord = 0) {
-  Math.random = seeded(seed); ORD = ord;
+function castleFight(room, team, catalog, seed, ord = 0, pol = null) {
+  Math.random = seeded(seed); ORD = ord; POL = pol;
   try {
     let b = C.towerCreateBattle(room, team.map(mk), catalog); b.players = team.map(mk);
     for (let g = 0; g < 500 && !b.result; g++) {
@@ -40,12 +43,12 @@ function castleFight(room, team, catalog, seed, ord = 0) {
       if (!nb) break; b = nb;
     }
     return b.result === 'win';
-  } finally { Math.random = RND; }
+  } finally { Math.random = RND; POL = null; }
 }
 // Combat gagnant à regarder en spectateur : on rejoue la chambre avec des tirages différents jusqu'à une victoire, en gardant chaque état du combat.
-function castleWin(room, team, catalog, tries) {
+function castleWin(room, team, catalog, tries, pol = null) {
   for (let s = 0; s < tries; s++) {
-    const seed = 7 + (s >> 1) * 7919 + room * 104729; Math.random = seeded(seed); ORD = s & 1;
+    const seed = 7 + (s >> 1) * 7919 + room * 104729; Math.random = seeded(seed); ORD = s & 1; POL = pol && (s & 1) ? pol : null;
     try {
       let b = C.towerCreateBattle(room, team.map(mk), catalog); b.players = team.map(mk); const steps = [{ b }]; let swaps = 0, heals = 0;
       for (let g = 0; g < 500 && !b.result; g++) {
@@ -55,15 +58,27 @@ function castleWin(room, team, catalog, tries) {
         steps.push({ b: nb, action: act, active: m.i, target: tg }); b = nb;
       }
       if (b.result === 'win') return { ok: true, steps, tries: s + 1, swaps, heals, turns: b.turn };
-    } finally { Math.random = RND; }
+    } finally { Math.random = RND; POL = null; }
   }
   return { ok: false, tries };
 }
+// Ordres de jeu et cibles testés (25/11) : l'ordre dans lequel les cartes jouent change énormément le résultat
+// (ex. Xebec 4★ / Janemba 5★ / Makima 4★ : Xebec, puis Makima, puis Janemba, Domination sur un gardien qui n'a pas encore frappé → 28 % à la chambre 615 au lieu de 0 %).
+const PERMS = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]];
+function bestPolicy(team, catalog, rooms, k) {
+  const doms = team.some(isMakima) ? ['low', 'unstruck'] : ['low']; let best = null;
+  for (const perm of PERMS) for (const dom of doms) { const pol = { perm: perm.filter(x => x < team.length), dom }; let sc = 0;
+    for (const [r, wgt] of rooms) { let w = 0; for (let s = 0; s < k; s++) if (castleFight(r, team, catalog, 3 + s * 7919 + r * 104729, 0, pol)) w++; sc += wgt * w / k; }
+    if (!best || sc > best.sc) best = { pol, sc }; }
+  return best.pol;
+}
 function castleReport(team, catalog, n) {
-  const cache = new Map();
-  const wr = (room, k = n) => { const key = room + ':' + k; if (!cache.has(key)) { let best = 0; for (const ord of [0, 1]) { let w = 0; for (let s = 0; s < k; s++) if (castleFight(room, team, catalog, 1 + s * 7919 + room * 104729, ord)) w++; best = Math.max(best, w / k); } cache.set(key, best); } return cache.get(key); };
+  const cache = new Map(); let POLB = null;
+  const wr = (room, k = n) => { const key = room + ':' + k; if (!cache.has(key)) { let best = 0; for (const ord of [0, 1, 2]) { if (ord === 2 && !POLB) continue; let w = 0; for (let s = 0; s < k; s++) if (castleFight(room, team, catalog, 1 + s * 7919 + room * 104729, ord === 2 ? 0 : ord, ord === 2 ? POLB : null)) w++; best = Math.max(best, w / k); } cache.set(key, best); } return cache.get(key); };
   // Dernière chambre où le % de victoire reste au-dessus du seuil (recherche par dichotomie, le % baisse avec la chambre).
   const last = (th, k) => { if (wr(1, k) < th) return 0; let lo = 1, hi = 1; while (hi < 6000 && wr(hi, k) >= th) { lo = hi; hi *= 2; } hi = Math.min(hi, 6000); while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (wr(mid, k) >= th) lo = mid; else hi = mid; } return lo; };
+  // Stratégie : on repère la zone difficile avec le jeu de base, puis on garde le meilleur ordre de jeu sur cette zone.
+  { const m0 = last(.2, Math.max(20, n >> 2)); POLB = bestPolicy(team, catalog, [[Math.max(1, m0 - 20), 1], [m0 + 20, 2], [m0 + 50, 3]], Math.max(20, n >> 2)); cache.clear(); }
   const sure = last(.9, n), play = last(.5, n), max = last(.2, n);
   // Plafond réel (consigne Nicolas 24/11) : dernière chambre où l'équipe gagne ENCORE AU MOINS UNE FOIS, même 1 %. Balayage de 5 en 5 au-delà de la chambre max
   // (arrêt après 6 paliers sans aucune victoire), puis chambre par chambre jusqu'à la première chambre à 0 victoire.
@@ -71,7 +86,7 @@ function castleReport(team, catalog, n) {
   for (let r = max + 5; r <= 6000 && zeros < 6; r += 5) { if (wr(r, k) > 0) { ceil = r; zeros = 0; } else zeros++; }
   let r1 = ceil + 1; while (r1 < 6000 && wr(r1, k) > 0) { ceil = r1; r1++; }
   for (let r = ceil + 2; r <= ceil + 5; r++) if (wr(r, k) > 0) { ceil = r; }
-  return { sure, play, max, ceil, ceilP: wr(ceil, k), n, nc: k * 2 };
+  return { sure, play, max, ceil, ceilP: wr(ceil, k), n, nc: k * 3, pol: POLB };
 }
 
 // Ranked : les deux camps jouent avec le même jeu simple (techniques dès qu'elles sont prêtes, cible la plus basse).
@@ -85,7 +100,7 @@ function duelRate(A, B, n) { let w = 0, t = 0; for (let s = 0; s < n; s++) for (
 
 onmessage = ({ data }) => {
   const { id, kind } = data;
-  if (kind === 'castleWin') { postMessage({ id, r: castleWin(data.room, data.team, data.catalog, data.tries || 400) }); return; }
+  if (kind === 'castleWin') { postMessage({ id, r: castleWin(data.room, data.team, data.catalog, data.tries || 400, data.pol || null) }); return; }
   if (kind === 'castle') { postMessage({ id, r: castleReport(data.team, data.catalog, data.n || 100) }); return; }
   if (kind === 'ranked') { const res = data.opps.map(o => ({ name: o.name, w: duelRate(data.A, o.B, data.n || 6) })); postMessage({ id, r: { avg: res.reduce((a, x) => a + x.w, 0) / Math.max(1, res.length), res } }); return; }
   if (kind === 'rankedMany') { const out = data.teams.map(A => { const res = data.opps.map(o => duelRate(A, o.B, data.n || 3)); return res.reduce((a, x) => a + x, 0) / Math.max(1, res.length); }); postMessage({ id, r: out }); }
