@@ -1,5 +1,12 @@
 [
  {
+  "id": 15,
+  "d": "2026-11-25",
+  "t": "Import en 1 clic sur ordinateur",
+  "x": "Sur ordinateur, plus besoin de captures : ouvre ta sauvegarde du jeu, copie, colle, et toute ta collection (cartes, doublons, étoiles des LR) est à jour.",
+  "h": "#clic"
+ },
+ {
   "id": 14,
   "d": "2026-11-25",
   "t": "Une seule page collection",
