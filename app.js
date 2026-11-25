@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=154';
+import * as CFG from './config.js?v=155';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=154';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=154';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=155';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=155';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=154';
-import * as SCAN from './scan.js?v=154';
+import { duelRate } from './ranked.js?v=155';
+import * as SCAN from './scan.js?v=155';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -48,8 +48,11 @@ const ROUTES = [
   ['sep', 'Brigade'], ['calendrier', 'Calendrier', 'cal'], ['nouveautes', 'Nouveautés', 'bell'], ['lexique', 'Lexique', 'text']
 ];
 
+// Import en 1 clic : le favori ouvre le site avec la collection dans l'adresse (#clic=…). On la garde de côté (elle survit à la connexion Discord)
+// et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
+try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '154';
+const APP_V = '155';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -107,7 +110,7 @@ function discordLogin() { try { if (location.search || (location.hash && !locati
 const isPreview = () => S.profile?.role === 'admin' && new URLSearchParams(location.search).has('apercu');
 // Didacticiel forcé : tant que la collection n'est pas importée (ou en aperçu admin), pas de menu, seulement les étapes d'import.
 const onbMode = () => !S.mylr?.teams?.done || isPreview();
-const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'meslr' || base === 'basses' || (base === 'collection' && /^[LM]\/moi\/(import|all)$/.test(arg || '')) || (base === 'collection' && arg === 'L/moi/all');
+const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'clic' || base === 'meslr' || base === 'basses' || (base === 'collection' && /^[LM]\/moi\/(import|all)$/.test(arg || '')) || (base === 'collection' && arg === 'L/moi/all');
 // Pendant l'accueil : aucun lien vers une autre page n'est affiché ni cliquable, seulement les étapes.
 const onbLinkOk = a => { const h = a.getAttribute('href') || ''; if (!h.startsWith('#')) return !/^https?:/.test(h) || a.target === '_blank'; const [b, ...r] = h.slice(1).split('/'); return !b || onbAllowed(b, r.join('/')); };
 function lockOnb(root) { if (app.dataset.mode !== 'onb') return; root.querySelectorAll('a[href]').forEach(a => { if (!onbLinkOk(a)) a.remove(); }); }
@@ -542,10 +545,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=154'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=155'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=154'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=155'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -678,7 +681,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=154'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=155'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -943,7 +946,7 @@ P.collection = async (m, tab = '') => {
     coll = rk === 'S' ? lrColl() : realColl;
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
-    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">${X.low ? '✍️ Mettre à jour' : '📷 Importer / mettre à jour'} mes ${X.label}</button>` : ''}<a class="btn ghost" href="#basses/C" style="min-height:40px">✍️ Communes / Rares / SR</a></div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Importe tes captures pour tout remplir d'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.</p>
+    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">${X.low ? '✍️ Mettre à jour' : '📷 Importer / mettre à jour'} mes ${X.label}</button>` : ''}<a class="btn ghost" href="#basses/C" style="min-height:40px">✍️ Communes / Rares / SR</a>${CLIC() ? '<a class="btn primary" href="#clic" style="min-height:40px">⚡ Import en 1 clic (ordinateur)</a>' : ''}</div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. Sur ordinateur, l'import en 1 clic remplit tout depuis le jeu ; sur téléphone, importe tes captures. Ensuite, ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change, ou relance l'import en 1 clic.</p>
       <div id="chist"></div>
       <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', S: '秘' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
       <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
@@ -1291,6 +1294,7 @@ P.bienvenue = async m => {
     return;
   }
   m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection</h1><p class="mute">Avant d'entrer, envoie les captures de ta collection du jeu. Le site lit tout seul tes cartes, leurs étoiles et tes doublons : meilleures équipes, chambre max, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil. D'abord Communes, Rares et SR en donnant juste ton nombre de cartes, puis SSR, UR et LR par captures.</p></section>
+    ${CLIC() ? `<div class="card section" style="border-color:#e3123a"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">💻 Sur ordinateur : import en 1 clic</b><a class="btn primary" href="#clic" style="min-height:40px;flex-shrink:0;white-space:nowrap">⚡ Essayer</a></div><p class="small mute" style="margin:6px 0 0">Recommandé si tu as un ordinateur : un favori lit toute ta collection dans le jeu (cartes, doublons, étoiles des LR) et remplit les 6 étapes d'un coup, sans captures. Sur téléphone, suis les étapes ci-dessous.</p></div>` : ''}
     ${steps.map(([k, t, how, href], i) =>  `<div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">${T[k] ? '✅' : (i + 1) + '.'} ${t}</b>${T[k] ? '<span class="small up">Importé</span>' : ''}<a class="btn ${T[k] ? 'ghost' : 'primary'}" href="${href}" style="min-height:40px;flex-shrink:0;white-space:nowrap">${T[k] ? 'Refaire' : ['c', 'r', 'sr'].includes(k) ? '✍️ Remplir' : '📷 Importer'}</a></div><p class="small mute" style="margin:6px 0 0">Dans le jeu : ${how}${['c', 'r', 'sr'].includes(k) ? ', note le nombre affiché, puis cherche par nom les cartes qui te manquent (pas de captures).' : ', puis des captures en faisant défiler jusqu\'en bas.'}${['ssr', 'ur'].includes(k) ? ' Note aussi le nombre affiché par le jeu (ex. 402 / 414) : l\'import n\'est validé que si le compte est bon.' : ''}</p></div>`).join('')}
     <div class="row section"><button class="btn primary" id="wgo" ${all ? '' : 'disabled'}>Entrer dans le repaire →</button>${all ? '' : '<span class="small mute">Toutes les étapes sont nécessaires pour entrer.</span>'}</div>`;
   const ws = $('#wsh'); if (ws) ws.onchange = async e => { if (prev) return; const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; };
@@ -1341,6 +1345,57 @@ P.basses = async (m, r = 'C') => {
   upd(); search();
 };
 
+// Favori « Import Brigade » : lancé sur yurocollection.fr, il lit la collection affichée par le jeu (cartes, exemplaires, étoiles des LR)
+// et ouvre le site avec ces données. Gratuit, rien à installer, sur ordinateur.
+const CLIC_CODE = `(()=>{const T=m=>{const d=document.createElement('div');d.textContent=m;d.style.cssText='position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:2147483647;background:#14141a;color:#fff;border:2px solid #e3123a;border-radius:12px;padding:14px 18px;font:15px system-ui;max-width:90vw;box-shadow:0 8px 30px #000a';document.body.appendChild(d);setTimeout(()=>d.remove(),7000)};try{if(!/(^|\\.)yurocollection\\.fr$/.test(location.hostname)){T('Import Brigade : ouvre d\\'abord yurocollection.fr (connecté à ton compte), puis clique à nouveau sur ce favori.');return}const S=state,C=cards,by=new Map(C.map(c=>[c.id,c])),o=[];for(const k in S.qty){const q=+S.qty[k];if(!(q>0))continue;const c=by.get(+k);if(!c)continue;const s=/secret/i.test(c.rarity||'')?cardStarCount(c):0;o.push(k+'.'+q+(s?'.'+s:''))}if(o.length<5){T('Import Brigade : ta collection n\\'est pas encore chargée. Attends que le jeu soit ouvert, puis réessaie.');return}const w=window.open('https://brigade-fantome-yuro.github.io/#clic='+o.join(','),'_blank');if(!w)T('Import Brigade : ton navigateur a bloqué l\\'ouverture de l\\'onglet. Autorise les fenêtres pour yurocollection.fr puis réessaie.');else T('Import Brigade : '+o.length+' cartes envoyées vers le site de la Brigade ✓')}catch(e){T('Import Brigade : ouvre le jeu (page chargée, connecté), puis réessaie.')}})()`;
+const CLIC_LIVE = false; const CLIC = () => CLIC_LIVE || (S.profile?.role === 'admin' && new URLSearchParams(location.search).has('clic'));
+const clicHref = () => 'javascript:' + encodeURIComponent(CLIC_CODE);
+P.clic = async m => {
+  const prev = isPreview(); let pay = null; try { pay = JSON.parse(localStorage.getItem('bf_clic') || 'null'); } catch (e) { pay = null; }
+  const back = onbMode() ? '#bienvenue' : '#collection';
+  if (!pay?.d) {
+    m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Sur ordinateur · gratuit</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">Plus de captures : un favori lit ta collection directement dans le jeu (toutes tes cartes, tes exemplaires et les étoiles de tes LR) et l'envoie ici. Rien à installer. Ça marche sur ordinateur (Chrome, Edge, Firefox, Brave, Opera).</p></section>
+      <div class="card section"><h3 style="margin-top:0">1. Ajoute le favori (une seule fois)</h3><p class="small mute">Affiche ta barre de favoris (<b>Ctrl + Maj + B</b>, ou <b>Cmd + Maj + B</b> sur Mac), puis <b>fais glisser</b> ce bouton dedans :</p>
+        <div class="row" style="margin:12px 0"><a class="btn primary" id="clicbm" href="#" draggable="true" style="cursor:grab">⚡ Import Brigade</a><span class="small mute">← glisse-le vers ta barre de favoris</span></div></div>
+      <div class="card section"><h3 style="margin-top:0">2. Ouvre le jeu</h3><p class="small mute">Va sur <a href="https://yurocollection.fr" target="_blank" rel="noopener">yurocollection.fr</a>, connecté à ton compte, et attends que le jeu soit chargé.</p></div>
+      <div class="card section"><h3 style="margin-top:0">3. Clique sur le favori « ⚡ Import Brigade »</h3><p class="small mute">Un onglet du site de la Brigade s'ouvre avec ta collection. Tu vérifies le résumé, puis tu cliques sur <b>Enregistrer</b>. Tu peux recommencer quand tu veux pour mettre ta collection à jour.</p></div>
+      <p class="small mute section">Le favori lit seulement ta collection. Il ne joue pas, n'achète rien et ne touche à rien dans le jeu. Tes cartes ne sont enregistrées qu'au moment où tu cliques sur Enregistrer.</p>
+      <div class="row section"><a class="btn ghost" href="${back}">← Retour</a></div>`;
+    const a = $('#clicbm'); a.setAttribute('href', clicHref()); a.onclick = e => { e.preventDefault(); toast('Fais glisser ce bouton dans ta barre de favoris, puis clique dessus depuis le jeu.'); };
+    return;
+  }
+  m.innerHTML = '<div class="empty">Lecture de ta collection…</div>';
+  const got = new Map(); for (const t of String(pay.d).split(',')) { const [id, q, st] = t.split('.').map(Number); if (id > 0 && q > 0) got.set(id, { q, s: Math.max(0, Math.min(5, st || 0)) }); }
+  await loadFeats(); await loadCollections(); const coll = myColl(); const catAll = S.kb.card_catalog?.cards || [];
+  const lowU = r => { const by = new Map(); for (const c of catAll) { if (c[3] !== r || c[5]) continue; const s2 = c[2] || '—'; if (!by.has(s2)) by.set(s2, { s: s2, c: [] }); by.get(s2).c.push([c[1], r, c[4] || '', Number(c[0])]); } return [...by.values()]; };
+  const U = { C: lowU('C'), R: lowU('R'), E: lowU('E'), L: rarUniverses('L'), M: rarUniverses('M') };
+  const lrIds = new Set(catAll.filter(c => c[3] === 'S').map(c => Number(c[0]))); for (const u of rarUniverses('S')) for (const c of u.c) lrIds.add(c[3]);
+  const lrName = id => (catAll.find(c => Number(c[0]) === id) || [])[1] || ('#' + id);
+  const st = {}; for (const k of Object.keys(U)) { let own = 0, tot = 0, dup = 0; for (const u of U[k]) for (const c of u.c) { tot++; const g = got.get(c[3]); if (g) { own++; if (g.q >= 2) dup++; } } st[k] = { own, tot, dup }; }
+  const lrs = [...lrIds].filter(id => got.has(id)).map(id => ({ id, n: lrName(id), ...got.get(id) })).sort((a, b) => b.s - a.s || a.n.localeCompare(b.n));
+  const age = Math.round((Date.now() - (pay.t || Date.now())) / 60000);
+  const lab = { C: 'Communes', R: 'Rares', E: 'SR', L: 'SSR', M: 'UR' };
+  m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Import en 1 clic</span><h1 style="margin-top:12px">Ta collection est arrivée</h1><p class="mute">Lue directement dans le jeu${age > 1 ? ` il y a ${age} min` : ''}. Vérifie le résumé, puis enregistre : ta collection sur le site sera remplacée par celle du jeu.</p></section>
+    <div class="card section"><div class="grid">${Object.keys(lab).map(k => `<div><div class="mute small">${lab[k]}</div><div class="cd">${st[k].own} <span class="small mute">/ ${st[k].tot}</span></div>${['L', 'M'].includes(k) ? `<div class="small mute">${st[k].dup} en double</div>` : ''}</div>`).join('')}<div><div class="mute small">LR</div><div class="cd">${lrs.length}</div></div></div></div>
+    <div class="card section"><h3 style="margin-top:0">Tes LR et leurs étoiles</h3><div class="small" style="columns:2;column-gap:24px">${lrs.map(x => `<div>${esc(x.n)} · <b>${x.s}★</b>${x.q > 1 ? ` <span class="mute">(+${x.q - 1} doublon${x.q > 2 ? 's' : ''})</span>` : ''}</div>`).join('') || '<span class="mute">Aucune LR</span>'}</div></div>
+    <div class="row section"><button class="btn primary" id="cok">Enregistrer ma collection</button><button class="btn ghost" id="cno">Annuler</button><span class="small mute" id="cst"></span></div>`;
+  $('#cno').onclick = () => { try { localStorage.removeItem('bf_clic'); } catch (e) {} location.hash = back; };
+  $('#cok').onclick = async () => {
+    if (prev) { toast('Aperçu : rien n\'est enregistré.'); return; }
+    const b = $('#cok'); b.disabled = true; b.textContent = 'Enregistrement…'; const touched = new Set(), PSU = S.kb.prestige_series?.series || [];
+    for (const k of Object.keys(U)) for (const u of U[k]) for (const c of u.c) { const r = uget(coll, u.s), g = got.get(c[3]); touched.add(u.s);
+      if (g) r.owned.add(c[0]); else r.owned.delete(c[0]);
+      if (k === 'L' || k === 'M') { if (g && g.q >= 2) { r.dupes.add(c[0]); r.qty[c[0]] = g.q; } else { r.dupes.delete(c[0]); delete r.qty[c[0]]; } } }
+    const rows = [...touched].map(s2 => { const u = coll[s2], pu = PSU.find(x => x.s === s2); return { user_id: S.user.id, universe: s2, done: pu ? ownN(coll, pu) === pu.c.length : false, owned: [...u.owned], dupes: [...u.dupes], qty: u.qty || {}, missing: '' }; });
+    for (let i = 0; i < rows.length; i += 100) { $('#cst').textContent = `${Math.min(rows.length, i + 100)} / ${rows.length} univers…`; const { error } = await sb.from('checklist').upsert(rows.slice(i, i + 100)); if (error) { toast('Enregistrement refusé : ' + error.message); b.disabled = false; b.textContent = 'Enregistrer ma collection'; return; } }
+    const cards = {}, dupes = {}; for (const x of lrs) { cards[x.id] = x.s; if (x.q > 1) dupes[x.id] = x.q - 1; }
+    S.mylr.cards = cards; S.mylr.dupes = dupes; S.mylr.teams = { ...(S.mylr.teams || {}), c: true, r: true, sr: true, ssr: true, ur: true, lr: true, clic: Date.now() };
+    const { error: e2 } = await saveMyLR(); if (e2) { toast('Enregistrement refusé : ' + e2.message); b.disabled = false; b.textContent = 'Enregistrer ma collection'; return; }
+    try { localStorage.removeItem('bf_clic'); } catch (e) {}
+    toast('Collection enregistrée ✓'); location.hash = onbMode() ? '#bienvenue' : '#collection';
+  };
+};
+
 P.meslr = async m => {
   await loadMyLR(); const own = S.mylr.cards;
   const onb = onbMode();
@@ -1384,7 +1439,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=154'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=155'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
