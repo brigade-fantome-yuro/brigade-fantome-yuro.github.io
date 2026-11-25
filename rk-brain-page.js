@@ -7,6 +7,7 @@
   if (window.__ob && window.__ob.alive) return;
   const BASE = 'https://brigade-fantome-yuro.github.io/';
   const OB = window.__ob = { alive: true, on: !window.__obStartOff, armNext: !!window.__obStartOff, log: [], obs: [], seen: new Set(), pending: null, matchId: null, prior: null, saved: new Set(), lastErr: null, decisions: 0, fallback: 0 };
+  if (window.__obStartOff) { try { OB.matchId = rankedUI.data.match && rankedUI.data.match.id; } catch (e) { } }
   const L = m => { OB.log.push(new Date().toISOString().slice(11, 19) + ' ' + m); if (OB.log.length > 200) OB.log.shift(); };
   let W = null, seq = 0; const wait = new Map();
   OB.build = async () => {
