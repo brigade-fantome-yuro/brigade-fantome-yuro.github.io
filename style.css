@@ -474,7 +474,7 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 .cgimg figcaption b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cgimg figcaption span{color:#f3c26b;font-size:11px}
 .cgn{position:absolute;top:6px;left:6px;width:22px;height:22px;border-radius:50%;background:var(--blood2,#e0123c);color:#fff;font:700 12px/22px 'Space Grotesk',sans-serif;text-align:center;z-index:1;box-shadow:0 2px 6px rgba(0,0,0,.5)}
-.cgord{margin-top:-2px}
+.cgord{margin-top:-2px;color:var(--blood2,#e0123c);line-height:1.4}
 .cgbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .cgbtns .btn{width:100%;justify-content:center}
 @media(min-width:900px){.cggrid:has(.cgcard){display:grid;grid-template-columns:repeat(2,1fr);gap:12px}}
