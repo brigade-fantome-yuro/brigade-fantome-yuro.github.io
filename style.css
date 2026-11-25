@@ -459,3 +459,5 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 .cgrow{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:14px;padding:12px}
 .cgpct{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;min-width:58px;text-align:right}
 @media(max-width:600px){.cgrow{padding:10px;gap:10px}.cgpct{font-size:17px;min-width:46px}}
+
+.cgdim{opacity:.4;pointer-events:none}

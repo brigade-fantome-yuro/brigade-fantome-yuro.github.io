@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=141';
+import * as CFG from './config.js?v=142';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=141';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=141';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=142';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=142';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=141';
-import * as SCAN from './scan.js?v=141';
+import { duelRate } from './ranked.js?v=142';
+import * as SCAN from './scan.js?v=142';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '141';
+const APP_V = '142';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -146,9 +146,13 @@ async function openBell() {
   try { localStorage.setItem('bfNewsSeen', top); } catch (e) { /* rien */ } bellDots();
 }
 
+// Fusion Collection Prestige → Ma collection (aperçu admin avec ?fusion tant que FUSION_LIVE est false).
+const FUSION_LIVE = false;
+const FUS = () => FUSION_LIVE || (S.profile?.role === 'admin' && new URLSearchParams(location.search).has('fusion'));
+const memHref = id => FUS() ? '#collection/L/m:' + id : '#checklist/m:' + id;
 function shell(route) {
   const isAdmin = S.profile.role === 'admin';
-  const links = ROUTES.map(r => r[0] === 'sep' ? `<div class="sep">${r[1]}</div>` : `<a href="#${r[0]}" class="${route === r[0] ? 'on' : ''}">${ico(r[2])}${r[1]}</a>`).join('')
+  const links = ROUTES.filter(r => !(FUS() && r[0] === 'checklist')).map(r => r[0] === 'sep' ? `<div class="sep">${r[1]}</div>` : `<a href="#${r[0]}" class="${route === r[0] ? 'on' : ''}">${ico(r[2])}${r[1]}</a>`).join('')
     + (isAdmin ? `<div class="sep">Admin</div><a href="#admin" class="${route === 'admin' ? 'on' : ''}">${ico('shield')}Administration</a>` : '');
   app.innerHTML = `<div class="top"><button class="btn" id="mn" aria-label="Menu">☰</button><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div><span class="sp"></span><button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button></div>
   <div class="shell"><aside class="side" id="side"><div class="brand">${SPIDER}<b>Brigade Fantôme</b></div><nav class="nav">${links}</nav>
@@ -536,10 +540,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=141'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=142'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=141'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=142'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -672,7 +676,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=141'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=142'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -752,6 +756,7 @@ const uget = (coll, u) => { const r = coll[u] || (coll[u] = { owned: new Set(), 
 const ownN = (coll, u) => { const r = coll[u.s]; return r ? u.c.filter(c => r.owned.has(c[0])).length : 0; };
 
 P.checklist = async (m, tab = 'moi') => {
+  if (FUS()) { location.hash = tab?.startsWith('m:') ? '#collection/L/' + tab : '#collection/L/' + (['completer', 'classement', 'membres'].includes(tab) ? tab : 'completer'); return; }
   const PS = S.kb.prestige_series; const U = PS?.series || [];
   if (!U.length) { m.innerHTML = '<h1>Collection Prestige</h1><div class="empty">La liste des univers arrive bientôt.</div>'; return; }
   await loadCollections();
@@ -870,7 +875,7 @@ function viewMembers(el, U) {
   const sharing = S.members.filter(p => p.share && p.id !== S.user.id);
   el.innerHTML = `<p class="mute">Les membres qui partagent leur collection. Touche un profil pour voir ses cartes manquantes et ses doublons.</p>
     <div class="card section"><h2>Qui cherche quoi</h2><input id="wq" placeholder="Tape une carte : qui la cherche, qui l'a en double ?"><div id="wr" style="margin-top:10px"></div></div>
-    <div class="grid" id="ml">${sharing.map(p => { const s = memberStats(p.id, U); return `<a class="card" href="#checklist/m:${p.id}"><h3>${esc(p.discord)}</h3><div class="small mute">${s.done} univers complets · ${fmt(s.got)} cartes · ${s.du} doublon${s.du > 1 ? 's' : ''}</div></a>`; }).join('') || '<div class="empty">Personne ne partage encore sa collection. Active le partage dans « Ma collection » pour lancer le mouvement.</div>'}</div>`;
+    <div class="grid" id="ml">${sharing.map(p => { const s = memberStats(p.id, U); return `<a class="card" href="${memHref(p.id)}"><h3>${esc(p.discord)}</h3><div class="small mute">${s.done} univers complets · ${fmt(s.got)} cartes · ${s.du} doublon${s.du > 1 ? 's' : ''}</div></a>`; }).join('') || '<div class="empty">Personne ne partage encore sa collection. Active le partage dans « Ma collection » pour lancer le mouvement.</div>'}</div>`;
   $('#wq').oninput = () => { const q = $('#wq').value.toLowerCase().trim(); if (q.length < 2) { $('#wr').innerHTML = ''; return; }
     const hits = []; for (const u of U) for (const c of u.c) if (c[0].toLowerCase().includes(q)) hits.push([u, c]);
     $('#wr').innerHTML = hits.slice(0, 12).map(([u, c]) => { const need = [], has = [];
@@ -882,7 +887,7 @@ function viewProfile(el, U, id) {
   const coll = S.coll[id] || {}, mine = myColl(), s = memberStats(id, U);
   const inc = U.map(u => ({ u, miss: u.c.filter(c => !coll[u.s]?.owned.has(c[0])) })).filter(x => x.miss.length && x.miss.length < x.u.c.length).sort((a, b) => a.miss.length - b.miss.length);
   const dupes = U.flatMap(u => u.c.filter(c => coll[u.s]?.dupes.has(c[0])).map(c => [u, c]));
-  el.innerHTML = `<a href="#checklist/membres" class="btn ghost" style="min-height:36px">← Membres</a>
+  el.innerHTML = `<a href="${FUS() ? '#collection/L/membres' : '#checklist/membres'}" class="btn ghost" style="min-height:36px">← Membres</a>
     <section class="hero" style="margin-top:12px"><div class="moon"></div><span class="chip red">Profil</span><h1 style="margin-top:12px">${esc(p.discord)}</h1><p class="mute">${s.done} univers complets · ${fmt(s.got)} cartes · ${s.du} doublons</p></section>
     <div class="section"><h2>Ses doublons</h2><p class="small mute">En vert : ceux qui te manquent.</p><div class="tiles">${dupes.map(([u, c]) => tile(c, !mine[u.s]?.owned.has(c[0]), false)).join('') || '<div class="mute">Aucun doublon déclaré.</div>'}</div></div>
     <div class="section"><h2>Ses cartes manquantes</h2><p class="small mute">Univers commencés, du plus proche de la fin au plus lointain. En vert : celles que tu as en double.</p>
@@ -897,7 +902,7 @@ function viewTrades(el, U) {
   const tg = out.reduce((a, o) => a + o.get.length, 0), tv = out.reduce((a, o) => a + o.give.length, 0);
   el.innerHTML = `<div class="card section"><span class="chip red">Match automatique</span><h2 style="margin-top:10px">${out.length} membre${out.length > 1 ? 's' : ''} avec qui échanger</h2><p class="mute" style="margin:0">Le site croise en un clic les doublons et les cartes recherchées de tous les membres qui partagent leur collection : <b>${tg}</b> carte${tg > 1 ? 's' : ''} qu'on peut te donner, <b>${tv}</b> que tu peux donner. Il ne reste qu'à les contacter sur le Discord.</p><p class="small mute" style="margin:8px 0 0">Doublons et manquantes viennent de « Ma collection » (import SSR / UR ou à la main).</p></div>
     ${S.profile.share ? '' : '<div class="msg">Ta collection n\'est pas partagée : les autres ne te voient pas dans leurs échanges.</div>'}
-    ${out.map(o => `<div class="card section"><div class="row"><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<button class="btn ghost" data-msg="${esc(o.p.id)}" style="min-height:36px">Copier un message</button><a class="btn ghost" href="#checklist/m:${o.p.id}" style="min-height:36px">Profil</a></div>
+    ${out.map(o => `<div class="card section"><div class="row"><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<button class="btn ghost" data-msg="${esc(o.p.id)}" style="min-height:36px">Copier un message</button><a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px">Profil</a></div>
       <div class="small mute" style="margin-top:10px">Il peut te donner (${o.get.length})</div><div class="tiles">${o.get.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div>
       <div class="small mute" style="margin-top:10px">Tu peux lui donner (${o.give.length})</div><div class="tiles">${o.give.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div></div>`).join('') || '<div class="empty">Pas encore d\'échange possible. Plus il y a de membres qui partagent et déclarent leurs doublons, plus il y en aura.</div>'}`;
   el.querySelectorAll('[data-msg]').forEach(b => b.onclick = async () => { const o = out.find(x => x.p.id === b.dataset.msg); const txt = `Salut ${o.p.discord} ! Sur le site de la Brigade je vois que tu as en double : ${o.get.map(c => c[0]).join(', ') || '—'}. De mon côté j'ai en double ${o.give.map(c => c[0]).join(', ') || '—'}, qui te manque${o.give.length > 1 ? 'nt' : ''}. Ça te dit d'échanger ?`; try { await navigator.clipboard.writeText(txt); toast('Message copié : colle-le sur Discord'); } catch (e) { prompt('Copie ce message :', txt); } });
@@ -919,7 +924,7 @@ P.collection = async (m, tab = '') => {
   const R = { C: { label: 'C', tag: 'Commune', U: catU('C'), low: true }, R: { label: 'R', tag: 'Rare', U: catU('R'), low: true }, E: { label: 'SR', tag: 'Épique', U: catU('E'), low: true }, L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true } };
   const impFor = k => k === 'S' ? (location.hash = '#meslr') : R[k]?.low ? (location.hash = '#basses/' + k) : rarImport(k);
   await loadMyLR();
-  let [rk, view, autoImp] = (tab || 'L/moi').split('/'); if (!R[rk]) rk = 'L'; if (!['moi', 'doublons', 'manquantes', 'echanges'].includes(view)) view = 'moi';
+  let [rk, view, autoImp] = (tab || 'L/moi').split('/'); if (!R[rk]) rk = 'L'; const memId = view?.startsWith('m:') && FUS() ? view.slice(2) : null; if (memId) view = 'membres'; if (!['moi', 'doublons', 'manquantes', 'echanges', ...(FUS() ? ['completer', 'classement', 'membres'] : [])].includes(view)) view = 'moi';
   const realColl = myColl(); let coll = realColl;
   // Les LR (et leurs étoiles) vivent dans « Mes LR » : on les présente comme une collection pour l'affichage.
   const lrCollOf = (cards, dupes) => { const o = {}; for (const u of R.S.U) for (const c of u.c) if (cards?.[c[3]] != null) { const r = uget(o, u.s); r.owned.add(c[0]); const x = +(dupes?.[c[3]] || 0); if (x > 0) { r.dupes.add(c[0]); r.qty[c[0]] = x + 1; } } return o; };
@@ -939,14 +944,17 @@ P.collection = async (m, tab = '') => {
       <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
         <div class="row" style="margin-top:12px"><button class="btn primary" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
         ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans <a href="#reglages">Réglages</a> pour apparaître dans les échanges.</p>'}</div>
-      <div class="tabs" id="cv2" style="max-width:640px">${[['moi', 'Ma collection'], ['doublons', 'Mes doublons'], ['manquantes', 'Manquantes'], ['echanges', 'Échanges']].map(([k, l]) => `<button data-v="${k}" class="${k === view ? 'on' : ''}">${l}</button>`).join('')}</div>
+      <div class="tabs" id="cv2" style="max-width:${FUS() ? 980 : 640}px">${[['moi', 'Ma collection'], ['doublons', 'Mes doublons'], ['manquantes', 'Manquantes'], ['echanges', 'Échanges'], ...(FUS() ? [['completer', '🏆 Univers à compléter'], ['classement', 'Classement'], ['membres', 'Membres']] : [])].map(([k, l]) => `<button data-v="${k}" class="${k === view ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="cbody" style="margin-top:14px"></div>`;
     // Sélection affichée tout de suite, puis la grille est construite à l'image suivante (plus de délai ressenti au clic).
     const later = f => requestAnimationFrame(() => setTimeout(f, 0));
     m.querySelectorAll('#cr button').forEach(b => b.onclick = () => { if (b.dataset.k === rk) return; rk = b.dataset.k; m.querySelectorAll('#cr button').forEach(x => x.classList.toggle('on', x === b)); $('#cbody').style.opacity = '.35'; later(draw); });
     m.querySelectorAll('#cv2 button').forEach(b => b.onclick = () => { if (b.dataset.v === view) return; view = b.dataset.v; m.querySelectorAll('#cv2 button').forEach(x => x.classList.toggle('on', x === b)); $('#cbody').style.opacity = '.35'; later(draw); });
     $('#cimp').onclick = () => impFor(rk); const cu = $('#cupd'); if (cu) cu.onclick = () => impFor(rk); 
-    ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades })[view]($('#cbody'), X);
+    const PSX = S.kb.prestige_series || { series: [] }; const glob = ['completer', 'classement', 'membres'].includes(view);
+    m.querySelector('#cr')?.classList.toggle('cgdim', glob);
+    if (view === 'membres' && memId) { viewProfile($('#cbody'), PSX.series, memId); $('#cbody').style.opacity = ''; }
+    else ({ moi: vMine, doublons: vDupes, manquantes: vMiss, echanges: vTrades, completer: el => { viewComplete(el, PSX.series, PSX); el.style.opacity = ''; el.insertAdjacentHTML('afterbegin', '<p class="small mute" style="margin-top:0">Tous univers confondus (toutes raretés) : un univers complété (au moins 10 cartes) rapporte 3 jetons Prestige. Les plus proches de la fin en premier, avec le prix des cartes qui manquent.</p>'); }, classement: el => { viewRanking(el); el.style.opacity = ''; }, membres: el => { viewMembers(el, PSX.series); el.style.opacity = ''; } })[view]($('#cbody'), X);
     drawHist();
   };
   // Valeur estimée de la collection (prix médians réels) et % du jeu possédé, enregistrés une fois par jour pour suivre l'évolution.
@@ -1028,7 +1036,7 @@ P.collection = async (m, tab = '') => {
       for (const u of X.U) for (const c of u.c) { if (dup(th, u, c[0]) && !has(coll, u, c[0])) get.push(c); if (dup(coll, u, c[0]) && !has(th, u, c[0])) give.push(c); }
       if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
     out.sort((a, b) => b.score - a.score);
-    el.innerHTML = `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + (out.map(o => `<div class="card section"><div class="row"><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="#checklist/m:${o.p.id}" style="min-height:36px">Profil</a></div>
+    el.innerHTML = `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + (out.map(o => `<div class="card section"><div class="row"><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px">Profil</a></div>
       <div class="small mute" style="margin-top:10px">Il peut te donner (${o.get.length})</div><div class="tiles">${o.get.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div>
       <div class="small mute" style="margin-top:10px">Tu peux lui donner (${o.give.length})</div><div class="tiles">${o.give.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div></div>`).join('') || '<div class="empty">Pas encore d\'échange possible sur les ' + X.label + '. Plus il y a de membres qui importent leur collection et la partagent, plus il y en aura.</div>');
   }
@@ -1323,7 +1331,7 @@ P.basses = async (m, r = 'C') => {
     for (let i = 0; i < rows.length; i += 100) { const { error } = await sb.from('checklist').upsert(rows.slice(i, i + 100)); if (error) { toast('Enregistrement refusé : ' + error.message); ok.disabled = false; ok.textContent = 'Enregistrer mes ' + X.label; return; } }
     S.mylr.teams = { ...(S.mylr.teams || {}), [X.k]: true }; await saveMyLR();
     toast(`${total - missing.size} ${X.label} enregistrées`); const nx = order.find(([k]) => !S.mylr.teams[LOW[k].k]);
-    location.hash = nx ? '#basses/' + nx[0] : onbMode() ? (S.mylr.teams.ssr ? '#bienvenue' : '#collection/L/moi/import') : '#checklist';
+    location.hash = nx ? '#basses/' + nx[0] : onbMode() ? (S.mylr.teams.ssr ? '#bienvenue' : '#collection/L/moi/import') : (FUS() ? '#collection/L/completer' : '#checklist');
   };
   upd(); search();
 };
@@ -1371,7 +1379,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=141'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=142'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -1712,7 +1720,7 @@ P.discord = async m => {
   <div class="grid">
    <div class="card"><h2>Boîte à questions</h2><form id="qf"><textarea id="qb" placeholder="Ta question pour la Brigade"></textarea><button class="btn primary" style="margin-top:8px">Envoyer</button></form><div id="ql" style="margin-top:14px"></div></div>
    <div class="card"><h2>Mur des records</h2><form id="rf" class="row"><input id="rc" type="number" placeholder="Record château" style="flex:1;min-width:120px"><input id="re" type="number" placeholder="Elo ranked" style="flex:1;min-width:120px"><button class="btn">Mettre à jour</button></form><div id="rl" style="margin-top:14px"></div></div>
-   <div class="card" style="grid-column:1/-1"><h2>Mon profil d'échange</h2><p class="small mute">Rempli automatiquement depuis ta <a href="#checklist">Collection Prestige</a> : tes doublons et les cartes qui te manquent dans les univers presque complets.</p><div id="mp"></div>
+   <div class="card" style="grid-column:1/-1"><h2>Mon profil d'échange</h2><p class="small mute">Rempli automatiquement depuis ta <a href="${FUS() ? '#collection/L/completer' : '#checklist'}">${FUS() ? 'collection' : 'Collection Prestige'}</a> : tes doublons et les cartes qui te manquent dans les univers presque complets.</p><div id="mp"></div>
      <p class="small mute" style="margin-top:12px">${S.profile.share ? '🕷 Ton profil est partagé avec la guilde.' : 'Ton profil n\'est pas partagé.'} Ça se règle dans <a href="#reglages">Réglages</a>.</p></div>
   </div>`;
   const { data: profs } = await sb.from('profiles').select('id,discord').eq('status', 'approved'); const who = id => (profs || []).find(p => p.id === id)?.discord || 'Membre';
