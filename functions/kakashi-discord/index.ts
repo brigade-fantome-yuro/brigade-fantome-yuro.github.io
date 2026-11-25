@@ -79,6 +79,7 @@ async function toDataUrl(url: string) {
 
 // deno-lint-ignore no-explicit-any
 async function work(i: any) {
+  const emb = (text: string, q?: string) => fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${i.token}/messages/@original`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: '', allowed_mentions: { parse: [] }, embeds: [{ color: 0xe3123a, author: { name: "🕷️ KAKASHI · L'IA DE LA BRIGADE" }, ...(q ? { title: ('❝ ' + q).slice(0, 250) } : {}), description: text.slice(0, 4000), footer: { text: 'Brigade Fantôme · réponse visible par toi seul · brigade-fantome-yuro.github.io' } }] }) });
   const edit = (content: string) => fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${i.token}/messages/@original`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: content.slice(0, 1990), allowed_mentions: { parse: [] } }) });
   try {
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
@@ -113,7 +114,7 @@ async function work(i: any) {
     const answer = out.result?.response ?? out.result?.choices?.[0]?.message?.content ?? '';
     if (!r.ok || !out.success || !answer) { await edit('Kakashi est indisponible pour le moment (quota du jour ou service). Réessaie plus tard, ou pose ta question sur le site.'); return; }
     await admin.from('discord_usage').upsert({ discord_id: did, day, n: (u?.n || 0) + 1 });
-    await edit(`> ${q || 'Capture envoyée'}\n${answer}`);
+    await emb(answer, q || 'Capture envoyée');
   } catch (e) { await edit('Erreur : ' + (e as Error).message); }
 }
 
@@ -133,7 +134,7 @@ function tournoiMsg(ins: any, n: number) {
   const fin = ins.end ? `\n\n**Fin des inscriptions :** ${ins.end}` : '';
   return {
     embeds: [{
-      color: 0xc0392b,
+      color: 0xe3123a,
       title: `🕸️ ${ins.title || 'TOURNOI DE LA BRIGADE'}`,
       description: `**Récompense :** ${ins.reward || 'la cagnotte des inscriptions, redistribuée aux meilleurs (détail sur le site, onglet Tournoi)'}\n\n**Pour entrer (les 2 sont obligatoires) :**\n1️⃣ Clique sur **🎉 Entrer dans le tournoi**\n2️⃣ Achète sur le marché YURO **une carte à ${(ins.price || 5000).toLocaleString('fr-FR')} KI** mise en vente par **${ins.org || 'l\'organisateur'}**\n\nL'achat est vérifié automatiquement (environ 1 min). Si tu cliques avant d'avoir acheté, reclique après ton achat.${fin}\n\n**Inscrits validés : ${n}**`,
       footer: { text: 'Brigade Fantôme · tableau, règles et paris sur le site' },
