@@ -28,10 +28,12 @@
   const actOf = a => a === 'attack' ? 'attack' : /purple/.test(a) ? 'purple' : a === 'rage' ? 'rage' : /ultimate|fullpower/.test(a) ? 'ultimate' : 'skill';
   const fiches = () => { try { return JSON.parse(localStorage.__rkFiches || '{}'); } catch (e) { return {}; } };
   // Porte : en match, seules les actions du cerveau partent (et celles du filet de sécurité).
+  // La porte lit toujours window.__ob (le cerveau en cours), pour qu'un rechargement du cerveau ne laisse jamais une vieille porte fermée.
   if (!window.rankedSend.__obGate) {
     const prev = window.rankedSend;
     const g = async function (a) {
-      if (OB.on && a !== 'join' && a !== 'cancel' && a !== 'abandon' && !OB.sending && !OB.open) { OB.blocked = (OB.blocked || 0) + 1; return null; }
+      const O = window.__ob;
+      if (O && O.alive && O.on && a !== 'join' && a !== 'cancel' && a !== 'abandon' && !O.sending && !O.open) { O.blocked = (O.blocked || 0) + 1; return null; }
       return prev.apply(this, arguments);
     };
     g.__obGate = true; window.rankedSend = g;
