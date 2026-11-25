@@ -1,7 +1,7 @@
 // Analyse des coups du simulateur du château.
 // Pour chaque coup possible (carte, action, cible), on rejoue la suite de la chambre avec les mêmes tirages au sort
 // pour tous les coups (comparaison juste), puis on rejoue beaucoup plus de fois les meilleurs pour départager.
-importScripts('castle-engine.js?v=130');
+importScripts('castle-engine.js?v=131');
 const E = self.BFCastle.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };

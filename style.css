@@ -432,3 +432,7 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 .nasteps{display:grid;gap:8px;margin-top:12px}.nastep{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);background:#0b0b0b;border-radius:3px}
 .nastep .nan{flex:none;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--blood);color:#fff;font-size:14px}
 @media (max-width:600px){.natable th,.natable td{padding:8px 6px;font-size:12px}.natable td:first-child{min-width:150px}}
+.nateams{display:grid;gap:10px;margin-top:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.nateam{border:1px solid var(--line);background:#0b0b0b;padding:12px;border-radius:3px}
+.nag{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}.nag div{background:#141414;padding:6px;text-align:center;border-radius:2px}
+.nag small{display:block;font-size:10px;color:var(--mute);white-space:nowrap}.nag b{font-size:20px}.nag .r b{color:var(--blood2)}
