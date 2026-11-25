@@ -61,18 +61,43 @@ function starsOf(ctx, b) {
 
 // ×N (exemplaires) : on ne garde que les chiffres à droite du « × », agrandis et contrastés pour l'OCR.
 function qtyCrop(src, b, alt = 0) {
-  const thr = alt ? 135 : 100; const x0 = b.x + b.w * (alt ? .82 : .835), y0 = b.y + b.h * (alt ? .865 : .87), w = b.w * (alt ? .145 : .125), h = b.h * (alt ? .1 : .09), k = Math.max(4, Math.round(60 / h));
-  const c = document.createElement('canvas'); c.width = Math.round(w * k) + 40; c.height = Math.round(h * k) + 40;
-  const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, c.width, c.height); g.imageSmoothingQuality = 'high'; g.drawImage(src, x0, y0, w, h, 20, 20, c.width - 40, c.height - 40);
-  const id = g.getImageData(0, 0, c.width, c.height); const d = id.data;
-  for (let i = 0; i < d.length; i += 4) { const v = (d[i] + d[i + 1] + d[i + 2]) / 3; const o = v > thr ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = o; }
-  g.putImageData(id, 0, 0); return c;
+  // zone du badge « ×N » en bas à droite ; on retire le « × » (1er bloc) et le cadre doré, sinon l'OCR lit « ×2 » comme 52 ou 72
+  const thr = alt ? 135 : 100; const x0 = b.x + b.w * .80, y0 = b.y + b.h * .875, w = b.w * .17, h = b.h * .085, k = Math.max(4, Math.round(60 / h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(src, x0, y0, w, h, 0, 0, c.width, c.height);
+  const d = g.getImageData(0, 0, c.width, c.height).data, CW = c.width, CH = c.height; const on = new Uint8Array(CW * CH);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) on[p] = (d[i] + d[i + 1] + d[i + 2]) / 3 > thr ? 1 : 0;
+  const col = new Uint8Array(CW); for (let x = 0; x < CW; x++) { let n = 0; for (let y = Math.round(CH * .15); y < CH * .85; y++) n += on[y * CW + x]; col[x] = n > 0 ? 1 : 0; }
+  let seg = []; let st = -1; for (let x = 0; x <= CW; x++) { if (x < CW && col[x]) { if (st < 0) st = x; } else if (st >= 0) { if (x - st > CW * .02) seg.push([st, x]); st = -1; } }
+  seg = seg.filter(s => s[0] > 2 && s[1] < CW - 2); const keep = seg.length >= 2 ? seg.slice(1) : seg;
+  const cx0 = keep.length ? Math.max(0, keep[0][0] - 6) : 0, cx1 = keep.length ? Math.min(CW, keep[keep.length - 1][1] + 6) : CW;
+  const o = document.createElement('canvas'); o.width = cx1 - cx0 + 40; o.height = CH + 40; const og = o.getContext('2d'); const oi = og.createImageData(o.width, o.height); const od = oi.data;
+  for (let y = 0; y < o.height; y++) for (let x = 0; x < o.width; x++) { const sx = x - 20 + cx0, sy = y - 20; const v = keep.length && sx >= cx0 && sx < cx1 && sy >= 0 && sy < CH && on[sy * CW + sx] ? 0 : 255; const q = (y * o.width + x) * 4; od[q] = od[q + 1] = od[q + 2] = v; od[q + 3] = 255; }
+  og.putImageData(oi, 0, 0); return o;
+}
+
+
+// Numéro de collection affiché en haut à droite de la carte (« #1245 ») : on isole les chiffres (le « # » est le 1er bloc, retiré).
+function serialCrop(src, b) {
+  const x0 = b.x + b.w * .72, y0 = b.y + b.h * .02, w = b.w * .25, h = b.h * .075, k = Math.max(4, Math.round(60 / h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const g = c.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(src, x0, y0, w, h, 0, 0, c.width, c.height);
+  const id = g.getImageData(0, 0, c.width, c.height); const d = id.data, CW = c.width, CH = c.height; const on = new Uint8Array(CW * CH);
+  for (let i = 0, p = 0; i < d.length; i += 4, p++) on[p] = (d[i] + d[i + 1] + d[i + 2]) / 3 > 150 ? 1 : 0;
+  // blocs de colonnes contenant du texte (on ignore les bords haut/bas où passe le cadre)
+  const col = new Uint8Array(CW); for (let x = 0; x < CW; x++) { let n = 0; for (let y = Math.round(CH * .12); y < CH * .88; y++) n += on[y * CW + x]; col[x] = n > 0 ? 1 : 0; }
+  const seg = []; let st = -1; for (let x = 0; x <= CW; x++) { if (x < CW && col[x]) { if (st < 0) st = x; } else if (st >= 0) { if (x - st > CW * .015) seg.push([st, x]); st = -1; } }
+  // le « # » : premier bloc, presque aussi large qu'un chiffre ; on garde à partir du 2e bloc si on a au moins 3 blocs
+  const keep = seg.length >= 3 ? seg.slice(1) : seg; const cx0 = keep.length ? Math.max(0, keep[0][0] - 6) : 0, cx1 = keep.length ? Math.min(CW, keep[keep.length - 1][1] + 6) : CW;
+  const o = document.createElement('canvas'); o.width = cx1 - cx0 + 40; o.height = CH + 40; const og = o.getContext('2d'); const oi = og.createImageData(o.width, o.height); const od = oi.data;
+  for (let y = 0; y < o.height; y++) for (let x = 0; x < o.width; x++) { const sx = x - 20 + cx0, sy = y - 20; const v = sx >= cx0 && sx < cx1 && sy >= 0 && sy < CH && on[sy * CW + sx] ? 0 : 255; const q = (y * o.width + x) * 4; od[q] = od[q + 1] = od[q + 2] = v; od[q + 3] = 255; }
+  og.putImageData(oi, 0, 0); return o;
 }
 
 const hexToArr = h => { const a = new Uint8Array(h.length); for (let i = 0; i < h.length; i++) a[i] = parseInt(h[i], 16); return a; };
-let REF = null, SER = null;
+let REF = null, SER = null, SERI = null;
 // Numéro de collection du jeu (#001…) : les cartes sont rangées dans cet ordre sur l'écran Collection.
-export function setSerials(order) { SER = new Map(); (order || []).forEach((id, i) => SER.set(Number(id), i + 1)); }
+export function setSerials(order) { SER = new Map(); SERI = new Map(); (order || []).forEach((id, i) => { SER.set(Number(id), i + 1); SERI.set(i + 1, Number(id)); }); if (!SER.size) SERI = null; }
 function zn(a) { const n = a.length; let m = 0; for (const v of a) m += v; m /= n; let s = 0; for (const v of a) s += (v - m) * (v - m); s = Math.sqrt(s / n) || 1; return Array.from(a, v => (v - m) / s); }
 const norm = t => String(t || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 export function setFeats(rows) { REF = rows.map(r => ({ id: r[0], r: r[1], n: r[2], s: r[3], img: r[4], z: zn(hexToArr(r[5])), nn: norm(r[2]), ws: String(r[2] || '').split(/\s+/).map(norm).filter(w => w.length >= 3) })); }
@@ -119,7 +144,8 @@ export async function analyze(files, rar, ocrWorker, onp, nameWorker) {
       onp?.(fi, files.length, bi, boxes.length); const b = boxes[bi]; nCards++;
       let q = ''; if (nameWorker) { try { const r = await nameWorker.recognize(nameCrop(cv, b)); q = norm(r.data.text); } catch (e) { /* on garde l'illustration */ } }
       const z = zn(featOf(cv, b)); const d = ordC.map(c => { let s = 0; for (let i = 0; i < 240; i++) { const t = z[i] - c.z[i]; s += t * t; } return s; });
-      info.push({ b, q, d });
+      let ser = 0; if (ocrWorker && SERI) { try { const r = await ocrWorker.recognize(serialCrop(cv, b)); const mm = String(r.data.text).replace(/\s/g, '').match(/(\d{1,4})/); if (mm) ser = +mm[1]; } catch (e) { /* pas de numéro lisible */ } }
+      info.push({ b, q, d, ser });
     }
     // Alignement : sur une capture, les cartes se suivent dans l'ordre des numéros. On choisit la suite croissante qui colle le mieux
     // aux noms lus et aux illustrations : une carte douteuse est tranchée par ses voisines.
@@ -133,17 +159,28 @@ export async function analyze(files, rar, ocrWorker, onp, nameWorker) {
       let j = 0; for (let k = 1; k < m; k++) if (prev[k] > prev[j]) j = k; const path = [j]; for (let i = n - 2; i >= 0; i--) { j = back[i][j]; path.push(j); } path.reverse();
       // contrôle : la suite doit s'accorder avec les noms bien lus (sinon le tri du jeu n'est pas « par numéro » : on revient au cas par cas)
       let agree = 0, sure = 0; info.forEach((it, i) => { if (it.q.length >= 4) { const bst = ordC.reduce((a, c, k) => { const v = nameSim(it.q, c); return v > a.v ? { v, k } : a; }, { v: 0, k: -1 }); if (bst.v >= .8) { sure++; if (ordC[bst.k].nn === ordC[path[i]].nn) agree++; } } });
+      // les numéros lus (#1245…) doivent aussi aller croissant : sinon la collection est triée autrement (ex. par nom)
+      const sv = info.map(it => it.ser).filter(v => v > 0); let inc = 0, dec = 0; for (let i = 1; i < sv.length; i++) { if (sv[i] > sv[i - 1]) inc++; else dec++; }
+      if (dec > Math.max(1, inc * .1)) sure = Math.max(sure, 1), agree = 0;
       if (!sure || agree / sure >= .8) pick = path.map((k, i) => ({ c: ordC[k], d: info[i].d[k], via: 'ordre' }));
     }
     for (let bi = 0; bi < info.length; bi++) {
       const it = info[bi], b = it.b;
-      const best = pick ? pick[bi] : pickCard(ordC.map((c, j) => ({ c, d: it.d[j] })), it.q); dbg.push([Math.round(b.x), Math.round(b.y), it.q, best?.c.n, best?.d, best?.via]);
+      // 1) numéro de collection lu sur la carte, confirmé par l'illustration (une erreur de lecture d'un chiffre donnerait une autre carte)
+      let bySer = null; if (it.ser && SERI) { const mn = Math.min(...it.d); const kOf = n => { const id = SERI.get(n); return id == null ? -1 : ordC.findIndex(c => Number(c.id) === id); };
+        const k = kOf(it.ser);
+        if (k >= 0) { const rank = it.d.filter(v => v < it.d[k]).length; if (it.d[k] <= 260 || rank < 25 || it.d[k] <= mn * 1.5 + 30 || (it.q.length >= 3 && nameSim(it.q, ordC[k]) >= .6)) bySer = { c: ordC[k], d: it.d[k], via: 'numéro' }; }
+        // un chiffre mal lu (1158 lu 1156, 779 lu 7179) : on essaie les numéros à un chiffre près, et on garde celui dont l'illustration colle vraiment
+        if (!bySer) { const t = String(it.ser), vs = new Set(); for (let i = 0; i <= t.length; i++) for (let dg = 0; dg <= 9; dg++) { if (i < t.length) vs.add(t.slice(0, i) + dg + t.slice(i + 1)); vs.add(t.slice(0, i) + dg + t.slice(i)); } for (let i = 0; i < t.length; i++) vs.add(t.slice(0, i) + t.slice(i + 1));
+          let bk = -1; for (const v of vs) { if (!/^[1-9]\d{0,3}$/.test(v)) continue; const kk = kOf(+v); if (kk >= 0 && (bk < 0 || it.d[kk] < it.d[bk])) bk = kk; }
+          if (bk >= 0 && (it.d[bk] <= 200 || it.d[bk] <= mn * 1.2 + 15)) bySer = { c: ordC[bk], d: it.d[bk], via: 'numéro~' }; } }
+      const best = bySer || (pick ? pick[bi] : pickCard(ordC.map((c, j) => ({ c, d: it.d[j] })), it.q)); dbg.push([Math.round(b.x), Math.round(b.y), it.q, it.ser, best?.c.n, best?.d, best?.via]);
       if (!best) { unknown++; continue; }
       let qty = 1;
       let unsure = false;
       if (ocrWorker) { try { const rd = async alt => { const r = await ocrWorker.recognize(qtyCrop(cv, b, alt)); const mm = String(r.data.text).match(/(\d{1,3})/); return mm ? Math.max(1, +mm[1]) : null; };
         // deux lectures avec des réglages différents : si elles ne disent pas la même chose, la carte est marquée « à vérifier »
-        const a1 = await rd(0), a2 = await rd(1); qty = a1 || a2 || 1; unsure = !(a1 && a2 && a1 === a2); } catch (e) { unsure = true; } }
+        const a1 = await rd(0), a2 = await rd(1); qty = (a1 && a2 ? Math.min(a1, a2) : a1 || a2) || 1; unsure = !(a1 && a2 && a1 === a2); } catch (e) { unsure = true; } }
       const prev = found.get(best.c.id);
       const itm = { id: best.c.id, name: best.c.n, series: best.c.s, r: best.c.r, img: best.c.img, stars: starsOf(ctx, b), qty, unsure, conf: Math.max(0, Math.min(1, 1 - best.d / 260)) };
       const reads = [...(prev?.reads || []), itm.qty];
