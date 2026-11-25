@@ -43,7 +43,7 @@ const STYLES = {
   // Joueur imprévisible.
   random(S) { const o = D.options(S); if (!o.length) return []; const m = o[Math.floor(Math.random() * o.length)]; return [m].concat(STYLES.ai(S)); },
 };
-const STYLE_NAMES = Object.keys(STYLES);
+let STYLE_NAMES = Object.keys(STYLES);
 // Valeur d'une position pour le camp « side » (0 = nous) : PV restants des deux côtés, cartes tuées, cartes figées ou privées de technique.
 function evalFor(S, side) {
   if (S.winner === side) return 9; if (S.winner != null && S.winner !== 'draw') return -9;
@@ -63,11 +63,15 @@ function ourMoves(S) {
 function pickStyle(w) { let s = 0; for (const k of STYLE_NAMES) s += w[k] || 0; let r = Math.random() * s; for (const k of STYLE_NAMES) { r -= w[k] || 0; if (r <= 0) return k; } return 'ai'; }
 // Suite du match : nous (camp 0) avec notre jeu, l'adversaire avec un style tiré selon ses poids (un style par simulation, comme un vrai joueur qui garde sa façon de jouer).
 function rollout(S, w) {
-  const style = pickStyle(w); let om = 0;
+  // Deux sortes de simulations : 60 % « joueurs forts des deux côtés » (chaque camp essaie tous ses coups et garde le meilleur, 10 premiers coups),
+  // 40 % adversaire au style appris (fiche + coups vus) contre notre jeu simple. Un adversaire faible ne doit jamais donner un faux 100 %.
+  const strongBoth = Math.random() < .6, style = pickStyle(w); let ply = 0;
   for (let g = 0; g < 300 && S.winner == null; g++) {
     let nx;
-    if (S.s === 0) nx = pick(S, ourMoves(S));
-    else { const st = style === 'smart' || (om < 4 && style !== 'random') ? (om < 4 ? 'smart' : style) : style; om++; nx = pick(S, STYLES[st](S)) || pick(S, STYLES.ai(S)); }
+    if (strongBoth && ply < 10) nx = pick(S, STYLES.smart(S));
+    else if (S.s === 0) nx = pick(S, ourMoves(S));
+    else nx = pick(S, STYLES[style](S)) || pick(S, STYLES.ai(S));
+    ply++;
     if (!nx) break; S = nx;
   }
   return S;
