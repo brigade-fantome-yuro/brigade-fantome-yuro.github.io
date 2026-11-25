@@ -26,6 +26,11 @@
   const clone = x => JSON.parse(JSON.stringify(x));
   const mkS = (teams, me, toMove) => ({ b: { room: 1, players: clone(teams[me]), enemies: clone(teams[1 - me]), turn: 1, alt: 0, result: null, log: [] }, s: toMove === me ? 0 : 1, last: 1, winner: null });
   const actOf = a => a === 'attack' ? 'attack' : /purple/.test(a) ? 'purple' : a === 'rage' ? 'rage' : /ultimate|fullpower/.test(a) ? 'ultimate' : 'skill';
+  // Fiches du cerveau dans IndexedDB (localStorage est plein : la fiche de fin de match y échouait).
+  const idb = () => new Promise((ok, ko) => { const r = indexedDB.open('obBrain', 1); r.onupgradeneeded = () => r.result.createObjectStore('fiches'); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+  const fget = async k => { const db = await idb(); return new Promise(ok => { const q = db.transaction('fiches').objectStore('fiches').get(k); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); };
+  const fput = async (k, v) => { const db = await idb(); return new Promise(ok => { const t = db.transaction('fiches', 'readwrite'); t.objectStore('fiches').put(v, k); t.oncomplete = () => ok(true); t.onerror = () => ok(false); }); };
+  OB.fget = fget; OB.fput = fput;
   const fiches = () => { try { return JSON.parse(localStorage.__rkFiches || '{}'); } catch (e) { return {}; } };
   // Porte : en match, seules les actions du cerveau partent (et celles du filet de sécurité).
   // La porte lit toujours window.__ob (le cerveau en cours), pour qu'un rechargement du cerveau ne laisse jamais une vieille porte fermée.
@@ -44,7 +49,7 @@
       const d = typeof rankedUI !== 'undefined' && rankedUI.data, m = d && d.match;
       if (!m || !m.battle) return;
       const b = m.battle, me = m.side, opp = (m.names || [])[1 - me];
-      if (m.id !== OB.matchId) { OB.matchId = m.id; OB.obs = []; OB.seen = new Set(); OB.open = false; const F = fiches(); const key = teamKey(b.teams[1 - me]); OB.prior = F[opp]?.scenarios?.[key]?.brain?.w || null; if (!OB.prior && b.teams[1 - me].some(u => /chrollo|all for one/i.test(u.name))) OB.prior = { ai: 1, asapLow: 1, thief: 4, healer: 1, strong: 1, smart: 2, random: .5 }; OB.oppKey = key; OB.opp = opp; OB.turnSince = 0; if (OB.armNext && m.status === 'active') { OB.on = true; OB.armNext = false; L('cerveau activé'); } L('match ' + m.id.slice(0, 8) + ' vs ' + opp + ' [' + key + ']' + (OB.prior ? ' (fiche)' : '')); }
+      if (m.id !== OB.matchId) { OB.matchId = m.id; OB.obs = []; OB.seen = new Set(); OB.open = false; const F = fiches(); const key = teamKey(b.teams[1 - me]); OB.prior = F[opp]?.scenarios?.[key]?.brain?.w || null; fget(opp + '|' + key).then(f => { if (f && f.w && OB.matchId === m.id) { OB.prior = f.w; L('fiche cerveau chargée (' + f.n + ' match' + (f.n > 1 ? 's' : '') + ')'); } }); if (!OB.prior && b.teams[1 - me].some(u => /chrollo|all for one/i.test(u.name))) OB.prior = { ai: 1, asapLow: 1, thief: 4, healer: 1, strong: 1, smart: 2, random: .5 }; OB.oppKey = key; OB.opp = opp; OB.turnSince = 0; if (OB.armNext && m.status === 'active') { OB.on = true; OB.armNext = false; L('cerveau activé'); } L('match ' + m.id.slice(0, 8) + ' vs ' + opp + ' [' + key + ']' + (OB.prior ? ' (fiche)' : '')); }
       if (!OB.on) return;
       // Coups de l'adversaire observés (état juste avant + coup joué)
       const last = b.last, lk = m.id + ':' + m.revision;
@@ -77,10 +82,8 @@
       const me = m.side, opp = (m.names || [])[1 - me], key = teamKey(m.battle.teams[1 - me]);
       const win = m.battle.winner === me;
       const r = OB.obs.length ? await ask({ kind: 'fit', obs: OB.obs, prior: OB.prior }, 8000) : null;
-      const F = fiches(); F[opp] = F[opp] || { player: opp, notes: [] }; F[opp].scenarios = F[opp].scenarios || {};
-      const sc = F[opp].scenarios[key] = F[opp].scenarios[key] || { team: key };
-      sc.brain = { w: r && r.r ? r.r : (OB.prior || null), obs: OB.obs.length, last: win ? 'V' : 'D', t: Date.now(), id: m.id, n: ((sc.brain && sc.brain.n) || 0) + 1 };
-      localStorage.__rkFiches = JSON.stringify(F);
+      const k = opp + '|' + key, prevF = await fget(k);
+      await fput(k, { player: opp, team: key, w: r && r.r ? r.r : (OB.prior || null), obs: OB.obs.length, last: win ? 'V' : 'D', t: Date.now(), id: m.id, n: ((prevF && prevF.n) || 0) + 1, hist: [...((prevF && prevF.hist) || []), { id: m.id, win, t: Date.now() }].slice(-30) });
       L('fiche ' + opp + ' [' + key + '] mise à jour (' + (win ? 'victoire' : 'défaite') + ', ' + OB.obs.length + ' coups adverses)');
     } catch (e) { L('fiche : erreur ' + (e && e.message)); }
   }
