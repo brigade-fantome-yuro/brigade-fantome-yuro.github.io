@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=144';
+import * as CFG from './config.js?v=145';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=144';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=144';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=145';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=145';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=144';
-import * as SCAN from './scan.js?v=144';
+import { duelRate } from './ranked.js?v=145';
+import * as SCAN from './scan.js?v=145';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -49,7 +49,7 @@ const ROUTES = [
 ];
 
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '144';
+const APP_V = '145';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -540,10 +540,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=144'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=145'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=144'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=145'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -569,7 +569,7 @@ P.chateausim = m => {
   m.innerHTML = `<h1>Jouer une chambre du château</h1><p class="mute">Le vrai combat du jeu : même écran, mêmes techniques, mêmes gardiens et mêmes animations. Choisis ton équipe (n'importe quelles cartes, n'importe quelles étoiles) et la chambre, puis joue. Chaque coup est analysé : bon coup, imprécision ou erreur, avec la raison. Les flèches ‹ › te ramènent à n'importe quel coup pour en essayer un autre.</p>
   <datalist id="csCards">${ALL.map(c => `<option value="${esc(lab(c))}">`).join('')}</datalist>
   <div id="csGoal" class="card section"><h2>🎯 Je veux atteindre la chambre…</h2><p class="small mute" style="margin-top:4px">Le site teste toutes les équipes possibles (une carte par rôle) avec le moteur du jeu et les 6 ordres de jeu, puis te montre celles qui passent cette chambre. Choisis-en une pour regarder un combat gagnant.</p>
-    <div class="pl-row"><div class="pl-slot"><label for="cgRoom">Chambre visée</label><input id="cgRoom" type="number" min="1" max="5000" value="600"></div><div class="pl-slot"><label for="cgMode">Avec quelles cartes</label><select id="cgMode"><option value="mine">Mes LR, à mes étoiles</option><option value="all">Toutes les LR, à 5★</option></select></div></div>
+    <div class="pl-row"><div class="pl-slot"><label for="cgRoom">Chambre visée</label><input id="cgRoom" type="number" min="1" max="5000" value="600"></div><div class="pl-slot"><label for="cgMode">Avec quelles cartes</label><select id="cgMode"><option value="mine">Mes LR</option><option value="all">Toutes les LR (5★)</option></select></div></div>
     <div class="row section"><button class="btn primary" id="cgGo">Trouver les équipes</button><span id="cgErr" class="small mute"></span></div><div id="cgOut"></div></div>
   <div id="csSetup" class="card section"><h2>Ton équipe</h2><div class="pl-picks3">${[953, 3248, 499].map((id, i) => slot(i, id)).join('')}</div>
   <div class="pl-row"><div class="pl-slot"><label for="csRoom">Chambre</label><input id="csRoom" type="number" min="1" max="5000" value="500"></div><div class="pl-slot"><label for="csN">Précision de l'analyse</label><select id="csN"><option value="12">Rapide</option><option value="24" selected>Normale</option><option value="48">Fine (plus lent)</option></select></div></div>
@@ -676,7 +676,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=144'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=145'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1275,7 +1275,7 @@ P.bienvenue = async m => {
   const all = steps.every(x => T[x[0]]);
   if (!T.video && !(prev && window.__bfVidSeen)) {
     m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa première connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue</span><h1 style="margin-top:12px">Bienvenue dans la Brigade Fantôme</h1><p class="mute">Regarde cette courte vidéo (environ 1 minute) : elle te montre tout ce que tu vas trouver sur le site et comment remplir ta collection. Elle ne s'affiche qu'une fois. Ensuite, compte environ 5 minutes pour la remplir : c'est à faire une seule fois, au démarrage.</p></section>
-      <div class="card section"><video id="tv" src="tuto.mp4?v=${APP_V}" controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000;display:block"></video>
+      <div class="card section"><video id="tv" src="tuto.mp4?v=${APP_V}" poster="tuto-poster.jpg?v=${APP_V}" controls playsinline preload="metadata" style="width:100%;border-radius:12px;background:#000;display:block"></video>
         <div class="row" style="margin-top:10px;align-items:center"><span class="small mute">Vitesse</span><button class="btn primary" data-sp="1" style="min-height:36px">×1</button><button class="btn ghost" data-sp="1.5" style="min-height:36px">×1,5</button><span class="sp"></span><button class="btn primary" id="tgo" style="min-height:42px" disabled>▶ Regarde la vidéo jusqu'au bout</button></div><p class="small mute" id="tgh" style="margin:8px 0 0">La vidéo est obligatoire : le bouton se débloque à la fin.</p></div>`;
     const v = $('#tv'); let seen = 0; const tg = $('#tgo'); const unlock = () => { tg.disabled = false; tg.textContent = 'Remplir ma collection →'; $('#tgh').textContent = 'Merci ! Étape suivante : importer ta collection.'; };
     v.addEventListener('timeupdate', () => { if (v.currentTime <= seen + 1 + 1.2 * v.playbackRate) seen = Math.max(seen, v.currentTime); if (tg.disabled && v.duration) { const left = Math.max(0, Math.ceil(v.duration - seen)); tg.textContent = left > 1 ? `▶ Encore ${left} s de vidéo` : '▶ Presque fini…'; if (seen >= v.duration - 1) unlock(); } });
@@ -1379,7 +1379,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=144'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=145'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };

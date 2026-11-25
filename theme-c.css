@@ -96,3 +96,8 @@ body.th-c h1,body.th-c h2,body.th-c h3,body.th-c .brand b,body.th-c .card .v,bod
 body.th-c h1{font-size:clamp(26px,4.2vw,38px)}body.th-c h2{font-size:clamp(20px,2.8vw,26px)}body.th-c h3{font-size:17px}
 body.th-c .brand b{font-size:19px;letter-spacing:.01em!important}
 body.th-c .cd{font-size:26px}
+/* QA 25/11 : la toile et la lune passent derrière le texte (plus de trait sur les phrases) */
+body.th-c .hero::after{z-index:0}
+body.th-c .hero .moon{z-index:0}
+body.th-c .hero>*:not(.moon){z-index:1}
+@media (max-width:600px){body.th-c .hero::after{opacity:.28}body.th-c .hero .moon{opacity:.45}}
