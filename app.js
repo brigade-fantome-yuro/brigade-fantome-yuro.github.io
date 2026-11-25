@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=170';
+import * as CFG from './config.js?v=171';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=170';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=170';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=171';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=171';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=170';
-import * as SCAN from './scan.js?v=170';
+import { duelRate } from './ranked.js?v=171';
+import * as SCAN from './scan.js?v=171';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '170';
+const APP_V = '171';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -545,10 +545,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=170'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=171'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=170'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=171'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -681,7 +681,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=170'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=171'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1296,7 +1296,7 @@ P.bienvenue = async m => {
     return;
   }
   m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection</h1><p class="mute">Avant d'entrer, envoie les captures de ta collection du jeu. Le site lit tout seul tes cartes, leurs étoiles et tes doublons : meilleures équipes, chambre max, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil. D'abord Communes, Rares et SR en donnant juste ton nombre de cartes, puis SSR, UR et LR par captures.</p></section>
-    ${CLIC_PHONE() ? `<div class="card section" style="border-color:#e3123a"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">⚡ Recommandé : import en 1 clic</b><a class="btn primary" href="#clic" style="min-height:40px;flex-shrink:0;white-space:nowrap">⚡ Importer</a></div><p class="small mute" style="margin:6px 0 0">${isIOSdev() ? 'Sur iPhone : un favori « Import Brigade » (à créer une fois) envoie toute ta collection en un toucher, sans captures. Tuto en images inclus.' : 'Sur Android : un favori « Import Brigade » (à créer une fois) envoie toute ta collection en un toucher, sans captures. Tuto en images inclus.'}</p></div>` : ''}${CLIC() && isDesktop() ? `<div class="card section" style="border-color:#e3123a"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">⚡ Recommandé sur ordinateur : import en 1 clic</b><a class="btn primary" href="#clic" style="min-height:40px;flex-shrink:0;white-space:nowrap">⚡ Importer en 1 clic</a></div><p class="small mute" style="margin:6px 0 0">Un simple copier-coller de ta sauvegarde du jeu remplit les 6 étapes d'un coup : toutes tes cartes, tes doublons et les étoiles de tes LR, sans captures.</p></div>` : ''}
+    ${CLIC_PHONE() ? `<div class="card section" style="border-color:#e3123a"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">⚡ Recommandé : import en 1 clic</b><a class="btn primary" href="#clic" style="min-height:40px;flex-shrink:0;white-space:nowrap">⚡ Importer</a></div><p class="small mute" style="margin:6px 0 0">${isIOSdev() ? 'Sur iPhone : un signet « Import Brigade » (à créer une fois) envoie toute ta collection en un toucher, sans captures. Tuto en images inclus.' : 'Sur Android : un favori « Import Brigade » (à créer une fois) envoie toute ta collection en un toucher, sans captures. Tuto en images inclus.'}</p></div>` : ''}${CLIC() && isDesktop() ? `<div class="card section" style="border-color:#e3123a"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">⚡ Recommandé sur ordinateur : import en 1 clic</b><a class="btn primary" href="#clic" style="min-height:40px;flex-shrink:0;white-space:nowrap">⚡ Importer en 1 clic</a></div><p class="small mute" style="margin:6px 0 0">Un simple copier-coller de ta sauvegarde du jeu remplit les 6 étapes d'un coup : toutes tes cartes, tes doublons et les étoiles de tes LR, sans captures.</p></div>` : ''}
     ${steps.map(([k, t, how, href], i) =>  `<div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">${T[k] ? '✅' : (i + 1) + '.'} ${t}</b>${T[k] ? '<span class="small up">Importé</span>' : ''}<a class="btn ${T[k] ? 'ghost' : 'primary'}" href="${href}" style="min-height:40px;flex-shrink:0;white-space:nowrap">${T[k] ? 'Refaire' : ['c', 'r', 'sr'].includes(k) ? '✍️ Remplir' : '📷 Importer'}</a></div><p class="small mute" style="margin:6px 0 0">Dans le jeu : ${how}${['c', 'r', 'sr'].includes(k) ? ', note le nombre affiché, puis cherche par nom les cartes qui te manquent (pas de captures).' : ', puis des captures en faisant défiler jusqu\'en bas.'}${['ssr', 'ur'].includes(k) ? ' Note aussi le nombre affiché par le jeu (ex. 402 / 414) : l\'import n\'est validé que si le compte est bon.' : ''}</p></div>`).join('')}
     <div class="row section"><button class="btn primary" id="wgo" ${all ? '' : 'disabled'}>Entrer dans le repaire →</button>${all ? '' : '<span class="small mute">Toutes les étapes sont nécessaires pour entrer.</span>'}</div>`;
   const ws = $('#wsh'); if (ws) ws.onchange = async e => { if (prev) return; const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; };
@@ -1354,17 +1354,18 @@ const CLIC_LIVE = true; const isDesktop = () => !/Android|iPhone|iPad|iPod|Mobil
 const CLIC = () => (CLIC_LIVE && (isDesktop() || CLIC_PHONE_LIVE)) || (S.profile?.role === 'admin' && new URLSearchParams(location.search).has('clic'));
 const isIOSdev = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const CLIC_PHONE_LIVE = true; const CLIC_PHONE = () => !isDesktop() && (CLIC_PHONE_LIVE || (S.profile?.role === 'admin' && new URLSearchParams(location.search).has('clic')));
-const clicTuto = () => `<details class="card section" open><summary><b>📸 Tuto en images (${isIOSdev() ? 'iPhone' : 'Android'})</b></summary><img src="${isIOSdev() ? 'tuto-ios.jpg' : 'tuto-android.jpg'}?v=${APP_V}" alt="Tuto import en 1 clic" style="width:100%;border-radius:12px;margin-top:10px" loading="lazy"></details>`;
+const clicTuto = () => { const ios = isIOSdev(); setTimeout(() => document.querySelectorAll('[data-tuto]').forEach(b => b.onclick = () => { const k = b.dataset.tuto; document.querySelectorAll('[data-tuto]').forEach(x => { x.classList.toggle('primary', x === b); x.classList.toggle('ghost', x !== b); }); const im = document.getElementById('clicTutoImg'); if (im) im.src = 'tuto-' + k + '.jpg?v=' + APP_V; }), 0);
+  return `<details class="card section" open><summary><b>📸 Tuto en images</b></summary><div class="row" style="margin:10px 0"><button class="btn ${ios ? 'primary' : 'ghost'}" data-tuto="ios" style="min-height:36px">iPhone</button><button class="btn ${ios ? 'ghost' : 'primary'}" data-tuto="android" style="min-height:36px">Android</button></div><img id="clicTutoImg" src="tuto-${ios ? 'ios' : 'android'}.jpg?v=${APP_V}" alt="Tuto import en 1 clic" style="width:100%;border-radius:12px" loading="lazy"></details>`; };
 const clicHref = () => 'javascript:' + encodeURIComponent(CLIC_CODE);
 P.clic = async m => {
   const prev = isPreview(); let pay = null; try { pay = JSON.parse(localStorage.getItem('bf_clic') || 'null'); } catch (e) { pay = null; }
   const back = onbMode() ? '#bienvenue' : '#collection';
   if (!pay?.d && !isDesktop()) {
-    m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Téléphone · gratuit</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">On crée une fois un favori « Import Brigade ». Ensuite, depuis le jeu, un seul toucher sur ce favori envoie toute ta collection ici (cartes, doublons, étoiles des LR).</p></section>
+    m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Téléphone · gratuit</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">On crée une fois ${isIOSdev() ? 'un signet' : 'un favori'} « Import Brigade ». Ensuite, depuis le jeu, un seul toucher dessus envoie toute ta collection ici (cartes, doublons, étoiles des LR).</p></section>
       ${clicTuto()}
-      <div class="card section"><h3 style="margin-top:0">1. Copie le code du favori</h3><button class="btn primary" id="clicCopy">📋 Copier le code</button> <span id="clicOk" class="up small"></span></div>
-      <div class="card section"><h3 style="margin-top:0">2. Crée le favori (une seule fois)</h3><p class="small mute">${isIOSdev() ? 'Sur cette page : <b>Partager</b> → <b>Ajouter à Signets</b> → Enregistrer. Puis <b>Signets</b> (icône livre) → <b>Modifier</b> → touche ce signet → nom <b>Import Brigade</b>, adresse : efface tout et <b>colle</b> le code → <b>OK</b>.' : 'Sur cette page : menu <b>⋮</b> → étoile <b>☆</b> → <b>Modifier</b> → nom <b>Import Brigade</b>, URL : efface tout et <b>colle</b> le code, puis reviens en arrière.'}</p></div>
-      <div class="card section"><h3 style="margin-top:0">3. À chaque import</h3><p class="small mute">Ouvre <a href="https://yurocollection.fr" target="_blank" rel="noopener">yurocollection.fr</a> (connecté, jeu chargé). ${isIOSdev() ? 'Touche la barre d\'adresse et choisis <b>Import Brigade</b> dans tes favoris.' : 'Tape <b>Import Brigade</b> dans la barre d\'adresse et touche la suggestion avec l\'étoile.'} Le site de la Brigade s'ouvre avec ta collection : vérifie, puis <b>Enregistrer</b>.</p></div>
+      <div class="card section"><h3 style="margin-top:0">1. Copie le code ${isIOSdev() ? 'du signet' : 'du favori'}</h3><button class="btn primary" id="clicCopy">📋 Copier le code</button> <span id="clicOk" class="up small"></span></div>
+      <div class="card section"><h3 style="margin-top:0">2. Crée ${isIOSdev() ? 'le signet' : 'le favori'} (une seule fois)</h3><p class="small mute">${isIOSdev() ? 'Sur cette page : menu <b>•••</b> (en bas) → <b>Ajouter à Signets</b> → Enregistrer. Puis menu <b>•••</b> → <b>Signets</b> → <b>Modifier</b> → touche ce signet → nom <b>Import Brigade</b>, adresse : efface tout et <b>colle</b> le code → <b>OK</b>.' : 'Sur cette page : menu <b>⋮</b> → étoile <b>☆</b> → <b>Modifier</b> → nom <b>Import Brigade</b>, URL : efface tout et <b>colle</b> le code, puis reviens en arrière.'}</p></div>
+      <div class="card section"><h3 style="margin-top:0">3. À chaque import</h3><p class="small mute">Ouvre <a href="https://yurocollection.fr" target="_blank" rel="noopener">yurocollection.fr</a> (connecté, jeu chargé). ${isIOSdev() ? 'Menu <b>•••</b> → <b>Signets</b> → touche <b>Import Brigade</b> (dans « Enregistrés récemment » ou la liste).' : 'Tape <b>Import Brigade</b> dans la barre d\'adresse et touche la suggestion avec l\'étoile.'} Le site de la Brigade s'ouvre avec ta collection : vérifie, puis <b>Enregistrer</b>.</p></div>
       <div class="row section"><a class="btn ghost" href="${back}">← Retour</a></div>`;
     $('#clicCopy').onclick = async () => { const t = 'javascript:' + CLIC_CODE; try { await navigator.clipboard.writeText(t); } catch (e) { const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } $('#clicOk').textContent = '✓ Copié'; toast('Code copié'); };
     return;
@@ -1469,7 +1470,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=170'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=171'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
