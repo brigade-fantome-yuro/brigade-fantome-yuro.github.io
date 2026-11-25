@@ -1,7 +1,7 @@
 // Évaluation d'équipes avec le moteur de combat du jeu (le même que les simulateurs).
 // - château : chambre sûre (90 %), jouable (50 %), max (20 %) et plafond réel (dernière chambre encore gagnable, avec son % de victoire) ;
 // - ranked : % de victoire contre une liste d'équipes adverses, chaque camp commençant à tour de rôle.
-importScripts('castle-engine.js?v=173');
+importScripts('castle-engine.js?v=174');
 const C = self.BFCastle.engine, D = self.BFDuel.engine;
 const RND = Math.random;
 const seeded = s => () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -22,23 +22,17 @@ function castleMove(b) {
   const kill = T.filter(j => b.enemies[j].hp <= p.attack), atkT = kill.length ? kill[0] : low;
   const ready = !(p.cooldown > 0) && !C.combatSpentSpecial(p) && !C.atomicLocked(p, p, b);
   const gAtk = Math.max(...b.enemies.filter(e => e.hp > 0).map(e => e.attack || 0), 0);
-  const warded = p.xebecWard > 0, threat = b.enemies.some(e => e.hp > 0 && !(e.frozen > 0));
   const order = [];
   if (C.canFullPower(p)) order.push(['ultimate', low]); if (C.canHollowPurple(p)) order.push(['purple', low]); if (C.canRage(p)) order.push(['rage', low]);
   if (ready) {
     // Boucle de la Brigade : le soin passe dès qu'un allié mourrait au prochain coup de gardien ; Aya échange quand un coup de plus la tuerait.
     if (isAya(p)) {
-      // Garde d'Aya (autorisée au château, 25/11) : quand un coup la tuerait mais qu'elle est encore au-dessus de ~35 %, elle GARDE (dégâts ×0,45) pour descendre plus bas sans mourir,
-      // puis elle échange au tour suivant avec le gardien le plus plein : l'échange retire bien plus de PV. Indispensable dès qu'Aya meurt en 2 coups (chambre 650+ à 5★).
-      if (POL?.ayaGuard && p.hp <= gAtk && p.hp / p.maxHp > .35 && !warded && threat && p.hp > Math.round(gAtk * .45)) order.push(['guard', low]);
       if (p.hp <= gAtk || p.hp / p.maxHp <= .35) order.push(['skill', ayaTarget(b, p, T, gAtk, high)]);
     }
     else if (isHeal(p)) { const al = b.players.filter(u => u.hp > 0), miss = al.reduce((a, u) => a + (u.maxHp - u.hp), 0), tot = al.reduce((a, u) => a + u.maxHp, 0); if (al.some(u => u.hp <= gAtk && u.hp + Math.round(u.maxHp * .3) > gAtk) || miss >= tot * .3) order.push(['skill', low]); }
     else if (isMakima(p) && POL?.dom === 'unstruck') { const U = T.filter(j => !b.enemies[j].struck && !(b.enemies[j].frozen > 0)); order.push(['skill', U.length ? U.reduce((x, j) => b.enemies[j].hp < b.enemies[x].hp ? j : x, U[0]) : low]); }
     else order.push(['skill', low]);
   }
-  // Garde des autres cartes (option testée par équipe) : une carte qu'un coup tuerait, sans voile de Haki et sans gardien à achever, garde au lieu d'attaquer.
-  if (POL?.guard && threat && !warded && !kill.length && p.hp <= gAtk && p.hp > Math.round(gAtk * .45)) order.push(['guard', low]);
   order.push(['attack', atkT]);
   return { i, order };
 }
@@ -111,19 +105,19 @@ function duelRate(A, B, n) { let w = 0, t = 0; for (let s = 0; s < n; s++) for (
 
 
 // « Je veux atteindre la chambre X » (corrigé le 25/11) :
-// - stratégies testées pour chaque équipe : 6 ordres de jeu × cible de la Domination × garde des cartes en danger × garde d'Aya ;
+// - stratégies testées pour chaque équipe : 6 ordres de jeu × cible de la Domination ;
 // - plus de pré-test à la chambre X-150 : le % ne baisse pas toujours avec la chambre (paliers où Aya meurt en 2 coups), ce pré-test écartait à tort de bonnes équipes ;
 // - au-delà de la chambre 600, une victoire tient souvent à quelques % : le tri garde aussi la progression (PV des gardiens retirés) et le % final se mesure sur 150 combats.
 function polsFor(team) {
-  const doms = team.some(isMakima) ? ['low', 'unstruck'] : ['low'], ag = team.some(isAya) ? [0, 1] : [0], out = [];
-  for (const perm of PERMS) for (const dom of doms) for (const guard of [0, 1]) for (const ayaGuard of ag) out.push({ perm: perm.filter(x => x < team.length), dom, guard, ayaGuard });
+  const doms = team.some(isMakima) ? ['low', 'unstruck'] : ['low'], out = [];
+  for (const perm of PERMS) for (const dom of doms) out.push({ perm: perm.filter(x => x < team.length), dom });
   return out;
 }
 const fightScore = (room, team, catalog, seed, pol) => { if (castleFight(room, team, catalog, seed, 0, pol)) return 1; const b = LASTB; if (!b) return 0; const tot = b.enemies.reduce((a, e) => a + e.maxHp, 0) || 1; return .4 * (1 - b.enemies.reduce((a, e) => a + Math.max(0, e.hp), 0) / tot); };
-// Tri rapide : 6 ordres × avec/sans garde × 2 tirages (garde d'Aya et Domination « gardien qui n'a pas encore frappé » activées) → victoires + progression moyenne.
+// Tri rapide : 6 ordres × cible de la Domination × 2 tirages → victoires + progression moyenne.
 function roomQuick(room, team, catalog) {
-  let s = 0, n = 0; const dom = team.some(isMakima) ? 'unstruck' : 'low';
-  for (let k = 0; k < PERMS.length; k++) for (const guard of [0, 1]) for (let r = 0; r < 2; r++) { s += fightScore(room, team, catalog, 11 + (k * 4 + guard * 2 + r) * 7919 + room * 104729, { perm: PERMS[k].filter(x => x < team.length), dom, guard, ayaGuard: 1 }); n++; }
+  let s = 0, n = 0; const P = polsFor(team);
+  for (let k = 0; k < P.length; k++) for (let r = 0; r < 2; r++) { s += fightScore(room, team, catalog, 11 + (k * 2 + r) * 7919 + room * 104729, P[k]); n++; }
   return s / n;
 }
 function roomRate(room, team, catalog, n) {
