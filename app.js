@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=219';
+import * as CFG from './config.js?v=220';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=219';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=219';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=220';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=220';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=219';
-import * as SCAN from './scan.js?v=219';
+import { duelRate } from './ranked.js?v=220';
+import * as SCAN from './scan.js?v=220';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '219';
+const APP_V = '220';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -674,10 +674,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=219'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=220'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=219'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=220'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -691,7 +691,31 @@ P.simulateur = m => {
 };
 
 /* ---------- Mini-jeux (dossier jeux/) ---------- */
-P.jeux = async (m, arg) => { const g = await import('./jeux/mercato.js?v=' + APP_V); await g.page(m, arg, { sb, S, ROLE, statsAt, lrImg, toast, APP_V }); };
+P.jeux = async (m, arg) => { const g = await import('./jeux/mercato.js?v=' + APP_V); await g.page(m, arg, { sb, S, ROLE, statsAt, lrImg, toast, APP_V }); mxInvitePanel(m, arg).catch(() => { }); };
+// Invitation d'un membre (par-dessus le module Mercato, sans le modifier) : visible pour l'hôte tant que le salon attend son invité.
+async function mxInvitePanel(m, arg) {
+  document.getElementById('mxInv')?.remove();
+  const code = (/^mercato\/([A-Z]{4})/.exec(arg || '') || [])[1]; if (!code) return;
+  const load = async () => (await sb.from('mercato_parties').select('host,guest,status').eq('code', code).maybeSingle()).data;
+  let p = await load(); if (!p || p.host !== S.user.id || p.status !== 'lobby' || p.guest) return;
+  if (!S.members?.length) { const { data } = await sb.from('profiles').select('id,discord,share,status').eq('status', 'approved'); S.members = data || []; }
+  const mem = S.members.filter(x => x.id !== S.user.id).sort((a, b) => (a.discord || '').localeCompare(b.discord || ''));
+  const box = document.createElement('div'); box.id = 'mxInv'; box.className = 'card section';
+  box.innerHTML = `<div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><b>📨 Inviter un membre de la guilde</b><span class="small mute" id="mxInvMsg">Il recevra un bandeau « Rejoindre » sur le site.</span></div>
+    <input id="mxInvQ" placeholder="Chercher un membre…" style="margin-top:8px"><div class="mx-inv-list" id="mxInvL"></div>`;
+  m.parentNode.insertBefore(box, m);
+  const sent = new Set();
+  const list = () => { const q = $('#mxInvQ').value.trim().toLowerCase(); $('#mxInvL').innerHTML = mem.filter(x => !q || (x.discord || '').toLowerCase().includes(q)).slice(0, 40).map(x => `<button class="mx-inv ${sent.has(x.id) ? 'on' : ''}" data-u="${x.id}">${esc(x.discord || '?')}${sent.has(x.id) ? ' ✓' : ''}</button>`).join('') || '<span class="small mute">Aucun membre trouvé.</span>'; };
+  list(); $('#mxInvQ').oninput = list;
+  $('#mxInvL').onclick = async e => { const b = e.target.closest('[data-u]'); if (!b || sent.has(b.dataset.u)) return; b.disabled = true;
+    const { error } = await sb.from('mercato_invites').insert({ code, to_id: b.dataset.u, from_name: S.profile.discord || '' });
+    if (error) { toast('Invitation impossible : ' + error.message); b.disabled = false; return; }
+    sent.add(b.dataset.u); list(); $('#mxInvMsg').textContent = `Invitation envoyée à ${S.members.find(x => x.id === b.dataset.u)?.discord || 'ce membre'}.`; };
+  // Le panneau disparaît dès que l'invité a rejoint (ou si on quitte la partie).
+  const iv = setInterval(async () => { if (!document.getElementById('mxInv') || !location.hash.startsWith('#jeux/mercato/' + code)) { clearInterval(iv); document.getElementById('mxInv')?.remove(); return; }
+    p = await load(); if (!p || p.guest || p.status !== 'lobby') { clearInterval(iv); document.getElementById('mxInv')?.remove(); } }, 3000);
+}
+
 
 /* ---------- Simulateur du Château de l'infini : écran de combat et moteur du jeu, analyse de chaque coup ---------- */
 P.chateausim = m => {
@@ -813,7 +837,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=219'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=220'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1666,7 +1690,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=219'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=220'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2354,10 +2378,23 @@ async function arTourn(m, t) {
   S.arenaOff = () => { sb.removeChannel(ch); clearInterval(iv); };
 }
 
+// Invitation Mercato reçue : bandeau « Rejoindre » sur tout le site (30 min, tant que le salon attend).
+async function mxCall() {
+  const { data } = await sb.from('mercato_invites').select('id,code,from_name,created_at').eq('to_id', S.user.id).gte('created_at', new Date(Date.now() - 30 * 60000).toISOString()).order('created_at', { ascending: false }).limit(1);
+  let el = document.getElementById('mxCall'); const x = data?.[0];
+  if (!x || location.hash.startsWith('#jeux/mercato/' + x.code)) { el?.remove(); if (x) sb.from('mercato_invites').delete().eq('id', x.id).then(() => { }); return; }
+  const { data: p } = await sb.from('mercato_parties').select('guest,status').eq('code', x.code).maybeSingle();
+  if (!p || p.guest || p.status !== 'lobby') { el?.remove(); sb.from('mercato_invites').delete().eq('id', x.id).then(() => { }); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'mxCall'; document.body.appendChild(el); }
+  el.innerHTML = `<a href="#jeux/mercato/${x.code}">🎮 ${esc(x.from_name || 'Un membre')} t’invite à une partie de Mercato : <b>Rejoindre</b></a><button aria-label="Refuser">✕</button>`;
+  el.querySelector('a').onclick = () => el.remove();
+  el.querySelector('button').onclick = () => { el.remove(); sb.from('mercato_invites').delete().eq('id', x.id).then(() => { }); };
+}
 // Appel « ton match est prêt » sur tout le site pour les joueurs d'un tournoi de l'arène.
 let AR_CALL_AT = 0;
 async function arCall() {
   if (!S.user || Date.now() - AR_CALL_AT < 20000) return; AR_CALL_AT = Date.now();
+  mxCall().catch(() => { });
   try {
     const me = S.user.id, { data } = await sb.from('arena_match').select('id,tourn_id,status').in('status', ['ban', 'pick', 'live', 'dispute']).or(`p1.eq.${me},p2.eq.${me}`).limit(1);
     const x = data?.[0], here = x && location.hash.startsWith(`#arene/${x.tourn_id}`);
@@ -2590,6 +2627,7 @@ async function render() {
   S.timers.forEach(t => { clearInterval(t); clearTimeout(t); }); S.timers = [];
   if (S.arenaOff) { try { S.arenaOff(); } catch (e) { /* rien */ } S.arenaOff = null; }
   AR_CALL_AT = 0; setTimeout(arCall, 1500);
+  document.getElementById('mxInv')?.remove();
   const h = (location.hash || '#accueil').slice(1);
   const [base, ...rest] = h.split('/'); const arg = rest.join('/');
   const route = ['guide', 'equipe'].includes(base) ? h : base;

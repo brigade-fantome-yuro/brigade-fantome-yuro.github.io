@@ -632,3 +632,9 @@ body.nav2 .th-spider{display:none}
 body.nav2 a.card:hover,body.nav2.th-c a.card:hover,body.nav2.th-c .grid>.card:hover,body.nav2.th-c .mcard:hover{transform:none!important;box-shadow:none!important}
 body.nav2 a.card:hover{border-color:#5a4650}
 .ar-rr{margin:0;color:var(--warn)}
+.mx-inv-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;max-height:220px;overflow:auto}
+.mx-inv{border:1px solid var(--line);background:#0c0a0d;color:var(--ink);border-radius:999px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+.mx-inv:hover{border-color:var(--blood2)}.mx-inv.on{border-color:var(--ok);color:var(--ok)}
+#mxCall{position:fixed;left:50%;transform:translateX(-50%);top:76px;z-index:61;display:flex;align-items:center;gap:6px;background:#1b171c;border:1px solid var(--blood);border-radius:14px;padding:8px 8px 8px 16px;box-shadow:0 10px 30px rgba(0,0,0,.6);max-width:calc(100vw - 24px)}
+#mxCall a{color:var(--ink);text-decoration:none;font-weight:600}#mxCall a b{color:var(--blood2)}
+#mxCall button{background:none;border:0;color:var(--mute);font-size:16px;cursor:pointer;padding:4px 8px}
