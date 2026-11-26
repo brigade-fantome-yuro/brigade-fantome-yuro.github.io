@@ -206,7 +206,7 @@ function escapeHTML(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;",
 var ariseShadowImages;
 
 // Moteur de combat du Château de l'infini : code du jeu YURO (repris avec l'accord du développeur).
-let state={sound:true,motion:true,story:{cardStars:{},preferences:{}},qty:[],evolution:{settings:{evolutions:[]}}},cards=[],releasedCatalog=[],combatProfileSignature='',combatProfiles=new Map();
+let state={sound:(function(){try{return localStorage.getItem('bf-sound')!=='0';}catch(e){return true;}})(),motion:true,story:{cardStars:{},preferences:{}},qty:[],evolution:{settings:{evolutions:[]}}},cards=[],releasedCatalog=[],combatProfileSignature='',combatProfiles=new Map();
 let STUN_SKILL_USES=2,STUN_SKILL_RECHARGE=4;
 let TECHNIQUE_LOW_TIERS=new Set(['Commun','Rare','Épique','Légendaire']);
 function unitCatalogCard(unit,card){return card&&card!==unit?card:null;}
@@ -2293,7 +2293,13 @@ function __seiichiRiseMark(previous){try{var nb=infinityUI.data.me&&infinityUI.d
 function __animToggle(){if(!__R||!__R.querySelector)return;var host=__R.querySelector('.story-playback')||__R.querySelector('.story-actions');if(!host||__R.getElementById('bfAnimTg'))return;
   var l=document.createElement('label');l.id='bfAnimTg';l.style.cssText='display:flex;align-items:center;gap:8px;margin-top:10px;font:600 12px/1.2 Outfit,system-ui,sans-serif;letter-spacing:.04em;color:#e9e3ff;cursor:pointer;user-select:none;justify-content:center';
   l.innerHTML='<input type="checkbox" style="width:16px;height:16px;accent-color:#b297f5;cursor:pointer"'+(__noSkillAnim?'':' checked')+'><span>Animations des techniques</span>';
-  l.querySelector('input').addEventListener('change',function(e){__noSkillAnim=!e.target.checked;try{localStorage.setItem('bf-noSkillAnim',__noSkillAnim?'1':'0');}catch(_){}});host.appendChild(l);}
+  l.querySelector('input').addEventListener('change',function(e){__noSkillAnim=!e.target.checked;try{localStorage.setItem('bf-noSkillAnim',__noSkillAnim?'1':'0');}catch(_){}});host.appendChild(l);
+  // Son des combats (voix et bruitages du jeu) : coupable comme les animations, choix gardé sur l'appareil.
+  if(!__R.getElementById('bfSndTg')){var sl=document.createElement('label');sl.id='bfSndTg';sl.style.cssText=l.style.cssText.replace('margin-top:10px','margin-top:6px');
+    sl.innerHTML='<input type="checkbox" style="width:16px;height:16px;accent-color:#b297f5;cursor:pointer"'+(state.sound?' checked':'')+'><span>Son</span>';
+    sl.querySelector('input').addEventListener('change',function(e){state.sound=!!e.target.checked;try{localStorage.setItem('bf-sound',state.sound?'1':'0');}catch(_){}
+      if(!state.sound){try{if(typeof stopTechniqueAudio==='function')stopTechniqueAudio();}catch(_){}try{cardAudioContext&&cardAudioContext.suspend();}catch(_){}try{document.querySelectorAll('audio').forEach(function(a){a.pause();});}catch(_){}}
+      else{try{cardAudioContext&&cardAudioContext.resume();}catch(_){}}});host.appendChild(sl);}}
 
 // Même écran que infinityBattleHTML, mais ton équipe reste toujours en bas : quand l'adversaire agit, ses cartes restent en haut (comme l'écran de duel du jeu, option reverseTeams).
 function duelSimBattleHTML(raw,reverse){var map=function(u,i,enemy){return Object.assign({},u,{cardId:enemy?-i-1:i+1});};
