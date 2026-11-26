@@ -536,7 +536,7 @@ details.trd:not([open]){padding-top:12px;padding-bottom:12px}
 /* ---------- Architecture « 1 + 5 » (aperçu ?nav2) ---------- */
 .n2top{position:sticky;top:0;z-index:40;background:rgba(7,6,7,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .n2bar{display:flex;align-items:center;gap:18px;max-width:1240px;margin:0 auto;padding:10px 22px;height:62px;box-sizing:border-box}
-.n2brand{margin:0!important}.n2brand b{font-size:18px!important;white-space:nowrap}
+.n2brand{margin:0!important;text-decoration:none;color:var(--ink)}.n2brand b{font-size:18px!important;white-space:nowrap}
 .n2tabs{display:flex;gap:4px;margin-left:12px}
 .n2tabs a{padding:8px 14px;border-radius:10px;color:var(--mute);text-decoration:none;font-weight:700;font-size:15px;font-family:"Space Grotesk",sans-serif;letter-spacing:.2px}
 .n2tabs a:hover{color:var(--ink);background:#120f13}
