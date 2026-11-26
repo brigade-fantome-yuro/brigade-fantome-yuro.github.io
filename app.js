@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=200';
+import * as CFG from './config.js?v=201';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=200';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=200';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=201';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=201';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=200';
-import * as SCAN from './scan.js?v=200';
+import { duelRate } from './ranked.js?v=201';
+import * as SCAN from './scan.js?v=201';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '200';
+const APP_V = '201';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -279,7 +279,9 @@ async function accueil2(m) {
   items.sort((a, b) => b.t - a.t);
   $('#n2feed').innerHTML = items.map(x => `<a class="card n2item" href="${x.h}"><span class="n2k">${x.k}</span><b>${x.b}</b><span class="small mute">${x.s}</span></a>`).join('') || '<div class="empty">Rien de neuf pour l’instant.</div>';
   tickCountdowns();
-  const me = rk.find(r => r.user_id === S.user.id), last = snap[0], first = snap[snap.length - 1];
+  const me = rk.find(r => r.user_id === S.user.id), first = snap[snap.length - 1]; let last = snap[0];
+  // Même valeur que la page Collection : la dernière valeur calculée en direct (prix médians du jour), sinon la mesure du jour enregistrée.
+  try { const c = JSON.parse(localStorage.bf_cv || 'null'); if (c && c.u === S.user.id && Date.now() - c.t < 6 * 3600e3) last = { ...(last || {}), lr_value: c.v }; } catch (e) { /* rien */ }
   const v = $('#n2val'); if (v) v.innerHTML = `<span class="small mute">Valeur de ta collection</span><div class="cd">${last ? fmt(last.lr_value) + ' <span class="small mute">KI</span>' : '—'}</div>${last && first && last !== first ? `<span class="small ${last.lr_value >= first.lr_value ? 'up' : 'down'}">${last.lr_value >= first.lr_value ? '▲ +' : '▼ '}${fmt(last.lr_value - first.lr_value)} KI depuis le ${new Date(first.day).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>` : ''}<span class="small mute">${me ? String(me.pct).replace('.', ',') + ' % du jeu' : ''}${S.mylr?.cards ? ` · ${Object.keys(S.mylr.cards).length} LR` : ''}</span><a class="btn ghost" href="#collection/A/moi" style="margin-top:8px;min-height:38px">Voir ma collection</a>`;
   // Échanges possibles : chargés en arrière-plan (collections des membres).
   (async () => { try { if (!S.collAt) { await loadCollections(); S.collAt = Date.now(); } const mine = myColl(); let n = 0, ppl = new Set();
@@ -663,10 +665,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=200'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=201'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=200'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=201'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -799,7 +801,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=200'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=201'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1110,7 +1112,7 @@ P.collection = async (m, tab = '') => {
   const collValue = () => { const seen = new Set(); let v = 0, n = 0; const add = (name, ser) => { const k = name + '|' + ser; if (seen.has(k)) return; seen.add(k); const p = cardPrice(name, ser); if (p && !p.list) { v += p.med; n++; } };
     for (const [ser, r] of Object.entries(realColl)) for (const name of r.owned || []) add(name, ser);
     for (const u of R.S.U) for (const c of u.c) if (S.mylr.cards[c[3]] != null) add(c[0], u.s); return { v, n }; };
-  let hist = null, cvC = null; const collValueC = () => cvC || (cvC = collValue());
+  let hist = null, cvC = null; const collValueC = () => cvC || ((cvC = collValue()), (() => { try { if (cvC.v > 0) localStorage.bf_cv = JSON.stringify({ v: Math.round(cvC.v), t: Date.now(), u: S.user.id }); } catch (e) { /* rien */ } })(), cvC);
   const drawHist = () => { const el = $('#chist'); if (!el || !hist) return; const cv = collValueC(), H = hist.slice(-60), me = hist.me;
     const pts = H.filter(h => h.lr_value != null).map(h => ({ day: h.day, v: +h.lr_value }));
     // le point du jour suit la valeur en direct (elle bouge avec les prix et les mises à jour de collection)
@@ -1627,7 +1629,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=200'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=201'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
