@@ -1,121 +1,254 @@
-/* Mini-jeux : Mercato YURO (utilise les couleurs du site : --card, --line, --blood…) */
-.mx-games{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
-.mx-game{display:flex;gap:14px;align-items:flex-start;text-decoration:none;color:inherit}
-.mx-game:hover{border-color:var(--blood)}
-.mx-game-ico{font-size:34px;line-height:1}
-.mx-lobby{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-.mx-rules{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14px}
-.mx-row{display:flex;gap:10px;align-items:center;padding:10px 4px;border-top:1px solid var(--line);color:inherit;text-decoration:none}
-.mx-row span:nth-child(2){flex:1;color:var(--mute);font-size:14px}
-.mx-code{font-size:26px;letter-spacing:4px;color:var(--bone)}
-
-.mx{display:grid;gap:12px}
+/* Mini-jeux : Mercato YURO. DA de la Brigade, thème « La toile » : noir profond, blanc, un seul rouge, angles nets, fils de soie.
+   Le moment fort : la carte mise en vente descend de la toile, pivote en 3D sous le doigt, puis reçoit le tampon « Adjugé ». */
+.mx,.mx-hero,.mx-games,.mx-lobby,.mx-modal{--paper:#0b0b0b;--paper2:#141414;--silk:#f2f2f2;--ash:#9a9a9a;--wire:#2a2a2a;--blood:#e3123a;--blood2:#ff3355;--ease:cubic-bezier(.2,.8,.2,1);font-family:"Space Grotesk",Manrope,system-ui,sans-serif}
 .mx [hidden]{display:none!important}
-.mx-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
-.mx-title{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.mx-title b{font-size:18px}
-.mx-score{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--mute)}
-.mx-score b{font-size:22px;color:var(--ink)}
-.mx-topb .btn{min-height:36px;padding:0 12px;font-size:14px}
+.mx-ico{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* ---------- accueil mini-jeux et salon ---------- */
+.mx-games{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.mx-game{display:flex;gap:16px;align-items:flex-start;text-decoration:none;color:inherit}
+.mx-game-ico .mx-seal{position:static;width:54px;height:54px}
+.mx-lobby{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.mx-rules{margin:8px 0 0;padding-left:20px;display:grid;gap:8px;font-size:14px;max-width:72ch}
+.mx-row{display:flex;gap:10px;align-items:center;padding:12px 4px;border-top:1px solid var(--line);color:inherit;text-decoration:none}
+.mx-row span:nth-child(2){flex:1;color:var(--mute);font-size:14px}
+.mx-code{font-size:30px;letter-spacing:.3em;color:#fff;font-weight:600}
+
+/* ---------- structure de la partie ---------- */
+.mx{display:grid;gap:14px;color:var(--silk)}
+.mx-top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--wire)}
+.mx-title{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.mx-title b{font-size:26px;font-weight:600;letter-spacing:-.03em}
+.mx-stage-lbl{font-size:13px;color:var(--silk);padding:2px 8px;border:1px solid var(--wire);border-left:2px solid var(--blood)}
+.mx-score{display:flex;gap:12px;align-items:center;font-size:14px;color:var(--ash)}
+.mx-score b{display:flex;align-items:center;gap:10px;font-size:30px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.mx-score b i{width:18px;height:1px;background:var(--blood)}
+.mx-topb .btn{min-height:36px;padding:0 12px;font-size:14px;border-radius:2px}
 .mx-topb .btn.red{border-color:var(--blood);color:var(--blood2)}
 
+/* la table de vente : sur grand écran, les deux joueurs encadrent la zone d'enchère */
 .mx-hud{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.mx-pl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0}
-.mx-pl.on{border-color:var(--blood);box-shadow:0 0 0 1px var(--blood) inset}
-.mx-pln{display:flex;gap:6px;align-items:center;min-width:0}
-.mx-pln b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mx-pln .chip{font-size:11px;padding:1px 7px}
-.mx-dot{width:8px;height:8px;border-radius:50%;background:#555;margin-left:auto;flex:none}
-.mx-dot.ok{background:var(--ok)}
-.mx-money{font-weight:800;font-size:17px;color:var(--bone)}
-.mx-bar{height:4px;border-radius:4px;background:#0b090c;overflow:hidden;margin:4px 0 8px}
-.mx-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blood),var(--blood2))}
-.mx-slots{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:4px}
-.mx-slot{aspect-ratio:3/4;border-radius:6px;border:1px dashed var(--line);overflow:hidden;background:#0b090c}
-.mx-slot img,.mx-slot .mx-fb{width:100%;height:100%;object-fit:cover}
-.mx-slot .mx-fb{font-size:11px}
+@media (min-width:1100px){
+  .mx{grid-template-columns:260px minmax(0,1fr) 260px;column-gap:16px}
+  .mx-top,#mxMain,#mxFight,.mx-logw{grid-column:1/-1}
+  .mx-hud{display:contents}
+  .mx-hud>.mx-pl.mx-me{grid-column:1;grid-row:2;align-self:start}
+  .mx-hud>.mx-pl.mx-opp{grid-column:3;grid-row:2;align-self:start}
+  .mx-act{grid-column:2;grid-row:2}
+}
+.mx-pl{position:relative;background:linear-gradient(180deg,#0e0e0e,#060606);border:1px solid var(--wire);border-radius:2px;padding:12px;min-width:0;transition:border-color .3s}
+.mx-pl::before{content:"";position:absolute;left:-1px;top:-1px;bottom:-1px;width:2px;background:transparent;transition:background .3s}
+.mx-pl.on{border-color:#4a4a4a}
+.mx-pl.on::before{background:var(--blood);box-shadow:0 0 14px var(--blood)}
+.mx-pln{display:flex;gap:8px;align-items:center;min-width:0}
+.mx-pln b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.mx-you{font-size:11px;padding:0 6px;border:1px solid var(--wire);color:var(--ash)}
+.mx-dot{width:7px;height:7px;border-radius:50%;background:#444;margin-left:auto;flex:none}
+.mx-dot.ok{background:#fff;box-shadow:0 0 8px rgba(255,255,255,.7)}
+.mx-money{margin-top:6px;font-size:24px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.mx-money small{font-size:12px;color:var(--ash);margin-left:6px;font-weight:500}
+.mx-bar{height:2px;background:#1c1c1c;margin:8px 0 10px}
+.mx-bar i{display:block;height:100%;background:#fff;transition:width .8s var(--ease)}
+.mx-slots{display:grid;grid-template-columns:repeat(var(--n,6),1fr);gap:4px;margin-bottom:6px}
+.mx-slot{position:relative;aspect-ratio:3/4;border:1px dashed #333;overflow:hidden;background:#050505}
+.mx-slot.full{border:1px solid #444}
+.mx-slot img,.mx-slot .mx-fb{width:100%;height:100%;object-fit:cover;object-position:top}
+.mx-slot .mx-fb{font-size:10px}
+.mx-slotr{position:absolute;right:1px;bottom:1px;display:grid;place-items:center;width:14px;height:14px;background:rgba(0,0,0,.8);color:#fff}
+.mx-slotr .mx-ico{width:10px;height:10px}
 
-.mx-act h2{margin:0;font-size:18px}
-.mx-acth{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.mx-timer{font-weight:800;font-variant-numeric:tabular-nums;padding:2px 10px;border-radius:999px;border:1px solid var(--line);font-size:14px}
-.mx-timer.hot,.mx-movet .hot{color:var(--blood2);border-color:var(--blood)}
-.mx-wait{display:flex;gap:10px;align-items:center;color:var(--mute);margin-top:10px}
-.mx-dots{display:inline-flex;gap:4px}.mx-dots i{width:6px;height:6px;border-radius:50%;background:var(--mute);animation:mxd 1s infinite}
+/* ---------- zone d'enchère ---------- */
+.mx-act{border-radius:2px;background:radial-gradient(circle at 50% 0%,#1b1b1b,#060606 70%);border-color:var(--wire);position:relative;overflow:hidden}
+.mx-act h2{margin:0;font-size:20px;font-weight:600;letter-spacing:-.02em}
+.mx-acth{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mx-timer{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums;font-weight:600;font-size:14px;min-width:92px}
+.mx-timer i{flex:1;height:2px;background:#222;overflow:hidden}
+.mx-timer u{display:block;height:100%;background:#fff;transform-origin:left;transition:transform .5s linear}
+.mx-timer.hot b{color:var(--blood2)}.mx-timer.hot u{background:var(--blood)}
+.mx-wait{display:flex;gap:10px;align-items:center;color:var(--ash);margin-top:12px}
+.mx-dots{display:inline-flex;gap:4px}.mx-dots i{width:5px;height:5px;background:var(--ash);animation:mxd 1s infinite}
 .mx-dots i:nth-child(2){animation-delay:.15s}.mx-dots i:nth-child(3){animation-delay:.3s}
-@keyframes mxd{0%,100%{opacity:.25}50%{opacity:1}}
-.mx-big{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
-.mx-bigpic{width:96px;flex:none;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:#0b090c;border:1px solid var(--line)}
-.mx-big[data-r="Transcendant"] .mx-bigpic{border-color:var(--warn)}
-.mx-big[data-r="Exclusive"] .mx-bigpic{border-color:var(--blood2)}
-.mx-bigpic img,.mx-bigpic .mx-fb{width:100%;height:100%;object-fit:cover}
-.mx-bign{font-size:17px}
-.mx-bid{margin-top:8px}
-.mx-bid input{font-size:20px;font-weight:700}
+@keyframes mxd{0%,100%{opacity:.2}50%{opacity:1}}
+.mx-amt{font-size:clamp(40px,7vw,64px);font-weight:600;letter-spacing:-.04em;line-height:1;margin:14px 0 4px;font-variant-numeric:tabular-nums}
+.mx-amt small{font-size:.32em;color:var(--ash);letter-spacing:0}
+.mx-amt.bump{animation:mxBump .5s var(--ease)}
+@keyframes mxBump{40%{color:var(--blood2);transform:translateY(-3px)}}
+.mx-bids{color:var(--silk)}
+
+/* scène : la carte en vente, en 3D */
+.mx-stage{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:start;margin:14px 0 6px}
+.mx-hold{position:relative;width:170px;perspective:900px;touch-action:pan-y;cursor:grab}
+.mx-big3d{--rx:0deg;--ry:0deg;--mx:50%;--my:30%;transform:rotateX(var(--rx)) rotateY(var(--ry));transform-style:preserve-3d;transition:transform .5s var(--ease);animation:mxFloat 7s ease-in-out infinite}
+.mx-hold.held .mx-big3d{animation:none;transition:transform .08s linear}
+.mx-big3d .mx-face{box-shadow:0 26px 50px rgba(0,0,0,.85),0 0 0 1px #3a3a3a}
+.mx-big3d .mx-plate{display:none}
+.mx-hold.enter{animation:mxDrop .9s cubic-bezier(.3,1.25,.5,1) both}
+.mx-hold.enter::before{content:"";position:absolute;left:50%;bottom:100%;width:1px;height:120px;background:linear-gradient(transparent,#fff);animation:mxThread .9s var(--ease) both}
+@keyframes mxFloat{0%,100%{transform:rotateX(var(--rx)) rotateY(calc(var(--ry) - 7deg))}50%{transform:rotateX(calc(var(--rx) + 3deg)) rotateY(calc(var(--ry) + 7deg)) translateY(-4px)}}
+@keyframes mxDrop{0%{transform:translateY(-140px) rotateZ(-6deg);opacity:0}60%{opacity:1}100%{transform:none}}
+@keyframes mxThread{0%,70%{opacity:1}100%{opacity:0}}
+.mx-info{display:flex;flex-direction:column;gap:8px;min-width:0}
+.mx-bign{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.15}
+.mx-tags{display:flex;flex-wrap:wrap;gap:6px}
+.mx-rtag{font-size:12px;padding:1px 7px;border:1px solid var(--wire);color:var(--ash)}
+.mx-rtag[data-r="Transcendant"]{border-color:var(--blood);color:#fff;background:rgba(227,18,58,.18)}
+.mx-rtag[data-r="Exclusive"]{border-color:#fff;color:#fff}
+.mx-rtag.env{border-color:var(--blood);color:var(--blood2)}
+.mx-tech{margin:2px 0 0;font-size:14px;color:var(--ash);max-width:60ch}
+.mx-tech b{display:block;color:#fff;font-weight:600;margin-bottom:2px}
+
+/* tampon « Adjugé » */
+.mx-stamp{position:absolute;left:50%;top:44%;z-index:4;display:flex;flex-direction:column;align-items:center;padding:6px 14px 4px;border:3px solid var(--blood);color:var(--blood2);background:rgba(3,3,3,.6);transform:translate(-50%,-50%) rotate(-14deg);pointer-events:none}
+.mx-stamp b{font-size:30px;font-weight:700;letter-spacing:.04em;line-height:1}
+.mx-stamp small{font-size:12px;font-weight:600}
+.mx-stamp.slam{animation:mxSlam .45s cubic-bezier(.5,1.6,.6,1) both}
+@keyframes mxSlam{0%{transform:translate(-50%,-50%) rotate(-24deg) scale(2.6);opacity:0}70%{opacity:1}100%{transform:translate(-50%,-50%) rotate(-14deg) scale(1)}}
+
+/* saisie de la mise */
+.mx-bid{margin-top:10px}
+.mx-bidin{position:relative}
+.mx-bidin input{font-size:24px;font-weight:600;padding-right:52px;letter-spacing:-.01em;border-radius:2px;background:#000;border-color:#3a3a3a;font-variant-numeric:tabular-nums}
+.mx-bidin input:focus{outline:none;border-color:#fff}
+.mx-bidin span{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--ash);font-weight:600;pointer-events:none}
 .mx-quick{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
-.mx-quick button{min-height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink);font-weight:700;cursor:pointer}
+.mx-quick button{min-height:38px;padding:0 12px;border-radius:2px;border:1px solid #333;background:#0a0a0a;color:var(--silk);font-weight:600;cursor:pointer;font-variant-numeric:tabular-nums;transition:border-color .2s,transform .12s}
+.mx-quick button:hover{border-color:#fff}.mx-quick button:active{transform:translateY(1px)}
+.mx-act .btn{border-radius:2px}
+.mx-act .btn.primary{background:#fff;color:#030303;border-color:#fff;box-shadow:none}
 .mx-movet{margin-top:8px;font-size:15px}
+.mx-movet .hot{color:var(--blood2)}
 
-.mx-mkh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.mx-mkh h2{margin:0;font-size:18px}
-.mx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px}
-.mx-card{position:relative;display:flex;flex-direction:column;text-align:left;padding:0;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);overflow:hidden;cursor:pointer;font:inherit}
-.mx-card[data-r="Transcendant"]{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
-.mx-card[data-r="Exclusive"]{border-color:color-mix(in srgb,var(--blood2) 55%,var(--line))}
-.mx-card.click{box-shadow:0 0 0 1px var(--ok) inset}
-.mx-card.sel,.mx-card.live{box-shadow:0 0 0 2px var(--blood2);border-color:var(--blood2)}
-.mx-card.sold{opacity:.42}
-.mx-card.nouse:not(.sold){opacity:.7}
-.mx-pic{position:relative;aspect-ratio:4/3;background:#0b090c;overflow:hidden}
-.mx-pic img,.mx-pic .mx-fb{width:100%;height:100%;object-fit:cover;object-position:top}
-.mx-fb{display:grid;place-items:center;font-weight:800;color:var(--mute);font-size:22px;background:#0b090c}
-.mx-env{position:absolute;top:6px;left:6px;font-size:18px;background:rgba(0,0,0,.65);border-radius:8px;padding:0 5px}
-.mx-rar{position:absolute;top:6px;right:6px;font-size:11px;font-weight:800;background:rgba(0,0,0,.7);border-radius:6px;padding:1px 6px}
-.mx-card[data-r="Transcendant"] .mx-rar{color:var(--warn)}.mx-card[data-r="Exclusive"] .mx-rar{color:var(--blood2)}
-.mx-cap{display:flex;flex-direction:column;gap:2px;padding:8px 9px 10px;min-width:0}
-.mx-n{font-size:14px;line-height:1.25}
-.mx-st{font-size:12px;color:var(--mute)}
-.mx-tn{font-size:12px;color:var(--bone);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mx-role{display:inline-block;align-self:flex-start;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink)}
-.mx-role[data-role="degats"]{border-color:#c0392b;color:#ff8a7a}
-.mx-role[data-role="tank"]{border-color:#4f7cac;color:#9cc4f0}
-.mx-role[data-role="healer"]{border-color:#3f8f5e;color:#8fe0ad}
-.mx-role[data-role="stunner"]{border-color:#8e5bb5;color:#d1a8f2}
-.mx-role[data-role="polyvalence"]{border-color:#a38a3c;color:#ecd18a}
-.mx-sold,.mx-no{position:absolute;left:0;right:0;top:36%;text-align:center;font-weight:800;font-size:13px;background:rgba(7,6,7,.85);padding:6px 4px}
-.mx-no{color:var(--mute);font-weight:600}
+/* ---------- le marché : les cartes pendent à la toile ---------- */
+.mx-mkh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:6px}
+.mx-mkh h2{margin:0;font-size:22px;font-weight:600;letter-spacing:-.02em}
+.mx-web{--cg:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));column-gap:var(--cg);row-gap:50px;padding-top:44px;perspective:1400px}
+.mx-cell{position:relative;min-width:0}
+/* brin de soie qui relie les cartes d'une rangée, et fil de chaque carte */
+.mx-cell::before{content:"";position:absolute;top:-44px;height:14px;left:calc(var(--cg) / -2 - 1px);right:calc(var(--cg) / -2 - 1px);pointer-events:none;opacity:.7;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 14' preserveAspectRatio='none'%3E%3Cpath d='M0 1.5 Q50 14 100 1.5' fill='none' stroke='white' stroke-width='1.1' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") 0 0/100% 100% no-repeat}
+.mx-cell::after{content:"";position:absolute;left:50%;top:-37px;width:1px;height:37px;background:rgba(255,255,255,.7);pointer-events:none}
+.mx-card{position:relative;display:block;width:100%;padding:0;border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;transform-origin:50% -37px;animation:mxSway var(--dur,5s) ease-in-out var(--del,0s) infinite;transition:filter .3s}
+@keyframes mxSway{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(1.6deg)}}
+.mx-card .mx-face{transition:transform .55s var(--ease),box-shadow .4s}
+.mx-card:hover .mx-face,.mx-card:focus-visible .mx-face{transform:perspective(800px) rotateY(-14deg) rotateX(5deg) translateZ(18px);box-shadow:-16px 24px 46px rgba(0,0,0,.95),0 0 0 1px #fff}
+.mx-card:focus-visible{outline:none}
+.mx-card.click .mx-face{box-shadow:0 0 0 1px #fff}
+.mx-card.sel,.mx-card.mx-live{animation:none;transform:translateY(-8px)}
+.mx-card.sel .mx-face,.mx-card.mx-live .mx-face{box-shadow:0 0 0 2px var(--blood),0 0 30px rgba(227,18,58,.45)}
+.mx-card.sold{animation:none;transform:rotate(-4deg) translateY(6px);filter:grayscale(1) brightness(.45)}
+.mx-card.nouse:not(.sold){filter:brightness(.55)}
 
-.mx-comp,.mx-teams{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:12px}
-.mx-trio.ok{border-color:color-mix(in srgb,var(--ok) 50%,var(--line))}
-.mx-trio.bad{border-color:var(--blood)}
-.mx-trio h3,.mx-teams h3{margin:0 0 8px}
-.mx-trioc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.mx-teams .mx-trioc{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
-.mx-mini{display:flex;flex-direction:column;gap:2px;text-align:left;padding:0 0 8px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink);overflow:hidden;font:inherit;min-width:0}
+/* face de carte */
+.mx-face{position:relative;display:block;aspect-ratio:3/4.2;overflow:hidden;border-radius:3px;background:#070707;box-shadow:0 0 0 1px #2e2e2e,0 14px 30px rgba(0,0,0,.7)}
+.mx-face>img,.mx-face>.mx-fb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top}
+.mx-fb{display:grid;place-items:center;font-weight:600;color:#555;font-size:26px;background:repeating-linear-gradient(135deg,#0a0a0a 0 6px,#0f0f0f 6px 12px)}
+.mx-face[data-r="Transcendant"]{box-shadow:0 0 0 1px var(--blood),0 14px 30px rgba(0,0,0,.7)}
+.mx-face[data-r="Exclusive"]{box-shadow:0 0 0 1px #d9d9d9,0 14px 30px rgba(0,0,0,.7)}
+/* reflet : rouge pour les Transcendantes, argent pour les Exclusives, discret pour les LR */
+.mx-foil{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:.35;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.35) 46%,transparent 60%) var(--mx,50%) var(--my,30%)/220% 220%;transition:background-position .2s}
+.mx-face[data-r="Transcendant"] .mx-foil{opacity:.7;background-image:linear-gradient(115deg,transparent 25%,rgba(255,51,85,.55) 42%,rgba(255,255,255,.35) 50%,rgba(227,18,58,.5) 58%,transparent 72%)}
+.mx-face[data-r="Exclusive"] .mx-foil{opacity:.6;background-image:linear-gradient(115deg,transparent 25%,rgba(255,255,255,.5) 45%,rgba(180,180,180,.25) 55%,transparent 70%)}
+.mx-card:hover .mx-foil{background-position:90% 10%;transition:background-position .9s var(--ease)}
+.mx-rar{position:absolute;top:6px;right:6px;font-size:11px;font-weight:700;padding:1px 6px;background:rgba(0,0,0,.75);color:var(--ash)}
+.mx-face[data-r="Transcendant"] .mx-rar{background:var(--blood);color:#fff}
+.mx-face[data-r="Exclusive"] .mx-rar{background:#fff;color:#030303}
+.mx-plate{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:4px;padding:28px 9px 9px;background:linear-gradient(transparent,rgba(0,0,0,.82) 38%,#000)}
+.mx-n{font-size:14px;font-weight:600;line-height:1.2;letter-spacing:-.01em}
+.mx-role{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;font-size:12px;color:#fff}
+.mx-st{display:flex;gap:12px;font-size:12px;font-variant-numeric:tabular-nums}
+.mx-st i{font-style:normal;color:var(--ash);margin-right:4px}
+.mx-info .mx-st{font-size:15px}.mx-info .mx-role{font-size:13px}
+/* sceau de cire à l'araignée */
+.mx-seal{position:absolute;top:6px;left:6px;z-index:2;display:grid;place-items:center;width:34px;height:34px;border-radius:47% 53% 50% 50%/52% 48% 52% 48%;background:radial-gradient(circle at 35% 30%,#ff4a68,#b80c2c 60%,#6d0418);box-shadow:0 3px 8px rgba(0,0,0,.7),inset 0 -2px 3px rgba(0,0,0,.4);color:rgba(0,0,0,.55)}
+.mx-seal svg{width:62%;height:62%}
+.mx-big3d .mx-seal{width:44px;height:44px;transform:translateZ(30px)}
+.mx-sold,.mx-no{position:absolute;left:8px;right:8px;top:38%;z-index:3;display:flex;flex-direction:column;align-items:center;padding:6px 4px;text-align:center;font-size:12px;font-weight:600}
+.mx-sold{border:2px solid var(--blood);color:#fff;background:rgba(3,3,3,.75);transform:rotate(-8deg)}
+.mx-sold b{font-size:14px}
+.mx-no{color:var(--ash);background:rgba(0,0,0,.7);border:1px solid #333}
+
+/* ---------- composition des trios ---------- */
+.mx-comp,.mx-teams{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));margin-bottom:12px}
+.mx-trio,.mx-teams>.card{border-radius:2px}
+.mx-trio{position:relative;border-color:var(--wire)}
+.mx-trio::before{content:"";position:absolute;left:-1px;top:-1px;bottom:-1px;width:2px;background:#fff}
+.mx-trio.mx-bad::before{background:var(--blood)}
+.mx-trio h3,.mx-teams h3{margin:0 0 10px;font-weight:600}
+.mx-trioc{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.mx-teams .mx-trioc{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
+.mx-mini{display:flex;flex-direction:column;gap:5px;text-align:left;padding:0;border:0;background:none;color:inherit;font:inherit;min-width:0}
 button.mx-mini{cursor:pointer}
-.mx-mini img,.mx-mini .mx-fb{width:100%;aspect-ratio:1;object-fit:cover;object-position:top}
-.mx-mini b,.mx-mini span{padding:0 7px;font-size:12px}
-.mx-mini b{font-size:13px;line-height:1.2}
+.mx-mini .mx-plate{padding:20px 7px 7px}.mx-mini .mx-n{font-size:12px}
+button.mx-mini .mx-face{transition:transform .45s var(--ease)}
+button.mx-mini:hover .mx-face{transform:perspective(700px) rotateY(-12deg) translateZ(10px)}
+.mx-move{font-size:12px;color:var(--ash)}
+button.mx-mini:hover .mx-move{color:#fff}
 
-.mx-fight{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#0d0d14}
+/* ---------- combats, journal, fenêtre ---------- */
+.mx-fight{border-radius:2px;overflow:hidden;border:1px solid var(--wire);background:#0d0d14}
 .mx-frame{display:block;width:100%;border:0;min-height:560px}
 .mx-fhead{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px}
 .mx-fteam{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.mx-fteam span{padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}
-.mx-vs{font-weight:900;color:var(--blood2)}
-.mx-logw summary{cursor:pointer}
-.mx-log{display:grid;gap:4px;font-size:13px;color:var(--mute);max-height:260px;overflow:auto;margin-top:8px}
-.mx-modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.7);display:grid;place-items:center;padding:16px}
-.mx-modalc{width:min(460px,100%)}
+.mx-fteam span{padding:1px 8px;border:1px solid var(--wire);color:var(--ash)}
+.mx-vs{font-weight:600;color:var(--blood2)}
+.mx-logw{border-radius:2px}.mx-logw summary{cursor:pointer}
+.mx-log{display:grid;gap:4px;font-size:13px;color:var(--ash);max-height:260px;overflow:auto;margin-top:8px}
+.mx-modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.8);display:grid;place-items:center;padding:16px;animation:mxFade .25s ease both}
+.mx-modalc{width:min(520px,100%);border-radius:2px}
+@keyframes mxFade{from{opacity:0}}
 
+/* ---------- téléphone ---------- */
 @media (max-width:600px){
-  .mx-hud{grid-template-columns:1fr 1fr;gap:8px}
-  .mx-pl{padding:8px}
-  .mx-money{font-size:14px}
-  .mx-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .mx-title b{font-size:22px}.mx-score b{font-size:24px}
+  .mx-hud{gap:8px}.mx-pl{padding:9px}
+  .mx-money{font-size:18px}
+  .mx-web{--cg:10px;grid-template-columns:repeat(2,1fr);row-gap:44px;padding-top:40px}
+  .mx-cell::before{top:-40px}.mx-cell::after{top:-33px;height:33px}.mx-card{transform-origin:50% -33px}
+  .mx-stage{grid-template-columns:1fr;justify-items:center;text-align:center}
+  .mx-info{align-items:center}.mx-tags{justify-content:center}
+  .mx-hold{width:62vw;max-width:240px}
   .mx-trioc{gap:6px}
-  .mx-bigpic{width:76px}
-  .mx-score b{font-size:18px}
+  .mx-mini .mx-st{flex-direction:column;gap:0}
 }
-.mx-bidin{position:relative}
-.mx-bidin input{padding-right:52px;letter-spacing:.5px}
-.mx-bidin span{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--mute);font-weight:700;pointer-events:none}
+@media (prefers-reduced-motion:reduce){
+  .mx *,.mx *::before,.mx *::after{animation:none!important;transition:none!important}
+}
+
+/* ---------- échange des cartes entre les trios ---------- */
+.mx-comphelp{margin:2px 0 10px;color:var(--silk);font-size:15px;max-width:70ch}
+.mx-trioh{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}.mx-trioh h3{margin:0}
+.mx-triost{margin:10px 0 0;color:var(--ash)}.mx-trio.mx-bad .mx-triost{color:var(--blood2)}
+.mx-mini{position:relative;user-select:none;-webkit-user-select:none}
+.mx-mini .mx-face{transition:transform .35s var(--ease),box-shadow .25s}
+.mx-mini.picked .mx-face{transform:translateY(-8px) rotate(-2deg);box-shadow:0 0 0 2px #fff,0 18px 30px rgba(0,0,0,.9)}
+.mx-mini.target .mx-face{box-shadow:0 0 0 1px #fff;animation:mxCall 1.3s ease-in-out infinite}
+.mx-mini.over .mx-face{box-shadow:0 0 0 2px var(--blood2);transform:scale(1.04)}
+.mx-mini.dup .mx-face{box-shadow:0 0 0 2px var(--blood)}
+.mx-mini.dup .mx-role{color:var(--blood2)}
+.mx-mini.lifting{opacity:.35}
+.mx-mini.swapped .mx-face{animation:mxSwap .5s var(--ease)}
+.mx-ghost{position:fixed;left:0;top:0;z-index:80;pointer-events:none;opacity:.95;filter:drop-shadow(0 20px 30px rgba(0,0,0,.9))}
+@keyframes mxCall{50%{transform:translateY(-3px)}}
+@keyframes mxSwap{0%{transform:rotateY(90deg) scale(.9)}100%{transform:none}}
+
+/* ---------- couleurs des rôles (texte et picto) ---------- */
+.mx,.mx-modal{--r-degats:#ff3b4e;--r-healer:#3ddc84;--r-polyvalence:#b57bff;--r-stunner:#ffd23f;--r-tank:#4da3ff}
+[data-role="degats"]{--rc:var(--r-degats)}[data-role="healer"]{--rc:var(--r-healer)}[data-role="polyvalence"]{--rc:var(--r-polyvalence)}[data-role="stunner"]{--rc:var(--r-stunner)}[data-role="tank"]{--rc:var(--r-tank)}
+.mx-role[data-role],.mx-slotr[data-role],.mx-rrowh[data-role]{color:var(--rc)}
+.mx-mini.dup .mx-role{color:var(--rc)}
+.mx-mini.dup .mx-role::after{content:"en double";margin-left:6px;font-size:11px;color:var(--blood2)}
+
+/* ---------- filtre du marché ---------- */
+.mx-filter{display:flex;gap:6px;overflow-x:auto;padding:2px 0 4px;margin-top:10px;scrollbar-width:none}
+.mx-filter::-webkit-scrollbar{display:none}
+.mx-fbtn{display:inline-flex;align-items:center;gap:6px;flex:none;min-height:38px;padding:0 12px;border-radius:2px;border:1px solid #333;background:#070707;color:var(--ash);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:border-color .2s,color .2s}
+.mx-fbtn[data-role]{color:var(--rc)}
+.mx-fbtn small{font-size:11px;color:var(--ash);font-weight:500}
+.mx-fbtn:hover{border-color:#777}
+.mx-fbtn.on{border-color:#fff;color:#fff;background:#111}
+.mx-fbtn.on[data-role]{border-color:var(--rc);color:var(--rc);box-shadow:inset 0 -2px 0 var(--rc)}
+.mx-rrow+.mx-rrow{margin-top:8px}
+.mx-rrowh{display:flex;align-items:center;gap:8px;margin:22px 0 0;font-size:17px;font-weight:600}
+.mx-rrowh .mx-ico{width:18px;height:18px}
+.mx-rrowh small{font-size:12px;color:var(--ash);font-weight:500}
+.mx-snd{display:inline-flex;gap:6px}
+.mx-snd[aria-pressed="false"]{color:var(--ash)}

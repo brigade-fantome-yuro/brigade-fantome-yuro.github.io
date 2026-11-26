@@ -9,8 +9,11 @@ const MAIN = { n: 6, per: 2 };   // mercato principal : 6 cartes, 2 au plus par 
 const SD = { n: 3, per: 1 };     // mort subite : 3 cartes de 3 rôles différents
 const TIME = { nominate: 40, open: 20, sealed: 30, pick: 40, compose: 150, done: 4, fres: 6, move: 45, away: 60 };
 // Répartitions des rôles qui ne bloquent jamais un joueur (vérifiées sur toutes les façons d'acheter).
-const DIST14 = [[3, 3, 3, 3, 2], [4, 3, 3, 3, 1], [4, 4, 3, 3, 0], [4, 4, 4, 1, 1], [4, 4, 4, 2, 0], [5, 4, 4, 1, 0], [5, 5, 4, 0, 0], [6, 4, 4, 0, 0]];
-const DIST8 = [[2, 2, 2, 1, 1], [2, 2, 2, 2, 0], [3, 2, 2, 1, 0], [3, 3, 2, 0, 0], [4, 2, 2, 0, 0]];
+// [répartition, poids du tirage] : la plupart des parties ont les 5 rôles, mais un rôle peut être rare ou absent.
+const DIST14 = [[[3, 3, 3, 3, 2], 4], [[4, 3, 3, 3, 1], 3], [[4, 4, 3, 3, 0], 2], [[4, 4, 4, 1, 1], 1], [[4, 4, 4, 2, 0], 1], [[5, 4, 4, 1, 0], 0], [[5, 5, 4, 0, 0], 0], [[6, 4, 4, 0, 0], 0]];
+const DIST8 = [[[2, 2, 2, 1, 1], 3], [[2, 2, 2, 2, 0], 2], [[3, 2, 2, 1, 0], 1], [[3, 3, 2, 0, 0], 0], [[4, 2, 2, 0, 0], 0]];
+// Cartes très jouées en ranked : elles passent en priorité sous enveloppe quand elles sont dans le marché.
+const META = ['seiichi samura'];   // en plus de la tier list, au cas où elle ne serait pas à jour
 const ENV_MAIN = 3, ENV_SD = 1;
 
 let X = null;   // la partie ouverte (une seule à la fois)
@@ -40,16 +43,26 @@ function buildPool(ctx) {
   }
   return out;
 }
+// Force d'une carte pour choisir les enveloppes : bonus de rareté + PV/1000 + ATQ/100 (même échelle que le guide des rôles).
+// Tier list PvP de la Brigade (content.ranked_meta.tiers = [[id, valeur, tier]]) : chargée par l'hôte au début de la partie.
+let TIERS = new Map();
+const TIER_PTS = { S: 50, A: 40, B: 30, C: 20, D: 10 };
+async function loadTiers(sb) {
+  try { const { data } = await sb.from('content').select('data').eq('key', 'ranked_meta').maybeSingle(); TIERS = new Map((data?.data?.tiers || []).map(([id, v, t]) => ['c' + id, { t, v: +v || 0 }])); } catch (e) { TIERS = new Map(); }
+}
+// Force d'une carte pour les enveloppes : d'abord la tier list (S > A > B…), puis la liste méta, puis rareté et stats.
+const power = c => { const t = TIERS.get(c.k); return (t ? (TIER_PTS[t.t] || 0) + Math.min(9, t.v / 100) : 0) + (META.includes(nkey(c.n)) ? 45 : 0) + (c.rar === 'Transcendant' ? 2 : c.rar === 'Exclusive' ? 1 : 0) + c.hp / 1000 + c.atk / 100; };
 // Tire un marché de n cartes : répartition des rôles sûre, noms tous différents, cartes rares un peu moins fréquentes.
-function drawMarket(pool, roles, dists, envN, exclude) {
+function drawMarket(pool, roles, dists, envN, exclude, capSmall) {
   const used = new Set(exclude), byRole = {};
   for (const r of roles) byRole[r] = pool.filter(c => c.role === r && !used.has(nkey(c.n)));
   const distinctCount = r => new Set(byRole[r].map(c => nkey(c.n))).size;
-  let plan = null;
-  for (const d of dists) {
-    for (let t = 0; t < 60 && !plan; t++) { const rs = shuffle(roles.slice()); if (d.every((n, i) => distinctCount(rs[i]) >= n)) plan = rs.map((r, i) => [r, d[i]]); }
-    if (plan) break;
-  }
+  // Un rôle qui a peu de personnages (les healers) n'est jamais vidé dans le marché principal : il en reste pour la mort subite.
+  const cap = r => { const n = distinctCount(r); return capSmall && n <= 3 ? n - 1 : n; };
+  const order = []; const left = dists.filter(d => d[1] > 0).slice();
+  while (left.length) { let x = Math.random() * left.reduce((a, d) => a + d[1], 0), k = 0; for (; k < left.length - 1; k++) { x -= left[k][1]; if (x <= 0) break; } order.push(left.splice(k, 1)[0][0]); }
+  const tryPlans = (list, lim) => { for (const d of list) for (let t = 0; t < 80; t++) { const rs = shuffle(roles.slice()); if (d.every((n, i) => lim(rs[i]) >= n)) return rs.map((r, i) => [r, d[i]]); } return null; };
+  const plan = tryPlans(order, cap) || tryPlans(dists.map(d => d[0]), distinctCount);
   if (!plan) throw new Error('Pas assez de cartes avec un rôle pour tirer le marché.');
   const out = [];
   for (const [r, n] of plan) {
@@ -60,9 +73,15 @@ function drawMarket(pool, roles, dists, envN, exclude) {
       used.add(nkey(pick.n)); out.push(pick);
     }
   }
-  const order = roles.reduce((o, r, i) => (o[r] = i, o), {}), rr = { Transcendant: 0, Exclusive: 1, LR: 2 };
-  out.sort((a, b) => order[a.role] - order[b.role] || rr[a.rar] - rr[b.rar] || a.n.localeCompare(b.n));
-  const env = new Set(shuffle(out.map((_, i) => i)).slice(0, envN));
+  const ro = roles.reduce((o, r, i) => (o[r] = i, o), {}), rr = { Transcendant: 0, Exclusive: 1, LR: 2 };
+  out.sort((a, b) => ro[a.role] - ro[b.role] || rr[a.rar] - rr[b.rar] || a.n.localeCompare(b.n));
+  // Sous enveloppe : les cartes les plus fortes du marché (rareté puis stats à 5★), une seule par rôle.
+  const env = new Set(), roleTaken = new Set();
+  for (const i of out.map((_, i) => i).sort((a, b) => power(out[b]) - power(out[a]))) {
+    if (env.size >= envN) break;
+    if (roleTaken.has(out[i].role)) continue;
+    env.add(i); roleTaken.add(out[i].role);
+  }
   return out.map((c, i) => ({ c, env: env.has(i) }));
 }
 
@@ -96,7 +115,7 @@ function newState(row, pool, roles) {
   const G = { v: 1, code: row.code, seq: 0, pid: 0, stage: 'main', first, nom: first, score: [0, 0], fights: [], comp: null, log: [], over: null, dl: 0,
     players: [{ uid: row.host, name: row.host_name || 'Joueur 1', budget: BUDGET, own: [], sd: [] }, { uid: row.guest, name: row.guest_name || 'Joueur 2', budget: BUDGET, own: [], sd: [] }],
     cards: {}, market: [], sdm: null, roles };
-  G.market = drawMarket(pool, roles, DIST14, ENV_MAIN, []).map(({ c, env }) => { G.cards[c.k] = c; return { k: c.k, env, by: null, price: 0 }; });
+  G.market = drawMarket(pool, roles, DIST14, ENV_MAIN, [], true).map(({ c, env }) => { G.cards[c.k] = c; return { k: c.k, env, by: null, price: 0 }; });
   addLog(G, `Tirage au sort : ${G.players[first].name} met la première carte en vente.`);
   return G;
 }
@@ -263,14 +282,14 @@ function cleanup() {
 
 function hub(m) {
   m.innerHTML = `<section class="hero mx-hero"><span class="chip red">Mini-jeux</span><h1 style="margin-top:12px">Mini-jeux de la Brigade</h1><p class="mute">Des jeux entre membres, avec les cartes YURO et le moteur de combat du simulateur.</p></section>
-  <div class="grid mx-games"><a class="card mx-game" href="#jeux/mercato"><div class="mx-game-ico">⚖️</div><div><h2>Mercato YURO</h2><p class="mute small">Enchères en ligne contre un ami : 1 000 000 KI pour recruter 6 cartes, puis deux combats en 3 contre 3. Mort subite à 1-1.</p><span class="btn primary" style="margin-top:8px">Jouer</span></div></a></div>`;
+  <div class="grid mx-games"><a class="card mx-game" href="#jeux/mercato"><div class="mx-game-ico">${SEAL}</div><div><h2>Mercato YURO</h2><p class="mute small">Enchères en ligne contre un ami : 1 000 000 KI pour recruter 6 cartes, puis deux combats en 3 contre 3. Mort subite à 1-1.</p><span class="btn primary" style="margin-top:8px">Jouer</span></div></a></div>`;
 }
 
 const RULES = `<ul class="mx-rules">
   <li>Partie en ligne à 2 : chacun a <b>1 000 000 KI</b> et recrute <b>6 cartes</b> parmi les <b>14 du marché</b>, visibles dès le début (stats à 5★).</li>
   <li><b>Une carte par rôle dans un trio</b>, comme dans le jeu : au plus 2 cartes du même rôle sur tes 6.</li>
   <li><b>Chacun son tour</b>, un joueur choisit la carte mise en vente et ouvre l'enchère (10 000 KI minimum). On surenchérit par tranches de 10 000 KI, jusqu'à ce que l'un passe.</li>
-  <li>📩 <b>3 cartes sont sous enveloppe</b> (connues dès le début) : chacun mise en secret, la plus haute mise l'emporte. À égalité, c'est celui qui l'a mise en vente.</li>
+  <li>📩 <b>Les 3 cartes les mieux classées du marché sont sous enveloppe</b>, d'après la tier list PvP de la Brigade (une par rôle, connues dès le début) : chacun mise en secret, la plus haute mise l'emporte. À égalité, c'est celui qui l'a mise en vente.</li>
   <li>Il te reste toujours au moins 10 000 KI par carte qu'il te manque. Quand un joueur a ses 6 cartes, l'autre complète gratuitement.</li>
   <li>Ensuite, chacun forme <b>deux trios en secret</b> (le trio 1 joue le combat 1). Deux combats en 3 contre 3, joués en direct, 45 s par coup.</li>
   <li><b>1-1 : mort subite</b>. 8 nouvelles cartes, payées avec l'argent qu'il te reste : un trio neuf de 3 rôles différents pour le dernier combat. L'argent mis de côté peut tout changer !</li>
@@ -310,6 +329,7 @@ async function game(m, ctx, code) {
     draft: null, sel: null, myBid: {}, compSel: null, F: null, W: null, frame: null, saveT: 0, off: 0 };
   X.onHash = () => { if (!location.hash.startsWith('#jeux/mercato/' + code)) cleanup(); };
   window.addEventListener('hashchange', X.onHash);
+  m.addEventListener('pointerdown', () => { if (SFX.on) audio(); }, { once: true });
   X.awayFor = i => X.online.has(X.G?.players[i]?.uid) ? 0 : Date.now() - (X.seen[i] || Date.now());
   m.innerHTML = `<div class="mx" id="mx"><div class="mx-top" id="mxTop"></div><div class="mx-hud" id="mxHud"></div><div class="card mx-act" id="mxAct"><div class="mute">Chargement…</div></div>
     <div id="mxMain"></div><div id="mxFight" class="mx-fight" hidden></div><details class="card mx-logw"><summary><b>Journal</b></summary><div class="mx-log" id="mxLog"></div></details></div>`;
@@ -352,6 +372,7 @@ async function game(m, ctx, code) {
 }
 async function hostStart() {
   if (!X || X.G || X.starting) return; X.starting = true;
+  if (X.ctx.sb && !TIERS.size) await loadTiers(X.ctx.sb);
   const { data: row } = await X.db.get(X.code); X.starting = false;
   if (!X || X.G || !row?.guest) return;
   try { X.G = newState(row, X.pool, X.roles); } catch (e) { X.root.querySelector('#mxAct').innerHTML = `<p class="red">${esc(e.message)}</p>`; return; }
@@ -379,7 +400,8 @@ function tick() {
   const G = X.G, now = Date.now();
   if (X.host && G && !G.over && G.dl && now > G.dl && G.ph.k !== 'fight') { G.dl = 0; timeout(G); commit(); }
   if (G) G.players.forEach((p, i) => { if (X.online.has(p.uid)) X.seen[i] = now; });
-  X.root.querySelectorAll('[data-dl]').forEach(el => { const s = Math.max(0, Math.ceil((+el.dataset.dl - (now - (X.host ? 0 : X.off))) / 1000)); el.textContent = s + ' s'; el.classList.toggle('hot', s <= 5); });
+  if (G && X.snd?.myTurn && G.dl) { const s5 = Math.ceil((G.dl - (now - (X.host ? 0 : X.off))) / 1000); if (s5 <= 5 && s5 > 0 && s5 !== X.lastTick) { X.lastTick = s5; sfx('tick'); } }
+  X.root.querySelectorAll('[data-dl]').forEach(el => { const left = +el.dataset.dl - (now - (X.host ? 0 : X.off)), s = Math.max(0, Math.ceil(left / 1000)), b = el.querySelector('b'), u = el.querySelector('u'); if (b) b.textContent = s + ' s'; if (u) u.style.transform = `scaleX(${Math.max(0, Math.min(1, left / 1000 / (+el.dataset.tot || 30)))})`; el.classList.toggle('hot', s <= 5); });
   if (X.F) fightTick();
   const o = other(X.me ?? 0); const aw = G && !G.over && G.players[o]?.uid && X.awayFor(o) >= TIME.away * 1000;
   const cb = X.root.querySelector('#mxClaim'); if (cb) cb.hidden = !aw; else if (aw) render();
@@ -388,12 +410,26 @@ function tick() {
 /* ===================== Affichage ===================== */
 function cardImg(c, cls = '') { return c.img ? `<img class="${cls}" src="${esc(c.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'mx-fb',textContent:'${esc(initials(c.n))}'}))">` : `<div class="mx-fb">${esc(initials(c.n))}</div>`; }
 const roleLbl = r => X.ctx.ROLE[r] || r;
-function tile(G, m, opt = {}) {
-  const c = G.cards[m.k], me = X.me, sold = m.by != null;
-  const cls = ['mx-card', sold ? 'sold' : '', !sold && !canUse(G, me, m.k) ? 'nouse' : '', opt.sel ? 'sel' : '', opt.live ? 'live' : '', opt.click ? 'click' : ''].join(' ');
-  return `<button class="${cls}" data-k="${esc(m.k)}" data-r="${esc(c.rar)}"><div class="mx-pic">${cardImg(c)}${m.env ? '<span class="mx-env" title="Sous enveloppe">📩</span>' : ''}<span class="mx-rar">${c.rar === 'Transcendant' ? 'TRS' : c.rar === 'Exclusive' ? 'EX' : 'LR'}</span></div>
-    <div class="mx-cap"><b class="mx-n">${esc(c.n)}</b><span class="mx-role" data-role="${esc(c.role)}">${esc(roleLbl(c.role))}</span><span class="mx-st">${fmtN(c.hp)} PV · ${fmtN(c.atk)} ATQ</span>${c.tn ? `<span class="mx-tn">${esc(c.tn)}</span>` : ''}</div>
-    ${sold ? `<div class="mx-sold">${m.by === me ? 'Toi' : esc(G.players[m.by].name)} · ${m.price ? ki(m.price) : 'gratuit'}</div>` : !canUse(G, me, m.k) ? `<div class="mx-no">${slots(G, me) ? 'Rôle complet' : 'Équipe complète'}</div>` : ''}</button>`;
+// Pictos de rôle (traits blancs, comme les icônes du menu du site).
+const ROLE_ICO = { degats: 'M5 19 17 7M14 4h6v6M7 13l4 4', tank: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', healer: 'M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z', stunner: 'M13 3 5 14h6l-1 7 8-11h-6z', polyvalence: 'M12 3l2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6z' };
+const roleIco = r => `<svg class="mx-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="${ROLE_ICO[r] || ROLE_ICO.polyvalence}"/></svg>`;
+const roleTag = c => `<span class="mx-role" data-role="${esc(c.role)}">${roleIco(c.role)}${esc(roleLbl(c.role))}</span>`;
+// Sceau de cire à l'araignée : la carte part sous enveloppe.
+const SEAL = `<span class="mx-seal" title="Sous enveloppe : mises secrètes"><svg viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M19 17 13 9 6 7M18 21 9 18 2 20M18 26 9 30 4 37M20 30 15 38 14 46M29 17 35 9 42 7M30 21 39 18 46 20M30 26 39 30 44 37M28 30 33 38 34 46"/></g><circle cx="24" cy="17" r="5" fill="currentColor"/><ellipse cx="24" cy="31" rx="7.5" ry="10" fill="currentColor"/></svg></span>`;
+const rarShort = c => c.rar === 'Transcendant' ? 'TRS' : c.rar === 'Exclusive' ? 'EX' : 'LR';
+const statsHTML = c => `<span class="mx-st"><span><i>PV</i>${fmtN(c.hp)}</span><span><i>ATQ</i>${fmtN(c.atk)}</span></span>`;
+// Face de carte façon TCG : illustration pleine, reflet selon la rareté, plaque du nom en bas.
+function face(c, opt = {}) {
+  return `<span class="mx-face" data-r="${esc(c.rar)}">${cardImg(c)}<span class="mx-foil"></span>${opt.env ? SEAL : ''}<span class="mx-rar">${rarShort(c)}</span>
+    <span class="mx-plate"><b class="mx-n">${esc(c.n)}</b>${opt.mini ? '' : roleTag(c) + statsHTML(c)}</span></span>`;
+}
+const SWAY = [4.6, 5.4, 6.2];
+function tile(G, m, i, opt = {}) {
+  const c = G.cards[m.k], me = X.me, sold = m.by != null, use = canUse(G, me, m.k);
+  const dur = SWAY[i % 3], delay = -((Date.now() / 1000) % dur).toFixed(2);
+  const cls = ['mx-card', sold ? 'sold' : '', !sold && !use ? 'nouse' : '', opt.sel ? 'sel' : '', opt.live ? 'mx-live' : '', opt.click ? 'click' : ''].join(' ');
+  return `<div class="mx-cell"><button class="${cls}" data-k="${esc(m.k)}" style="--dur:${dur}s;--del:${delay}s" aria-label="${esc(c.n)}">${face(c, { env: m.env })}
+    ${sold ? `<span class="mx-sold"><b>${m.by === me ? 'À toi' : esc(G.players[m.by].name)}</b>${m.price ? ki(m.price) : 'gratuit'}</span>` : !use ? `<span class="mx-no">${slots(G, me) ? 'Rôle complet' : 'Équipe complète'}</span>` : ''}</button></div>`;
 }
 const fmtN = n => Math.round(n || 0).toLocaleString('fr-FR').replace(/[  ]/g, ' ');
 function render() {
@@ -411,9 +447,9 @@ function render() {
   }
   const P = G.players, me = X.me, o = other(me), ph = G.ph;
   const stageLbl = { main: 'Mercato', compose: 'Composition des trios', fight: 'Combats', sd: 'Mort subite', over: 'Fin de partie' }[G.stage];
-  $('#mxTop').innerHTML = `<div class="mx-title"><b>Mercato YURO</b><span class="chip">${stageLbl}</span><span class="small mute">Partie ${esc(G.code)}</span></div>
-    <div class="mx-score"><span>${esc(P[0].name)}</span><b>${G.score[0]} - ${G.score[1]}</b><span>${esc(P[1].name)}</span></div>
-    <div class="row mx-topb">${G.over ? '<a class="btn ghost" href="#jeux/mercato">Retour</a>' : `<button class="btn ghost" id="mxClaim" hidden>Réclamer la victoire (adversaire absent)</button><button class="btn ghost" id="mxFF">Abandonner</button>`}</div>`;
+  $('#mxTop').innerHTML = `<div class="mx-title"><b>Mercato</b><span class="mx-stage-lbl">${stageLbl}</span><span class="small mute">Partie ${esc(G.code)}</span></div>
+    <div class="mx-score" aria-label="Score"><span>${esc(P[0].name)}</span><b>${G.score[0]}<i></i>${G.score[1]}</b><span>${esc(P[1].name)}</span></div>
+    <div class="row mx-topb">${G.over ? '<a class="btn ghost" href="#jeux/mercato">Retour</a>' : `<button class="btn ghost" id="mxClaim" hidden>Réclamer la victoire (adversaire absent)</button><button class="btn ghost" id="mxFF">Abandonner</button>`}<button class="btn ghost mx-snd" id="mxSnd" aria-pressed="${SFX.on}" title="${SFX.on ? 'Couper le son' : 'Remettre le son'}"><svg class="mx-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z${SFX.on ? 'M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11' : 'M16 9l5 6M21 9l-5 6'}"/></svg>${SFX.on ? 'Son' : 'Muet'}</button></div>`;
   $('#mxHud').innerHTML = [me, o].map(i => hudHTML(G, i)).join('');
   // zone d'action
   $('#mxAct').innerHTML = actHTML(G);
@@ -425,23 +461,117 @@ function render() {
   if (inFight) { $('#mxMain').innerHTML = fightSide(G); mountFight(); syncMoves(); }
   else if (G.stage === 'compose') $('#mxMain').innerHTML = composeHTML(G);
   else if (G.stage === 'over') $('#mxMain').innerHTML = overHTML(G);
-  else $('#mxMain').innerHTML = `<div class="mx-mkh"><h2>${isSD(G) ? 'Marché de la mort subite' : 'Le marché'}</h2><span class="small mute">${mkt(G).filter(m => m.by == null).length} cartes à vendre · touche une carte pour voir sa technique</span></div><div class="mx-grid">${mkt(G).map(m => tile(G, m, { sel: X.sel === m.k && ph.k === 'nominate', live: ph.c === m.k && ['open', 'sealed', 'done'].includes(ph.k), click: (ph.k === 'nominate' || ph.k === 'pick') && ph.who === me && canUse(G, me, m.k) })).join('')}</div>`;
+  else $('#mxMain').innerHTML = marketHTML(G);
   wire(G);
+  motion(G);
+  sounds(G);
+}
+/* ===================== Bruitages (synthétisés, sans fichier audio) ===================== */
+const SFX = { on: (() => { try { return localStorage.getItem('mx_sfx') !== '0'; } catch (e) { return true; } })(), ac: null };
+function audio() {
+  if (!SFX.ac) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; SFX.ac = new C(); }
+  if (SFX.ac.state === 'suspended') SFX.ac.resume().catch(() => {});
+  return SFX.ac;
+}
+// une note : fréquence (avec glissé), enveloppe courte, type d'onde
+function tone(a, f, d, o = {}) {
+  const t = a.currentTime + (o.at || 0), g = a.createGain(), osc = a.createOscillator();
+  osc.type = o.type || 'sine'; osc.frequency.setValueAtTime(f, t); if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t + d);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.vol || .15, t + (o.atk || .006)); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  osc.connect(g).connect(a.destination); osc.start(t); osc.stop(t + d + .02);
+}
+// un souffle filtré : froissement, fil qui file, coup sourd
+function hiss(a, d, o = {}) {
+  const t = a.currentTime + (o.at || 0), n = Math.ceil(a.sampleRate * d), buf = a.createBuffer(1, n, a.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, o.decay || 2);
+  const src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain();
+  src.buffer = buf; f.type = o.filter || 'lowpass'; f.frequency.setValueAtTime(o.f || 1200, t); if (o.fTo) f.frequency.exponentialRampToValueAtTime(o.fTo, t + d); f.Q.value = o.q || 1;
+  g.gain.value = o.vol || .2; src.connect(f).connect(g).connect(a.destination); src.start(t);
+}
+const SOUNDS = {
+  drop: a => { hiss(a, .45, { filter: 'bandpass', f: 400, fTo: 3200, q: 2, vol: .16, decay: 1 }); tone(a, 120, .25, { to: 60, vol: .3, at: .42 }); hiss(a, .08, { f: 900, vol: .25, at: .42 }); },      // la carte file le long de son fil puis se pose
+  select: a => { tone(a, 660, .12, { type: 'triangle', vol: .1 }); tone(a, 990, .1, { type: 'triangle', vol: .06, at: .04 }); },
+  bid: a => { tone(a, 1320, .09, { type: 'square', vol: .05 }); tone(a, 1760, .16, { type: 'triangle', vol: .09, at: .06 }); hiss(a, .06, { filter: 'highpass', f: 5000, vol: .08 }); }, // pièce posée sur la table
+  pass: a => { tone(a, 300, .28, { to: 190, vol: .12 }); },
+  seal: a => { hiss(a, .09, { filter: 'bandpass', f: 2600, q: 3, vol: .3 }); tone(a, 420, .2, { to: 260, type: 'triangle', vol: .1, at: .03 }); }, // cire qui craque
+  stamp: a => { hiss(a, .18, { f: 380, vol: .55 }); tone(a, 75, .35, { to: 45, vol: .5 }); tone(a, 640, .05, { type: 'triangle', vol: .12, at: .01 }); },  // tampon « Adjugé »
+  free: a => { tone(a, 784, .14, { vol: .1 }); tone(a, 1046, .22, { vol: .1, at: .1 }); },
+  turn: a => { tone(a, 587, .22, { vol: .1 }); tone(a, 880, .35, { vol: .1, at: .12 }); },   // à toi de jouer
+  tick: a => { tone(a, 1500, .03, { type: 'square', vol: .035 }); },
+  swap: a => { hiss(a, .22, { filter: 'bandpass', f: 1800, fTo: 600, q: 1.5, vol: .14, decay: 1.3 }); tone(a, 520, .08, { type: 'triangle', vol: .06, at: .16 }); },
+  reveal: a => { [220, 277, 330, 440].forEach((f, i) => tone(a, f, 1.1 - i * .1, { vol: .07, atk: .25, at: i * .07 })); hiss(a, .9, { filter: 'highpass', f: 3000, vol: .05, decay: 1 }); },
+  win: a => { [523, 659, 784, 1046].forEach((f, i) => tone(a, f, i === 3 ? .6 : .18, { type: 'triangle', vol: .12, at: i * .11 })); },
+  lose: a => { [392, 330, 262].forEach((f, i) => tone(a, f, i === 2 ? .6 : .25, { vol: .12, at: i * .18 })); },
+  over: a => { tone(a, 75, .5, { to: 50, vol: .45 }); [523, 659, 784, 1046, 1318].forEach((f, i) => tone(a, f, .5, { type: 'triangle', vol: .1, at: .1 + i * .09 })); }
+};
+function sfx(name) { if (!SFX.on) return; try { const a = audio(); if (a) SOUNDS[name]?.(a); } catch (e) { /* rien */ } }
+// Les sons suivent ce qui change dans la partie (pour les deux joueurs), jamais au premier affichage.
+function sounds(G) {
+  const ph = G.ph, me = X.me, prev = X.snd;
+  const myTurn = !G.over && ((ph.k === 'nominate' || ph.k === 'pick') && ph.who === me || ph.k === 'open' && ph.turn === me || ph.k === 'sealed' && !ph.has[me] && canUse(G, me, ph.c) || ph.k === 'compose' && !ph.ready[me]);
+  const cur = { pid: G.pid, k: ph.k, c: ph.c, high: ph.high, log: G.log[0], stage: G.stage, fights: G.fights.length, myTurn, over: !!G.over };
+  X.snd = cur;
+  if (!prev) return;
+  if (cur.over && !prev.over) return sfx(G.over.w === me ? 'over' : 'lose');
+  if (cur.k !== prev.k || cur.c !== prev.c) {
+    if ((cur.k === 'open' || cur.k === 'sealed') && cur.c !== prev.c) { sfx('drop'); if (cur.k === 'sealed') setTimeout(() => sfx('seal'), 450); return; }
+    if (cur.k === 'done') { if (ph.bids) sfx('seal'); setTimeout(() => sfx(ph.free ? 'free' : 'stamp'), ph.bids ? 250 : 0); return; }
+    if (cur.k === 'fight' && prev.stage === 'compose') return sfx('reveal');
+    if (cur.k === 'fres') return sfx(ph.w === me ? 'win' : ph.w === 'draw' ? 'pass' : 'lose');
+  }
+  if (cur.k === 'open' && prev.k === 'open' && cur.high > prev.high) return sfx('bid');
+  if (cur.log !== prev.log && / passe\.$/.test(cur.log || '')) sfx('pass');
+  if (cur.myTurn && !prev.myTurn) setTimeout(() => sfx('turn'), cur.k === 'open' || cur.k === 'sealed' ? 650 : 0);
+}
+// Mouvement : entrée de la carte en vente, tampon « Adjugé », montant qui défile, carte qui pivote sous le doigt.
+function motion(G) {
+  const R = X.root, ph = G.ph, hold = R.querySelector('.mx-hold');
+  if (hold) { const key = ph.k === 'done' ? 'v:' + ph.c : 'c:' + (ph.c || X.sel); if (X.lastStage !== key) { hold.classList.add('enter'); X.lastStage = key; } bindTilt(hold); }
+  const st = R.querySelector('.mx-stamp'); if (st && X.lastStamp !== G.pid) { st.classList.add('slam'); X.lastStamp = G.pid; }
+  const amt = R.querySelector('.mx-amt');
+  if (amt) { const to = +amt.dataset.v, from = X.lastAmt ?? to; X.lastAmt = to; if (from !== to && !matchMedia('(prefers-reduced-motion: reduce)').matches) { const t0 = performance.now(); const f = t => { const k = Math.min(1, (t - t0) / 520), e = 1 - Math.pow(1 - k, 3); amt.firstChild.nodeValue = grp(Math.round((from + (to - from) * e) / 1000) * 1000) + ' '; if (k < 1 && amt.isConnected) requestAnimationFrame(f); }; requestAnimationFrame(f); amt.classList.add('bump'); } }
+  else X.lastAmt = null;
+}
+function bindTilt(hold) {
+  const card = hold.querySelector('.mx-big3d'); if (!card || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const set = (x, y) => { card.style.setProperty('--rx', (y * -16).toFixed(2) + 'deg'); card.style.setProperty('--ry', (x * 22).toFixed(2) + 'deg'); card.style.setProperty('--mx', (50 + x * 60).toFixed(1) + '%'); card.style.setProperty('--my', (50 + y * 60).toFixed(1) + '%'); };
+  hold.onpointermove = e => { const r = hold.getBoundingClientRect(); hold.classList.add('held'); set((e.clientX - r.left) / r.width - .5, (e.clientY - r.top) / r.height - .5); };
+  hold.onpointerleave = hold.onpointerup = hold.onpointercancel = () => { hold.classList.remove('held'); set(0, 0); };
+}
+// Le marché, avec le filtre par rôle : tout, une ligne par rôle, ou un seul rôle.
+function marketHTML(G) {
+  const ph = G.ph, me = X.me, M = mkt(G), roles = Object.keys(X.ctx.ROLE).filter(r => M.some(m => G.cards[m.k].role === r));
+  const f = X.filter && (X.filter === 'all' || X.filter === 'rows' || roles.includes(X.filter)) ? X.filter : 'all';
+  const optOf = m => ({ sel: X.sel === m.k && ph.k === 'nominate', live: ph.c === m.k && ['open', 'sealed', 'done'].includes(ph.k), click: (ph.k === 'nominate' || ph.k === 'pick') && ph.who === me && canUse(G, me, m.k) });
+  const idx = new Map(M.map((m, i) => [m.k, i]));
+  const web = list => `<div class="mx-web">${list.map(m => tile(G, m, idx.get(m.k), optOf(m))).join('')}</div>`;
+  const left = r => M.filter(m => G.cards[m.k].role === r && m.by == null).length;
+  const btn = (v, label, ico) => `<button class="mx-fbtn ${f === v ? 'on' : ''}" data-filter="${v}" ${ico ? `data-role="${v}"` : ''} aria-pressed="${f === v}">${ico || ''}${label}</button>`;
+  const bar = `<div class="mx-filter" role="toolbar" aria-label="Filtrer le marché">${btn('all', 'Tout')}${btn('rows', 'Par rôle')}${roles.map(r => btn(r, `${esc(roleLbl(r))}<small>${left(r)}</small>`, roleIco(r))).join('')}</div>`;
+  let body;
+  if (f === 'rows') body = roles.map(r => `<section class="mx-rrow"><h3 class="mx-rrowh" data-role="${r}">${roleIco(r)}${esc(roleLbl(r))}<small>${left(r)} à vendre</small></h3>${web(M.filter(m => G.cards[m.k].role === r))}</section>`).join('');
+  else body = web(f === 'all' ? M : M.filter(m => G.cards[m.k].role === f));
+  return `<div class="mx-mkh"><h2>${isSD(G) ? 'Marché de la mort subite' : 'Le marché'}</h2><span class="small mute">${M.filter(m => m.by == null).length} cartes à vendre. Touche une carte pour lire sa technique.</span></div>${bar}${body}`;
 }
 function hudHTML(G, i) {
   const p = G.players[i], me = X.me, list = owned(G, i), on = X.online.has(p.uid);
   const active = (G.ph.k === 'nominate' || G.ph.k === 'pick') ? G.ph.who === i : G.ph.k === 'open' ? G.ph.turn === i : G.ph.k === 'sealed' ? !G.ph.has[i] : false;
-  return `<div class="mx-pl ${active ? 'on' : ''}"><div class="mx-pln"><b>${esc(p.name)}</b>${i === me ? '<span class="chip">toi</span>' : ''}<i class="mx-dot ${on ? 'ok' : ''}" title="${on ? 'En ligne' : 'Hors ligne'}"></i></div>
-    <div class="mx-money">${ki(p.budget)}</div><div class="mx-bar"><i style="width:${Math.max(0, p.budget / BUDGET * 100)}%"></i></div>
-    <div class="mx-slots">${Array.from({ length: cfg(G).n }, (_, k) => { const c = list[k] && G.cards[list[k]]; return `<span class="mx-slot" title="${c ? esc(c.n + ' · ' + roleLbl(c.role)) : ''}">${c ? cardImg(c) : ''}</span>`; }).join('')}</div>
+  return `<div class="mx-pl ${active ? 'on' : ''} ${i === me ? 'mx-me' : 'mx-opp'}"><div class="mx-pln"><b>${esc(p.name)}</b>${i === me ? '<span class="mx-you">toi</span>' : ''}<i class="mx-dot ${on ? 'ok' : ''}" title="${on ? 'En ligne' : 'Hors ligne'}"></i></div>
+    <div class="mx-money">${grp(p.budget)}<small>KI</small></div><div class="mx-bar"><i style="width:${Math.max(0, p.budget / BUDGET * 100)}%"></i></div>
+    <div class="mx-slots" style="--n:${cfg(G).n}">${Array.from({ length: cfg(G).n }, (_, k) => { const c = list[k] && G.cards[list[k]]; return `<span class="mx-slot ${c ? 'full' : ''}" title="${c ? esc(c.n + ', ' + roleLbl(c.role)) : 'Place libre'}">${c ? cardImg(c) + `<span class="mx-slotr" data-role="${esc(c.role)}">${roleIco(c.role)}</span>` : ''}</span>`; }).join('')}</div>
     ${G.stage === 'main' || G.stage === 'sd' ? `<div class="small mute">${slots(G, i) ? `Mise max : ${ki(maxBid(G, i))}` : 'Équipe complète'}</div>` : ''}</div>`;
 }
-const timer = G => G.dl ? `<span class="mx-timer" data-dl="${G.dl}">…</span>` : '';
+const timer = G => G.dl ? `<span class="mx-timer" data-dl="${G.dl}" data-tot="${(G.ph.k === 'open' ? TIME.open : TIME[G.ph.k] || 30)}"><b>…</b><i><u></u></i></span>` : '';
 const wait = t => `<div class="mx-wait"><span class="mx-dots"><i></i><i></i><i></i></span>${t}</div>`;
-function bigCard(G, k) { const c = G.cards[k]; return `<div class="mx-big" data-r="${esc(c.rar)}"><div class="mx-bigpic">${cardImg(c)}</div><div><b class="mx-bign">${esc(c.n)}</b><div class="row" style="gap:6px;margin:4px 0"><span class="mx-role" data-role="${esc(c.role)}">${esc(roleLbl(c.role))}</span><span class="chip">${esc(c.rar)}</span>${item(G, k)?.env ? '<span class="chip warn">📩 Enveloppe</span>' : ''}</div><div class="small">${fmtN(c.hp)} PV · ${fmtN(c.atk)} ATQ (5★)</div>${c.tn ? `<div class="small mute"><b>${esc(c.tn)}</b>${c.td ? ' : ' + esc(c.td) : ''}</div>` : ''}</div></div>`; }
+function bigCard(G, k, opt = {}) {
+  const c = G.cards[k], env = item(G, k)?.env;
+  return `<div class="mx-stage"><div class="mx-hold"><div class="mx-big3d">${face(c, { env })}</div>${opt.stamp || ''}</div>
+    <div class="mx-info"><b class="mx-bign">${esc(c.n)}</b><div class="mx-tags">${roleTag(c)}<span class="mx-rtag" data-r="${esc(c.rar)}">${esc(c.rar)}</span>${env ? '<span class="mx-rtag env">Sous enveloppe</span>' : ''}</div>
+    ${statsHTML(c)}<span class="small mute">Stats à 5★${c.an ? ', ' + esc(c.an) : ''}</span>${c.tn ? `<p class="mx-tech"><b>${esc(c.tn)}</b>${c.td ? esc(c.td) : ''}</p>` : ''}</div></div>`;
+}
 function bidBox(G, min, max, label, opt = {}) {
   const key = G.pid + ':' + label, d = X.draft && X.draft.k === key ? X.draft.v : (opt.def ?? min);
-  return `<div class="mx-bid" data-min="${min}" data-max="${max}" data-key="${esc(key)}"><label class="small mute" for="mxBid">Ta mise (tranches de 10 000 KI) · de ${ki(min)} à ${ki(max)}</label>
+  return `<div class="mx-bid" data-min="${min}" data-max="${max}" data-key="${esc(key)}"><label class="small mute" for="mxBid">Ta mise, par tranches de 10 000 KI : de ${ki(min)} à ${ki(max)}</label>
     <div class="mx-bidin"><input id="mxBid" type="text" inputmode="numeric" value="${grp(d)}" autocomplete="off" aria-label="Ta mise en KI"><span>KI</span></div>
     <div class="mx-quick"><button data-add="${K}">+10 000</button><button data-add="${5 * K}">+50 000</button><button data-add="${10 * K}">+100 000</button><button data-set="${min}">Min</button><button data-set="${max}">Max</button></div>
     <div class="row"><button class="btn primary" id="mxBidGo">${label}</button>${opt.pass ? `<button class="btn ghost" id="mxPass">${opt.pass}</button>` : ''}</div><div class="red small" id="mxBidErr"></div></div>`;
@@ -457,13 +587,13 @@ function actHTML(G) {
         : bidBox(G, minBid(G, me), maxBid(G, me), 'Mettre en vente et ouvrir', { pass: 'Choisir une autre carte' }));
     case 'open': {
       const lead = ph.lead === me ? 'Tu mènes' : `${esc(P[ph.lead].name)} mène`;
-      const top = head(`Enchère : ${ki(ph.high)}`, `${lead} l'enchère.`) + bigCard(G, ph.c);
+      const top = head('Enchère en cours', `${lead} l'enchère.`) + `<div class="mx-amt" data-v="${ph.high}">${grp(ph.high)} <small>KI</small></div>` + bigCard(G, ph.c);
       if (ph.turn !== me) return top + wait(`${esc(P[o].name)} réfléchit : surenchérir ou passer…`);
       const mn = ph.high + K, mx = maxBid(G, me);
       return top + (mx >= mn ? bidBox(G, mn, mx, 'Surenchérir', { pass: `Passer (${esc(P[ph.lead].name)} l'emporte)` }) : `<p>Tu ne peux pas monter plus haut.</p><button class="btn primary" id="mxPass">Passer</button>`);
     }
     case 'sealed': {
-      const top = head('📩 Enchère sous enveloppe', `Chacun mise en secret. La plus haute mise l'emporte ; à égalité, ${ph.nom === me ? 'toi (tu l\'as mise en vente)' : esc(P[ph.nom].name) + ' (il l\'a mise en vente)'}.`) + bigCard(G, ph.c);
+      const top = head('Enchère sous enveloppe', `Chacun mise en secret. La plus haute mise l'emporte ; à égalité, ${ph.nom === me ? 'toi (tu l\'as mise en vente)' : esc(P[ph.nom].name) + ' (il l\'a mise en vente)'}.`) + bigCard(G, ph.c);
       if (ph.has[me]) return top + (X.myBid[G.pid] != null ? `<p>Ta mise : <b>${ki(X.myBid[G.pid])}</b></p>` : '<p>Ta mise est envoyée.</p>') + (ph.has[o] ? '' : wait(`${esc(P[o].name)} prépare sa mise…`));
       if (!canUse(G, me, ph.c)) return top + '<p class="mute">Tu ne peux pas recruter cette carte.</p>';
       const isNom = ph.nom === me, mx = maxBid(G, me);
@@ -475,10 +605,11 @@ function actHTML(G) {
       return head('Complète ton équipe gratuitement', `${esc(P[o].name)} a toutes ses cartes : touche une carte du marché compatible avec tes rôles.`);
     case 'done': {
       const w = ph.w === me ? 'Tu recrutes' : `${esc(P[ph.w].name)} recrute`;
-      return head(`${w} ${esc(c.n)}`, ph.free ? 'Gratuitement.' : `Pour ${ki(ph.price)}.`) + (ph.bids ? `<p class="small">Mises sous enveloppe : ${esc(P[0].name)} ${ki(ph.bids[0])} · ${esc(P[1].name)} ${ki(ph.bids[1])}</p>` : '') + bigCard(G, ph.c);
+      const stamp = `<span class="mx-stamp"><b>Adjugé</b><small>${ph.w === me ? 'à toi' : 'à ' + esc(P[ph.w].name)}</small></span>`;
+      return head(`${w} ${esc(c.n)}`, ph.free ? 'Gratuitement.' : `Pour ${ki(ph.price)}.`) + (ph.bids ? `<p class="small mx-bids">Mises secrètes : ${esc(P[0].name)} ${ki(ph.bids[0])}, ${esc(P[1].name)} ${ki(ph.bids[1])}</p>` : '') + bigCard(G, ph.c, { stamp });
     }
     case 'compose':
-      return head('Prépare tes deux trios', 'En secret : ton adversaire ne voit rien avant que les deux aient validé. Le trio 1 joue le combat 1, le trio 2 le combat 2. Une carte par rôle dans chaque trio.') + (ph.ready[me] ? wait(ph.ready[o] ? 'Révélation…' : `Tes trios sont prêts. ${esc(P[o].name)} prépare les siens…`) : '');
+      return head('Prépare tes deux trios', 'En secret : ton adversaire ne voit rien avant que les deux aient validé. Une carte par rôle dans chaque trio.') + (ph.ready[me] ? wait(ph.ready[o] ? 'Révélation…' : `Tes trios sont prêts. ${esc(P[o].name)} prépare les siens…`) : '');
     case 'fight': { const f = G.fights[G.fights.length - 1]; return head(f.n === 3 ? 'Combat de mort subite' : `Combat ${f.n} sur 2`, 'Joue tes coups dans l\'écran de combat. 45 s par coup : sinon une attaque simple est jouée pour toi (3 fois de suite = forfait).') + '<div id="mxMoveT" class="mx-movet"></div>'; }
     case 'fres': return head(ph.w === 'draw' ? 'Égalité : le combat est rejoué' : ph.w === me ? `Tu gagnes le combat ${ph.n === 3 ? 'de mort subite' : ph.n} !` : `${esc(P[ph.w].name)} gagne le combat ${ph.n === 3 ? 'de mort subite' : ph.n}`, `Score : ${G.score[0]} - ${G.score[1]}.`);
     case 'over': { const w = G.over.w; return `<div class="mx-acth"><h2>${w === me ? '🏆 Victoire !' : 'Défaite'}</h2></div><p>${w === me ? 'Tu remportes' : esc(P[w].name) + ' remporte'} le Mercato ${G.score[w]} - ${G.score[other(w)]}${G.over.why === 'ff' ? ' par forfait' : G.over.why === 'away' ? ' (adversaire absent)' : ''}.</p>`; }
@@ -488,14 +619,20 @@ function actHTML(G) {
 function composeHTML(G) {
   const me = X.me, own = G.players[me].own;
   if (G.ph.ready?.[me]) return teamsHTML(G);
-  if (!X.compSel || X.compSel.pid !== G.pid) { const s = autoSplit(G, own); X.compSel = { pid: G.pid, t: Object.fromEntries(own.map(k => [k, s[0].includes(k) ? 0 : 1])) }; }
-  const T = [0, 1].map(t => own.filter(k => X.compSel.t[k] === t)), ok = T.map(t => trioOk(G, t));
-  return `<div class="mx-comp">${[0, 1].map(t => `<div class="card mx-trio ${ok[t] ? 'ok' : 'bad'}"><h3>Trio ${t + 1} <span class="small mute">· combat ${t + 1}</span></h3><div class="mx-trioc">${T[t].map(k => { const c = G.cards[k]; return `<button class="mx-mini" data-mv="${esc(k)}">${cardImg(c)}<b>${esc(c.n)}</b><span class="mx-role" data-role="${esc(c.role)}">${esc(roleLbl(c.role))}</span><span class="small">${fmtN(c.hp)} PV · ${fmtN(c.atk)} ATQ</span><span class="small mute">→ trio ${2 - t}</span></button>`; }).join('')}</div>
-    <p class="small ${ok[t] ? 'mute' : 'red'}">${ok[t] ? '3 rôles différents : valide.' : T[t].length !== 3 ? 'Il faut exactement 3 cartes.' : 'Deux cartes du même rôle : change de trio.'}</p></div>`).join('')}</div>
-    <div class="row"><button class="btn ghost" id="mxSwapT">Inverser l'ordre des trios</button><button class="btn primary" id="mxComp" ${ok[0] && ok[1] ? '' : 'disabled'}>Valider mes trios</button></div>`;
+  if (!X.compSel || X.compSel.pid !== G.pid) { const sp = autoSplit(G, own); X.compSel = { pid: G.pid, t: Object.fromEntries(own.map(k => [k, sp[0].includes(k) ? 0 : 1])), pick: null }; }
+  const S2 = X.compSel, T = [0, 1].map(t => own.filter(k => S2.t[k] === t)), ok = T.map(t => trioOk(G, t));
+  const pickT = S2.pick ? S2.t[S2.pick] : null;
+  const dupOf = t => { const n = {}; T[t].forEach(k => { const r = G.cards[k].role; n[r] = (n[r] || 0) + 1; }); return r => n[r] > 1; };
+  const cardBtn = (k, t, dup) => { const c = G.cards[k], cls = ['mx-mini', S2.pick === k ? 'picked' : '', pickT != null && pickT !== t ? 'target' : '', dup(c.role) ? 'dup' : ''].join(' ');
+    return `<button class="${cls}" data-mv="${esc(k)}" aria-pressed="${S2.pick === k}" aria-label="${esc(c.n)}">${face(c, { mini: true })}${roleTag(c)}${statsHTML(c)}</button>`; };
+  const help = S2.pick ? `${esc(G.cards[S2.pick].n)} est sélectionné : touche une carte de l'autre trio pour les échanger.` : 'Touche une carte, puis une carte de l\'autre trio : elles changent de place.' + (matchMedia('(pointer: fine)').matches ? ' Tu peux aussi les glisser.' : '');
+  return `<p class="mx-comphelp">${help}</p><div class="mx-comp">${[0, 1].map(t => { const dup = dupOf(t); return `<div class="card mx-trio ${ok[t] ? 'mx-ok' : 'mx-bad'}" data-trio="${t}"><div class="mx-trioh"><h3>Trio ${t + 1}</h3><span class="small mute">joue le combat ${t + 1}</span></div>
+    <div class="mx-trioc">${T[t].map(k => cardBtn(k, t, dup)).join('')}</div>
+    <p class="small mx-triost">${ok[t] ? 'Trois rôles différents : prêt.' : 'Deux cartes du même rôle (en rouge) : échange l\'une avec l\'autre trio.'}</p></div>`; }).join('')}</div>
+    <div class="row"><button class="btn ghost" id="mxSwapT">Inverser l'ordre des combats</button><button class="btn primary" id="mxComp" ${ok[0] && ok[1] ? '' : 'disabled'}>Valider mes trios</button></div>`;
 }
 function teamsHTML(G) {
-  return `<div class="mx-teams">${[X.me, other(X.me)].map(i => { const p = G.players[i]; return `<div class="card"><h3>${esc(p.name)}</h3><div class="mx-trioc">${p.own.map(k => { const c = G.cards[k], m = G.market.find(x => x.k === k); return `<div class="mx-mini">${cardImg(c)}<b>${esc(c.n)}</b><span class="mx-role" data-role="${esc(c.role)}">${esc(roleLbl(c.role))}</span><span class="small mute">${m?.price ? ki(m.price) : 'gratuit'}</span></div>`; }).join('')}</div></div>`; }).join('')}</div>`;
+  return `<div class="mx-teams">${[X.me, other(X.me)].map(i => { const p = G.players[i]; return `<div class="card"><h3>${esc(p.name)}</h3><div class="mx-trioc">${p.own.map(k => { const c = G.cards[k], m = G.market.find(x => x.k === k); return `<div class="mx-mini">${face(c, { mini: true })}${roleTag(c)}<span class="small mute">${m?.price ? ki(m.price) : 'gratuit'}</span></div>`; }).join('')}</div></div>`; }).join('')}</div>`;
 }
 function fightSide(G) {
   const f = G.fights[G.fights.length - 1], P = G.players, row = (i, ks) => `<div class="mx-fteam"><b>${esc(P[i].name)}</b>${ks.map(k => `<span>${esc(G.cards[k].n)}</span>`).join('')}</div>`;
@@ -509,6 +646,31 @@ function overHTML(G) {
     <div class="card section"><h3>Combats</h3>${G.fights.map(f => `<div class="small">${f.n === 3 ? 'Mort subite' : 'Combat ' + f.n} : ${f.w == null ? '—' : f.w === 'draw' ? 'égalité' : esc(P[f.w].name)}</div>`).join('') || '<p class="small mute">Aucun combat joué.</p>'}</div>
     <div class="row"><a class="btn primary" href="#jeux/mercato">Nouvelle partie</a></div>`;
 }
+// Échange de deux cartes entre les trios : toucher l'une puis l'autre, ou glisser à la souris.
+function swapCards(a, b) { const S2 = X.compSel; if (!a || !b || a === b || S2.t[a] === S2.t[b]) return false; [S2.t[a], S2.t[b]] = [S2.t[b], S2.t[a]]; S2.pick = null; sfx('swap'); S2.flash = [a, b]; render(); return true; }
+function wireCompose(R) {
+  const S2 = X.compSel; if (!S2) return;
+  (S2.flash || []).forEach(k => R.querySelector(`[data-mv="${CSS.escape(k)}"]`)?.classList.add('swapped')); S2.flash = null;
+  R.querySelectorAll('[data-mv]').forEach(b => {
+    const k = b.dataset.mv;
+    b.onclick = () => { if (b.dataset.dragged) { delete b.dataset.dragged; return; } if (!S2.pick || S2.pick === k) { S2.pick = S2.pick === k ? null : k; if (S2.pick) sfx('select'); } else if (S2.t[S2.pick] === S2.t[k]) S2.pick = k; else return swapCards(S2.pick, k); render(); };
+    // glisser-déposer à la souris (sur téléphone, on touche les deux cartes)
+    b.onpointerdown = e => {
+      if (e.pointerType !== 'mouse' || e.button) return;
+      const x0 = e.clientX, y0 = e.clientY; let ghost = null;
+      const mv = ev => { if (!ghost && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 8) return;
+        if (!ghost) { ghost = b.cloneNode(true); ghost.className += ' mx-ghost'; ghost.style.width = b.offsetWidth + 'px'; document.body.appendChild(ghost); b.classList.add('lifting'); S2.pick = k; R.querySelectorAll('[data-mv]').forEach(o => o.classList.toggle('target', S2.t[o.dataset.mv] !== S2.t[k])); }
+        ghost.style.transform = `translate(${ev.clientX - b.offsetWidth / 2}px,${ev.clientY - 40}px) rotate(-6deg)`;
+        R.querySelectorAll('.mx-mini.over').forEach(o => o.classList.remove('over'));
+        const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-mv]'); if (under && S2.t[under.dataset.mv] !== S2.t[k]) under.classList.add('over'); };
+      const up = ev => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up);
+        if (!ghost) return; ghost.remove(); b.classList.remove('lifting'); b.dataset.dragged = 1;
+        const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('[data-mv]');
+        if (!(under && swapCards(k, under.dataset.mv))) { S2.pick = null; render(); } };
+      window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+    };
+  });
+}
 function cardModal(G, k) {
   const d = document.createElement('div'); d.className = 'mx-modal'; d.innerHTML = `<div class="card mx-modalc">${bigCard(G, k)}<button class="btn" style="margin-top:12px">Fermer</button></div>`;
   d.onclick = e => { if (e.target === d || e.target.closest('button')) d.remove(); }; document.body.appendChild(d);
@@ -518,9 +680,11 @@ function wire(G) {
   let ffT = null;
   $('#mxFF') && ($('#mxFF').onclick = e => { const b = e.currentTarget; if (b.dataset.sure) return act('ff'); b.dataset.sure = 1; b.textContent = 'Confirmer l\'abandon ?'; b.classList.add('red'); ffT = setTimeout(() => { delete b.dataset.sure; b.textContent = 'Abandonner'; b.classList.remove('red'); }, 3000); void ffT; });
   $('#mxClaim') && ($('#mxClaim').onclick = () => act('claim'));
-  R.querySelectorAll('.mx-grid .mx-card').forEach(b => b.onclick = () => {
+  $('#mxSnd') && ($('#mxSnd').onclick = () => { SFX.on = !SFX.on; try { localStorage.setItem('mx_sfx', SFX.on ? '1' : '0'); } catch (e) { /* rien */ } if (SFX.on) sfx('select'); render(); });
+  R.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { X.filter = b.dataset.filter; render(); });
+  R.querySelectorAll('.mx-web .mx-card').forEach(b => b.onclick = () => {
     const k = b.dataset.k;
-    if (ph.k === 'nominate' && ph.who === me && canUse(G, me, k)) { X.sel = k; X.draft = null; render(); X.root.querySelector('#mxAct')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    if (ph.k === 'nominate' && ph.who === me && canUse(G, me, k)) { X.sel = k; X.draft = null; sfx('select'); render(); X.root.querySelector('#mxAct')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
     if (ph.k === 'pick' && ph.who === me && canUse(G, me, k)) { act('pick', null, { k }); return; }
     cardModal(G, k);
   });
@@ -548,7 +712,7 @@ function wire(G) {
     $('#mxBidGo').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
   }
   $('#mxPass') && ($('#mxPass').onclick = () => { if (ph.k === 'nominate') { X.sel = null; render(); } else if (ph.k === 'open') act('pass'); else if (ph.k === 'sealed') act('seal', 0); });
-  R.querySelectorAll('[data-mv]').forEach(b => b.onclick = () => { const k = b.dataset.mv; X.compSel.t[k] = 1 - X.compSel.t[k]; render(); });
+  wireCompose(R);
   $('#mxSwapT') && ($('#mxSwapT').onclick = () => { for (const k in X.compSel.t) X.compSel.t[k] = 1 - X.compSel.t[k]; render(); });
   $('#mxComp') && ($('#mxComp').onclick = () => { const own = G.players[me].own, t = [0, 1].map(i => own.filter(k => X.compSel.t[k] === i)); act('comp', t); });
 }
