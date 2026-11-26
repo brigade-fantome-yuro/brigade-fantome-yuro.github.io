@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=206';
+import * as CFG from './config.js?v=207';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=206';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=206';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=207';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=207';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=206';
-import * as SCAN from './scan.js?v=206';
+import { duelRate } from './ranked.js?v=207';
+import * as SCAN from './scan.js?v=207';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '206';
+const APP_V = '207';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -260,9 +260,8 @@ async function accueil2(m) {
       <div class="card"><b>Raccourcis</b><div class="n2links">${[['#clic', 'Mise à jour en 1 clic'], ['#equipe/ranked', 'Meilleure équipe ranked'], ['#chateausim', 'Simulateur du château'], ['#prix', 'Prix du marché'], ['#collection/A/manquantes', 'Mes cartes manquantes']].map(x => `<a href="${x[0]}">${x[1]}</a>`).join('')}</div></div>
       <div class="card"><b>Kakashi</b><p class="small mute" style="margin:4px 0 10px">Une question sur YURO ou sur le site ? Le bot de la Brigade te répond.</p><a class="btn" href="#kakashi">Demander à Kakashi</a></div>
       ${standalone() ? '' : `<div class="card small"><b>📲 Installer le site comme une app</b><div class="mute" style="margin-top:4px">${isIOS() ? 'Sur iPhone : Partager → Sur l\'écran d\'accueil.' : 'Menu du navigateur (⋮) → Installer l\'application.'}</div></div>`}</aside></div>`;
-  const items = [];
   const [news, ev, txr, lrr, rk, snap] = await Promise.all([loadNews().catch(() => []), loadEvents().catch(() => []),
-    sb.from('tx').select('card,rarity,price,sold_at').gte('sold_at', new Date(Date.now() - 2 * 864e5).toISOString()).order('price', { ascending: false }).limit(3).then(r => r.data || [], () => []),
+    sb.from('tx').select('card,rarity,price,sold_at').gte('sold_at', new Date(Date.now() - 2 * 864e5).toISOString()).order('price', { ascending: false }).limit(6).then(r => r.data || [], () => []),
     sb.from('my_lr').select('user_id,updated_at,teams').order('updated_at', { ascending: false }).limit(40).then(r => r.data || [], () => []),
     sb.rpc('collection_ranking').then(r => r.data || [], () => []),
     sb.from('coll_snap').select('day,lr_value,pct').eq('user_id', S.user.id).order('day', { ascending: false }).limit(60).then(r => r.data || [], () => [])]);
@@ -271,12 +270,19 @@ async function accueil2(m) {
   const who = id => S.members?.find(p => p.id === id)?.discord || 'Un membre';
   // Fil public : seulement les membres qui partagent leur collection.
   const feedOk = id => { const p = S.members?.find(q => q.id === id); return !!p && p.share; };
-  for (const e of ev.slice(0, 1)) items.push({ t: Date.now() + 1, k: 'Calendrier', b: esc(e.title), s: `<span class="cd" data-cd="${e.t}"></span>`, h: '#calendrier' });
-  for (const r of lrr.filter(r => r.teams?.done && r.user_id !== S.user.id && feedOk(r.user_id)).slice(0, 4)) items.push({ t: new Date(r.updated_at).getTime(), k: 'Membres', b: `${esc(who(r.user_id))} a mis sa collection à jour`, s: ago(r.updated_at), h: '#guilde' });
-  for (const x of txr) items.push({ t: new Date(x.sold_at).getTime(), k: 'Marché', b: `${esc(x.card)}${x.rarity ? ` (${esc(x.rarity === 'Secret' ? 'LR' : x.rarity)})` : ''} vendue ${fmt(x.price)} KI`, s: ago(x.sold_at) + ' · plus grosses ventes des 2 derniers jours', h: '#transactions' });
-  for (const n of (news || []).slice(0, 2)) items.push({ t: new Date(n.d + 'T12:00:00').getTime(), k: 'Site', b: esc(n.t), s: esc(n.x).slice(0, 140), h: n.h || '#accueil' });
-  items.sort((a, b) => b.t - a.t);
-  $('#n2feed').innerHTML = items.map(x => `<a class="card n2item" href="${x.h}"><span class="n2k">${x.k}</span><b>${x.b}</b><span class="small mute">${x.s}</span></a>`).join('') || '<div class="empty">Rien de neuf pour l’instant.</div>';
+  // Fil rangé par rubrique : chaque rubrique est une grille de cartes (comme une page d'actus).
+  const tile = x => `<a class="card n2item" href="${x.h}"><b>${x.b}</b><span class="small mute">${x.s}</span></a>`;
+  const sec = (id, k, list, more) => `<section class="n2sec" id="${id}"><div class="n2sh"><span class="n2k">${k}</span>${more ? `<a class="small mute" href="${more[0]}">${more[1]} →</a>` : ''}</div><div class="n2grid">${list.map(tile).join('')}</div></section>`;
+  const mem = lrr.filter(r => r.teams?.done && r.user_id !== S.user.id && feedOk(r.user_id)).slice(0, 6).map(r => ({ b: `${esc(who(r.user_id))} a mis sa collection à jour`, s: ago(r.updated_at), h: '#guilde' }));
+  const mkt = txr.slice(0, 6).map(x => ({ b: `${esc(x.card)}${x.rarity ? ` (${esc(x.rarity === 'Secret' ? 'LR' : x.rarity)})` : ''} vendue ${fmt(x.price)} KI`, s: ago(x.sold_at), h: '#transactions' }));
+  const cal = ev.slice(0, 3).map(e => ({ b: esc(e.title), s: `<span class="cd" data-cd="${e.t}"></span>`, h: '#calendrier' }));
+  const site = (news || []).slice(0, 3).map(n => ({ b: esc(n.t), s: esc(n.x).slice(0, 120), h: n.h || '#accueil' }));
+  $('#n2feed').innerHTML = `<section class="n2sec" id="n2ex" hidden></section>`
+    + (mem.length ? sec('n2mem', 'Membres', mem, ['#guilde', 'Tous les profils']) : '')
+    + (mkt.length ? sec('n2mkt', 'Marché · plus grosses ventes (48 h)', mkt, ['#transactions', 'Toutes les ventes']) : '')
+    + (cal.length ? sec('n2cal', 'Calendrier', cal, ['#calendrier', 'Tout le calendrier']) : '')
+    + (site.length ? sec('n2site', 'Nouveautés du site', site) : '')
+    || '<div class="empty">Rien de neuf pour l’instant.</div>';
   tickCountdowns();
   const me = rk.find(r => r.user_id === S.user.id), first = snap[snap.length - 1]; let last = snap[0];
   // Même valeur que la page Collection : la dernière valeur calculée en direct (prix médians du jour), sinon la mesure du jour enregistrée.
@@ -284,8 +290,12 @@ async function accueil2(m) {
   const v = $('#n2val'); if (v) v.innerHTML = `<span class="small mute">Valeur de ta collection</span><div class="cd">${last ? fmt(last.lr_value) + ' <span class="small mute">KI</span>' : '—'}</div>${last && first && last !== first ? `<span class="small ${last.lr_value >= first.lr_value ? 'up' : 'down'}">${last.lr_value >= first.lr_value ? '▲ +' : '▼ '}${fmt(last.lr_value - first.lr_value)} KI depuis le ${new Date(first.day).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>` : ''}<span class="small mute">${me ? String(me.pct).replace('.', ',') + ' % du jeu' : ''}${S.mylr?.cards ? ` · ${Object.keys(S.mylr.cards).length} LR` : ''}</span><a class="btn ghost" href="#collection/A/moi" style="margin-top:8px;min-height:38px">Voir ma collection</a>`;
   // Échanges possibles : chargés en arrière-plan (collections des membres).
   (async () => { try { if (!S.collAt) { await loadCollections(); S.collAt = Date.now(); } const mine = myColl(); let n = 0, ppl = new Set();
-      for (const p of S.members || []) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; for (const [u, r] of Object.entries(th)) for (const c of r.dupes || []) if (!mine[u]?.owned?.has(c)) { n++; ppl.add(p.id); } }
-      if (n && $('#n2feed')) $('#n2feed').insertAdjacentHTML('afterbegin', `<a class="card n2item" href="#collection/A/echanges"><span class="n2k">Échanges</span><b>${ppl.size} membre${ppl.size > 1 ? 's ont' : ' a'} en double ${n} carte${n > 1 ? 's' : ''} qui te manque${n > 1 ? 'nt' : ''}</b><span class="small mute">Voir les échanges possibles</span></a>`);
+      const per = [];
+      for (const p of S.members || []) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; let k = 0; for (const [u, r] of Object.entries(th)) for (const c of r.dupes || []) if (!mine[u]?.owned?.has(c)) k++; if (k) { per.push([p, k]); n += k; ppl.add(p.id); } }
+      per.sort((x, y) => y[1] - x[1]);
+      const el = $('#n2ex'); if (!n || !el) return;
+      el.hidden = false;
+      el.innerHTML = `<div class="n2sh"><span class="n2k">Échanges · ${ppl.size} membre${ppl.size > 1 ? 's ont' : ' a'} en double ${n} carte${n > 1 ? 's' : ''} qui te manque${n > 1 ? 'nt' : ''}</span><a class="small mute" href="#collection/A/echanges">Tous les échanges →</a></div><div class="n2grid">${per.slice(0, 6).map(([p, k]) => `<a class="card n2item" href="#collection/A/echanges"><b>${esc(p.discord)}</b><span class="small mute">${k} carte${k > 1 ? 's' : ''} en double qui te manque${k > 1 ? 'nt' : ''}</span></a>`).join('')}</div>`;
     } catch (e) { /* rien */ } })();
 }
 
@@ -664,10 +674,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=206'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=207'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=206'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=207'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -800,7 +810,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=206'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=207'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1628,7 +1638,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=206'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=207'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
