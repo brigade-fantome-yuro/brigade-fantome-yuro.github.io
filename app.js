@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=230';
+import * as CFG from './config.js?v=231';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=230';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=230';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=231';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=231';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=230';
-import * as SCAN from './scan.js?v=230';
+import { duelRate } from './ranked.js?v=231';
+import * as SCAN from './scan.js?v=231';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '230';
+const APP_V = '231';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -175,14 +175,29 @@ const FUS = () => FUSION_LIVE || (S.profile?.role === 'admin' && new URLSearchPa
 const CG_LIVE = true;
 const CGV2 = () => CG_LIVE || (S.profile?.role === 'admin' && new URLSearchParams(location.search).has('cgv2'));
 const memHref = id => FUS() ? '#collection/L/m:' + id : '#checklist/m:' + id;
+/* ---------- Membres en ligne (présence en temps réel, sans table) ----------
+   Chaque membre connecté rejoint le canal « bf-online » ; la pastille verte affiche le nombre de membres présents.
+   Le tableau de bord admin y lit aussi la page ouverte par chacun. */
+S.online = [];
+const onlinePill = (cls = '') => `<span class="bfonline${cls ? ' ' + cls : ''}" title="Membres de la Brigade connectés au site en ce moment" aria-label="Membres connectés"><i></i>${ico('users')}<b data-onl>${S.online.length || '·'}</b></span>`;
+function onlinePaint() { const n = S.online.length; document.querySelectorAll('[data-onl]').forEach(b => { b.textContent = n || '·'; }); try { window.dispatchEvent(new Event('bf-online')); } catch (e) { /* rien */ } }
+function startPresence() {
+  if (S.presCh) return;
+  const me = () => ({ d: S.profile?.discord || '', p: (location.hash.slice(1) || 'accueil').split('/')[0], t: Date.now() });
+  const ch = sb.channel('bf-online', { config: { presence: { key: S.user.id } } });
+  ch.on('presence', { event: 'sync' }, () => { const st = ch.presenceState(); S.online = Object.entries(st).map(([id, a]) => ({ id, ...(a[a.length - 1] || {}) })); onlinePaint(); });
+  ch.subscribe(st => { if (st === 'SUBSCRIBED') ch.track(me()).catch(() => {}); });
+  S.presCh = ch; let last = 0;
+  window.addEventListener('hashchange', () => { const n = Date.now(); if (n - last < 3000) return; last = n; ch.track(me()).catch(() => {}); });
+}
 function shell(route) {
   const isAdmin = S.profile.role === 'admin';
   const links = ROUTES.filter(r => !(FUS() && r[0] === 'checklist')).map(r => r[0] === 'sep' ? `<div class="sep">${r[1]}</div>` : `<a href="#${r[0]}" class="${route === r[0] ? 'on' : ''}">${ico(r[2])}${r[1]}</a>`).join('')
     + (isAdmin ? `<div class="sep">Admin</div><a href="#admin" class="${route === 'admin' ? 'on' : ''}">${ico('shield')}Administration</a>` : '');
-  app.innerHTML = `<div class="top"><button class="btn" id="mn" aria-label="Menu">☰</button><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div><span class="sp"></span><button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button></div>
+  app.innerHTML = `<div class="top"><button class="btn" id="mn" aria-label="Menu">☰</button><div class="brand" style="margin:0">${SPIDER}<b>Brigade Fantôme</b></div><span class="sp"></span>${onlinePill()}<button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button></div>
   <div class="shell"><aside class="side" id="side"><div class="brand">${SPIDER}<b>Brigade Fantôme</b></div><nav class="nav">${links}</nav>
   <div class="me"><div class="mute small">Connecté</div><b>${esc(S.profile.discord)}</b><div class="row" style="margin-top:8px;gap:6px"><a class="btn ghost" href="#reglages" style="min-height:36px">⚙️ Réglages</a><button class="btn ghost" id="lo" style="min-height:36px">Se déconnecter</button></div></div></aside>
-  <main id="mainw"><button class="bfbell dsk" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button><div id="alertbar"></div><div id="main"></div></main></div>`;
+  <main id="mainw">${onlinePill('dsk')}<button class="bfbell dsk" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button><div id="alertbar"></div><div id="main"></div></main></div>`;
   app.dataset.mode = 'full'; try { ONB_OBS?.disconnect(); } catch (e) { /* rien */ }
   initBell();
   $('#lo').onclick = async () => { if (confirmBox('Te déconnecter ? Il faudra retaper ton mot de passe.')) { await sb.auth.signOut(); authView(); } };
@@ -235,7 +250,7 @@ function shell2() {
   const T = NAV2_TREE();
   app.innerHTML = `<header class="n2top"><div class="n2bar"><a href="#accueil" class="brand n2brand">${SPIDER}<b>Brigade Fantôme</b></a>
     <nav class="n2tabs" id="n2tabs">${T.map((t, i) => `<a href="#${i ? t.g[0].i[0][1] : 'accueil'}" data-t="${i}">${t.t}</a>`).join('')}</nav><span class="sp"></span>
-    <a class="btn primary n2clic" href="#clic">Mise à jour en 1 clic</a><button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button>
+    <a class="btn primary n2clic" href="#clic">Mise à jour en 1 clic</a>${onlinePill()}<button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button>
     <a class="n2me" href="#reglages" title="Réglages">${esc((S.profile.discord || '?').replace(/^@/, '').slice(0, 1).toUpperCase())}</a></div>
     <nav class="n2subs" id="n2subs"></nav></header>
     <div class="n2wrap"><main id="mainw" class="n2main"><div id="alertbar"></div><div class="n2pills" id="n2pills"></div><div id="main"></div></main></div>
@@ -700,10 +715,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=230'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=231'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=230'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=231'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -863,7 +878,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=230'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=231'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1716,7 +1731,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=230'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=231'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2084,9 +2099,60 @@ P.reglages = async m => {
   $('#rlo').onclick = async () => { if (confirmBox('Te déconnecter ?')) { await sb.auth.signOut(); authView(); } };
 };
 
+// Tableau de bord admin (maquette E validée le 26/11) : suivi des collections, membres en ligne, Discord sans compte.
+async function adminDash() {
+  const el = $('#adBody'); if (!el) return;
+  const [{ data: pr }, { data: lr }, { data: dm }] = await Promise.all([
+    sb.from('profiles').select('id,discord,status,role,created_at,revoked').order('created_at', { ascending: true }),
+    sb.from('my_lr').select('user_id,updated_at,teams'),
+    sb.from('content').select('data').eq('key', 'discord_members').maybeSingle()]);
+  const L = {}; for (const r of lr || []) L[r.user_id] = r;
+  const norm = d => String(d || '').replace(/^@+/, '').toLowerCase();
+  const DAY = 864e5, now = Date.now();
+  const rows = (pr || []).filter(p => p.status === 'approved' && !/\(ancien /.test(p.discord || '')).map(p => {
+    const r = L[p.id], done = !!r?.teams?.done, at = r?.updated_at ? Date.parse(r.updated_at) : 0, days = at ? Math.floor((now - at) / DAY) : null;
+    return { ...p, at, days, st: !done ? 'none' : days > 7 ? 'late' : 'ok' };
+  });
+  const pending = (pr || []).filter(p => p.status === 'pending').length;
+  const site = new Set((pr || []).map(p => norm(p.discord)));
+  const disc = dm?.data?.list || [], discAt = dm?.data?.at || 0;
+  const noAcc = disc.filter(u => !site.has(norm(u)));
+  let filt = 'all';
+  const draw = () => {
+    const onl = new Map(S.online.map(o => [o.id, o]));
+    const c = { ok: rows.filter(r => r.st === 'ok').length, late: rows.filter(r => r.st === 'late').length, none: rows.filter(r => r.st === 'none').length };
+    const list = rows.filter(r => filt === 'all' || (filt === 'on' ? onl.has(r.id) : r.st === filt))
+      .sort((a, b) => (onl.has(b.id) - onl.has(a.id)) || ({ none: 0, late: 1, ok: 2 }[a.st] - { none: 0, late: 1, ok: 2 }[b.st]) || (a.at - b.at));
+    const lab = r => r.st === 'none' ? '<span class="chip red">Collection pas importée</span>' : r.st === 'late' ? `<span class="chip warn">En retard · ${r.days} j</span>` : `<span class="chip ok">À jour</span>`;
+    const when = r => r.at ? new Date(r.at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + (r.days === 0 ? ' (aujourd’hui)' : r.days === 1 ? ' (hier)' : ` (il y a ${r.days} j)`) : '—';
+    el.innerHTML = `<div class="adk">
+      <div><span class="small mute">Membres validés</span><b>${rows.length}</b>${pending ? `<span class="small warn">${pending} en attente</span>` : ''}</div>
+      <div class="ok"><span class="small mute">Collection à jour (7 j)</span><b>${c.ok}</b></div>
+      <div class="warn"><span class="small mute">En retard</span><b>${c.late}</b></div>
+      <div class="bad"><span class="small mute">Pas de collection</span><b>${c.none}</b></div>
+      <div class="ok"><span class="small mute"><span class="adon"></span>En ligne</span><b>${S.online.length}</b></div>
+      <div><span class="small mute">Discord sans compte</span><b>${disc.length ? noAcc.length : '—'}</b></div></div>
+      <div class="adtools">${[['all', 'Tous'], ['on', 'En ligne'], ['none', 'Pas de collection'], ['late', 'En retard'], ['ok', 'À jour']].map(([k, t]) => `<button class="btn ghost${filt === k ? ' on' : ''}" data-af="${k}" style="min-height:34px">${t}</button>`).join('')}
+        <span class="sp"></span><button class="btn" data-acp style="min-height:34px">📋 Copier les @ de la liste</button></div>
+      <div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Collection</th><th>Dernière mise à jour</th><th>En ligne</th><th></th></tr></thead><tbody>${list.map(r => { const o = onl.get(r.id); return `<tr><td><b>${esc(r.discord)}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td>${lab(r)}</td><td class="small">${when(r)}</td><td class="small">${o ? `<span class="adon"></span>${esc(o.p || 'accueil')}` : '<span class="mute">—</span>'}</td><td class="n">${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px">Copier un rappel</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Personne.</td></tr>'}</tbody></table></div>
+      <h3 style="margin-top:16px">Sur le Discord, pas encore inscrits sur le site ${disc.length ? `(${noAcc.length})` : ''}</h3>
+      ${disc.length ? `<p class="small mute">Liste des membres du serveur relevée le ${new Date(discAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} (bots exclus).</p><div class="adlist">${noAcc.map(u => `<span>@${esc(u)}</span>`).join('') || '<span class="mute">Tout le monde est inscrit 🎉</span>'}</div>${noAcc.length ? '<button class="btn" data-acd style="min-height:34px;margin-top:10px">📋 Copier ces @</button>' : ''}` : '<p class="small mute">Liste du serveur pas encore relevée.</p>'}`;
+    el.querySelectorAll('[data-af]').forEach(b => b.onclick = () => { filt = b.dataset.af; draw(); });
+    const cp = async t => { try { await navigator.clipboard.writeText(t); toast('Copié : colle-le sur Discord'); } catch (e) { prompt('Copie ce texte :', t); } };
+    el.querySelector('[data-acp]').onclick = () => cp(list.map(r => '@' + norm(r.discord)).join(' '));
+    el.querySelector('[data-acd]')?.addEventListener('click', () => cp(noAcc.map(u => '@' + u).join(' ')));
+    el.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => { const r = rows.find(x => x.id === b.dataset.arm);
+      cp(r.st === 'none' ? `Salut @${norm(r.discord)} ! Il te reste à importer ta collection sur le site de la Brigade : ça prend 5 minutes et ça règle les meilleures équipes, les échanges et Kakashi sur ton profil 🙏`
+        : `Salut @${norm(r.discord)} ! Pense à mettre ta collection à jour sur le site de la Brigade (bouton « Mise à jour en 1 clic »), la dernière date d’il y a ${r.days} jours : ça garde les échanges et les équipes justes 🙏`); });
+  };
+  draw();
+  const onEv = () => { if (!document.body.contains(el)) { window.removeEventListener('bf-online', onEv); return; } draw(); };
+  window.addEventListener('bf-online', onEv);
+}
 P.admin = async m => {
   if (S.profile.role !== 'admin') { m.innerHTML = '<div class="empty">Réservé aux admins.</div>'; return; }
   m.innerHTML = `<h1>Administration</h1>
+  <div class="card section" id="adDash"><h2>Tableau de bord</h2><p class="small mute">Qui a mis sa collection à jour et quand, qui est en ligne, et qui est sur le Discord sans compte sur le site.</p><div id="adBody"><p class="small mute">Chargement…</p></div></div>
   <div class="card section"><h2>Arrivée des nouveaux membres</h2><p class="small mute">Combien de membres ont passé chaque étape de l'accueil obligatoire. La plus grosse chute montre l'étape qui fait décrocher. Un membre qui part reprend automatiquement là où il s'était arrêté à sa prochaine connexion.</p><div id="fun"></div></div>
   <div class="card section"><h2>Demandes d'accès</h2><div id="pd"></div></div>
   <div class="grid">
@@ -2094,6 +2160,7 @@ P.admin = async m => {
    <div class="card"><h2>Nouveauté</h2><form id="nf"><label>Titre</label><input id="nt" required><label>Texte</label><textarea id="nb" required></textarea><button class="btn primary" style="margin-top:10px">Publier</button></form></div>
    <div class="card"><h2>Questions sans réponse</h2><div id="qa"></div></div>
   </div>`;
+  adminDash();
   (async () => { const { data: f, error } = await sb.rpc('onboarding_funnel'); const el = $('#fun'); if (!el) return; if (error || !f) { el.innerHTML = '<p class="small mute">Indisponible.</p>'; return; }
     const st = [['inscrits', 'Inscrits sur le site'], ['video', 'Vidéo de bienvenue vue'], ['c', 'Communes remplies'], ['r', 'Rares remplies'], ['sr', 'SR remplies'], ['ssr', 'SSR importées'], ['ur', 'UR importées'], ['lr', 'LR importées'], ['done', 'Accueil terminé']];
     const top = Math.max(1, f.inscrits || 0); let prev = null;
@@ -2741,7 +2808,7 @@ async function boot() {
   }
   if (S.profile.status !== 'approved') return pendingView(S.profile);
   try { await loadKB(); } catch (e) { app.innerHTML = `<div class="auth"><div class="auth-card"><h1>Oups</h1><p>${esc(e.message)}</p></div></div>`; return; }
-  window.onhashchange = render; render(); setInterval(alertLoop, 5 * 60000);
+  window.onhashchange = render; render(); setInterval(alertLoop, 5 * 60000); try { startPresence(); } catch (e) { /* présence indisponible */ }
 }
 sb.auth.onAuthStateChange(ev => { if (ev === 'SIGNED_OUT') authView(); });
 boot();

@@ -654,3 +654,21 @@ body.nav2 a.card:hover{border-color:#5a4650}
 #bfvbar .bfv-btn:hover span{transform:translateY(-5px);filter:brightness(1.08)}
 #bfvbar .bfv-btn:active span{transform:translateY(-1px)}
 @media (max-width:720px){#bfvbar{bottom:calc(84px + env(safe-area-inset-bottom));width:calc(100vw - 24px)}#bfvbar .bfv-t b{font-size:14px}}
+/* Membres en ligne : pastille verte + icône + nombre (v231) */
+.bfonline{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid var(--line);border-radius:999px;font-size:13px;font-weight:700;flex-shrink:0;color:inherit}
+.bfonline i{width:8px;height:8px;border-radius:50%;background:#3ddc84;box-shadow:0 0 0 3px rgba(61,220,132,.18);animation:bfonl 2.4s ease-in-out infinite}
+.bfonline svg{width:16px;height:16px;opacity:.8}
+.bfonline.dsk{position:fixed;top:18px;right:70px;z-index:35;background:rgba(7,6,7,.85);backdrop-filter:blur(6px)}
+@media (max-width:900px){.bfonline.dsk{display:none}}
+@keyframes bfonl{50%{box-shadow:0 0 0 6px rgba(61,220,132,0)}}
+@media (prefers-reduced-motion:reduce){.bfonline i{animation:none}}
+/* Tableau de bord admin (v231) */
+.adk{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:10px 0 14px}
+.adk>div{border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.adk b{display:block;font-size:26px;line-height:1.1}
+.adk .ok b{color:#3ddc84}.adk .warn b{color:#f3c26b}.adk .bad b{color:var(--blood2)}
+.adtools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.adtools .on{border-color:var(--blood2)}
+.adon{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3ddc84;margin-right:6px}
+.adlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.adlist span{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px}
