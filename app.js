@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=192';
+import * as CFG from './config.js?v=193';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=192';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=192';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=193';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=193';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=192';
-import * as SCAN from './scan.js?v=192';
+import { duelRate } from './ranked.js?v=193';
+import * as SCAN from './scan.js?v=193';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '192';
+const APP_V = '193';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -548,10 +548,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=192'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=193'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=192'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=193'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -684,7 +684,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=192'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=193'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -997,7 +997,7 @@ P.collection = async (m, tab = '') => {
     const today = new Date().toISOString().slice(0, 10); if (cv.v > 0) { const t = pts.find(x => x.day === today); if (t) t.v = cv.v; else pts.push({ day: today, v: cv.v }); }
     const max = Math.max(1, ...pts.map(h => h.v)), min0 = Math.min(...pts.map(h => h.v), max), pad = (max - min0) * .12 || max * .05, lo = Math.max(0, min0 - pad), hi = max + pad;
     const dd = d => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }), kfmt = v => v >= 1e6 ? (v / 1e6).toFixed(2).replace('.', ',') + ' M' : Math.round(v / 1000) + ' k';
-    const W = 600, H0 = 150, X0 = 6, X1 = W - 6, Y0 = 14, Y1 = H0 - 22, xs = i => X0 + (pts.length > 1 ? i / (pts.length - 1) : .5) * (X1 - X0), ys = v => Y1 - ((v - lo) / Math.max(1, hi - lo)) * (Y1 - Y0);
+    const W = Math.max(280, Math.round((el.clientWidth || 640) - 34)), H0 = innerWidth < 520 ? 130 : 150, X0 = 6, X1 = W - 6, Y0 = 14, Y1 = H0 - 22, xs = i => X0 + (pts.length > 1 ? i / (pts.length - 1) : .5) * (X1 - X0), ys = v => Y1 - ((v - lo) / Math.max(1, hi - lo)) * (Y1 - Y0);
     // courbe lissée (Catmull-Rom → Bézier)
     const P = pts.map((h, i) => [xs(i), ys(h.v)]); let d = P.length ? `M${P[0][0].toFixed(1)},${P[0][1].toFixed(1)}` : '';
     for (let i = 0; i < P.length - 1; i++) { const a = P[i - 1] || P[i], b = P[i], c = P[i + 1], e = P[i + 2] || c; d += ` C${(b[0] + (c[0] - a[0]) / 6).toFixed(1)},${(b[1] + (c[1] - a[1]) / 6).toFixed(1)} ${(c[0] - (e[0] - b[0]) / 6).toFixed(1)},${(c[1] - (e[1] - b[1]) / 6).toFixed(1)} ${c[0].toFixed(1)},${c[1].toFixed(1)}`; }
@@ -1006,9 +1006,9 @@ P.collection = async (m, tab = '') => {
       <div class="vc-top">${ring(me ? +me.pct : null, 'du jeu', 92)}
         <div class="vc-num"><span class="small mute">Valeur de ta collection</span><div class="vc-v">${fmt(cv.v)}<small> KI</small></div>${diff != null ? `<span class="vc-d ${diff >= 0 ? 'up' : 'dn'}">${diff >= 0 ? '▲ +' : '▼ '}${fmt(diff)} KI <i>depuis le ${dd(first.day)}</i></span>` : '<span class="small mute">Évolution visible dès demain</span>'}</div>
         <a class="btn ghost vc-rk" href="#checklist/classement" title="Classement">🏆</a></div>
-      ${pts.length > 1 ? `<div class="vc-chart" id="vch"><svg viewBox="0 0 ${W} ${H0}" preserveAspectRatio="none" role="img" aria-label="Valeur de la collection par jour"><defs><linearGradient id="spG" x1="0" x2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset=".6" stop-color="#ff3b54"/><stop offset="1" stop-color="#e3123a"/></linearGradient><linearGradient id="spA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff3b54" stop-opacity=".38"/><stop offset="1" stop-color="#ff3b54" stop-opacity="0"/></linearGradient></defs>${[0, .5, 1].map(f => `<line x1="0" x2="${W}" y1="${(Y0 + (Y1 - Y0) * f).toFixed(1)}" y2="${(Y0 + (Y1 - Y0) * f).toFixed(1)}" class="vc-grid"/>`).join('')}<path class="sp-area" d="${d} L${last[0].toFixed(1)},${Y1} L${P[0][0].toFixed(1)},${Y1} Z" fill="url(#spA)"/><path class="sp-line" d="${d}" pathLength="1" fill="none" stroke="url(#spG)" stroke-width="3" stroke-linecap="round" vector-effect="non-scaling-stroke"/><line class="vc-cur" id="vcx" y1="${Y0 - 8}" y2="${Y1}" x1="-10" x2="-10"/></svg>
+      ${pts.length > 1 ? `<div class="vc-chart" id="vch"><svg viewBox="0 0 ${W} ${H0}" role="img" aria-label="Valeur de la collection par jour"><defs><linearGradient id="spG" x1="0" x2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset=".6" stop-color="#ff3b54"/><stop offset="1" stop-color="#e3123a"/></linearGradient><linearGradient id="spA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff3b54" stop-opacity=".38"/><stop offset="1" stop-color="#ff3b54" stop-opacity="0"/></linearGradient></defs>${[0, .5, 1].map(f => `<line x1="0" x2="${W}" y1="${(Y0 + (Y1 - Y0) * f).toFixed(1)}" y2="${(Y0 + (Y1 - Y0) * f).toFixed(1)}" class="vc-grid"/>`).join('')}<path class="sp-area" d="${d} L${last[0].toFixed(1)},${Y1} L${P[0][0].toFixed(1)},${Y1} Z" fill="url(#spA)"/><path class="sp-line" d="${d}" pathLength="1" fill="none" stroke="url(#spG)" stroke-width="3" stroke-linecap="round"/><line class="vc-cur" id="vcx" y1="${Y0 - 8}" y2="${Y1}" x1="-10" x2="-10"/></svg>
         <span class="vc-ax l">${kfmt(hi)}</span><span class="vc-ax lb">${kfmt(lo)}</span><span class="vc-ax d0">${dd(first.day)}</span><span class="vc-ax d1">Aujourd'hui</span>
-        <i class="vc-dot live" id="vcd" style="left:${(last[0] / W * 100).toFixed(2)}%;top:${(last[1] / H0 * 100).toFixed(2)}%"></i><div class="vc-tip" id="vct"></div></div>` : ''}
+        <span class="vc-dot live" id="vcd" style="left:${(last[0] / W * 100).toFixed(2)}%;top:${(last[1] / H0 * 100).toFixed(2)}%"></span><div class="vc-tip" id="vct"></div></div>` : ''}
       <details class="vc-help"><summary>Comment est calculée cette valeur ?</summary><p class="small mute">Somme des prix médians réels (ventes des 14 derniers jours) de tes ${cv.n} cartes qui ont un prix connu, doublons non comptés. Une mesure par jour ; le point d'aujourd'hui suit la valeur en direct. Passe le doigt ou la souris sur la courbe pour voir la valeur à chaque date.</p></details></div>`;
     const box = el.querySelector('#vch'); if (!box) return; const cur = box.querySelector('#vcx'), dot = box.querySelector('#vcd'), tip = box.querySelector('#vct');
     const show = i => { const [x, y] = P[i], h = pts[i], pv = i ? pts[i - 1].v : null; cur.setAttribute('x1', x); cur.setAttribute('x2', x); dot.style.left = (x / W * 100) + '%'; dot.style.top = (y / H0 * 100) + '%'; dot.classList.toggle('live', i === P.length - 1);
@@ -1502,7 +1502,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=192'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=193'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
