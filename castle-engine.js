@@ -149,7 +149,9 @@ function halloweenExclusiveCard(){return null;}
 function renderHeading(){return null;}
 function renderView(){return null;}
 function normalizeCombatEnemyCards(){return null;}
-function playAriseVoice(){return null;}
+var voicedAriseImpacts=new WeakSet();
+function prepareAriseVoice(){if(ariseVoiceLoading)return ariseVoiceLoading;const audio=gameAudio();if(!audio?.decodeAudioData||typeof fetch!=='function')return Promise.resolve(null);ariseVoiceLoading=fetch('https://yurocollection.fr/assets/jinwoo-arise-vo.mp3').then(r=>{if(!r.ok)throw Error('Arise audio');return r.arrayBuffer();}).then(data=>audio.decodeAudioData(data)).then(buffer=>ariseVoiceBuffer=buffer).catch(()=>{ariseVoiceLoading=null;return null;});return ariseVoiceLoading;}
+function playAriseVoice(impact){if(!impact||voicedAriseImpacts.has(impact)||!state.sound||document.hidden)return;voicedAriseImpacts.add(impact);const audio=gameAudio();stopAriseVoice();if(audio?.createBufferSource&&ariseVoiceBuffer){const start=()=>{if(!state.sound||document.hidden)return;try{const source=audio.createBufferSource(),gain=audio.createGain();source.buffer=ariseVoiceBuffer;gain.gain.value=1;source.connect(gain);gain.connect(audio.destination);source.onended=()=>{source.disconnect();gain.disconnect();};ariseVoiceSource=source;source.start();if(typeof trackTechniqueAudio==='function')trackTechniqueAudio(source,gain);}catch{}};if(audio.state==='suspended')audio.resume().then(start).catch(()=>{});else start();return;}try{const Player=window.Audio||globalThis.Audio;ariseVoiceAudio??=new Player('https://yurocollection.fr/assets/jinwoo-arise-vo.mp3');ariseVoiceAudio.preload='auto';ariseVoiceAudio.currentTime=0;ariseVoiceAudio.volume=1;ariseVoiceAudio.play().catch(()=>{voicedAriseImpacts.delete(impact);});}catch{voicedAriseImpacts.delete(impact);}}
 function playPackOpeningCelebration(){return null;}
 function playPackFortuneSound(){return null;}
 function packOpeningCelebration(){return null;}
@@ -187,12 +189,12 @@ function hw26State(){return null;}
 function storySelectableEnemies(){return null;}
 function questClaimServer(){return null;}
 function rankedCurrent(){return null;}
-function playBattleHitSound(){return null;}
+function playBattleHitSound(skill=false){const audio=gameAudio();if(!audio)return;try{gameNoise(audio,skill?.22:.12,skill?1900:1050,skill?.16:.12);const osc=audio.createOscillator(),gain=audio.createGain(),at=audio.currentTime;osc.type='triangle';osc.frequency.setValueAtTime(skill?145:110,at);osc.frequency.exponentialRampToValueAtTime(45,at+.16);gain.gain.setValueAtTime(.1,at);gain.gain.exponentialRampToValueAtTime(.0001,at+.2);osc.connect(gain);gain.connect(audio.destination);osc.onended=()=>{osc.disconnect();gain.disconnect();};osc.start();osc.stop(at+.21);}catch{}}
 function cloudIsLive(){return null;}
 function renderQuests(){return null;}
 function boosterPool(){return null;}
 function syncPlayerProgress(){return null;}
-function yuroAudioUnlocked(){return null;}
+function yuroAudioUnlocked(){return true;}
 function runStoryAuto(){return null;}
 function syncDialogScroll(){return null;}
 function queueTutorial(){return null;}
@@ -204,7 +206,7 @@ function escapeHTML(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;",
 var ariseShadowImages;
 
 // Moteur de combat du Château de l'infini : code du jeu YURO (repris avec l'accord du développeur).
-let state={story:{cardStars:{},preferences:{}},qty:[],evolution:{settings:{evolutions:[]}}},cards=[],releasedCatalog=[],combatProfileSignature='',combatProfiles=new Map();
+let state={sound:true,motion:true,story:{cardStars:{},preferences:{}},qty:[],evolution:{settings:{evolutions:[]}}},cards=[],releasedCatalog=[],combatProfileSignature='',combatProfiles=new Map();
 let STUN_SKILL_USES=2,STUN_SKILL_RECHARGE=4;
 let TECHNIQUE_LOW_TIERS=new Set(['Commun','Rare','Épique','Légendaire']);
 function unitCatalogCard(unit,card){return card&&card!==unit?card:null;}
