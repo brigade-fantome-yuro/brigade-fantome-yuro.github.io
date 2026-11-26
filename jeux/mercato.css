@@ -1,0 +1,121 @@
+/* Mini-jeux : Mercato YURO (utilise les couleurs du site : --card, --line, --blood…) */
+.mx-games{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.mx-game{display:flex;gap:14px;align-items:flex-start;text-decoration:none;color:inherit}
+.mx-game:hover{border-color:var(--blood)}
+.mx-game-ico{font-size:34px;line-height:1}
+.mx-lobby{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.mx-rules{margin:8px 0 0;padding-left:20px;display:grid;gap:6px;font-size:14px}
+.mx-row{display:flex;gap:10px;align-items:center;padding:10px 4px;border-top:1px solid var(--line);color:inherit;text-decoration:none}
+.mx-row span:nth-child(2){flex:1;color:var(--mute);font-size:14px}
+.mx-code{font-size:26px;letter-spacing:4px;color:var(--bone)}
+
+.mx{display:grid;gap:12px}
+.mx [hidden]{display:none!important}
+.mx-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.mx-title{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.mx-title b{font-size:18px}
+.mx-score{display:flex;gap:10px;align-items:center;font-size:14px;color:var(--mute)}
+.mx-score b{font-size:22px;color:var(--ink)}
+.mx-topb .btn{min-height:36px;padding:0 12px;font-size:14px}
+.mx-topb .btn.red{border-color:var(--blood);color:var(--blood2)}
+
+.mx-hud{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mx-pl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;min-width:0}
+.mx-pl.on{border-color:var(--blood);box-shadow:0 0 0 1px var(--blood) inset}
+.mx-pln{display:flex;gap:6px;align-items:center;min-width:0}
+.mx-pln b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mx-pln .chip{font-size:11px;padding:1px 7px}
+.mx-dot{width:8px;height:8px;border-radius:50%;background:#555;margin-left:auto;flex:none}
+.mx-dot.ok{background:var(--ok)}
+.mx-money{font-weight:800;font-size:17px;color:var(--bone)}
+.mx-bar{height:4px;border-radius:4px;background:#0b090c;overflow:hidden;margin:4px 0 8px}
+.mx-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blood),var(--blood2))}
+.mx-slots{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-bottom:4px}
+.mx-slot{aspect-ratio:3/4;border-radius:6px;border:1px dashed var(--line);overflow:hidden;background:#0b090c}
+.mx-slot img,.mx-slot .mx-fb{width:100%;height:100%;object-fit:cover}
+.mx-slot .mx-fb{font-size:11px}
+
+.mx-act h2{margin:0;font-size:18px}
+.mx-acth{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mx-timer{font-weight:800;font-variant-numeric:tabular-nums;padding:2px 10px;border-radius:999px;border:1px solid var(--line);font-size:14px}
+.mx-timer.hot,.mx-movet .hot{color:var(--blood2);border-color:var(--blood)}
+.mx-wait{display:flex;gap:10px;align-items:center;color:var(--mute);margin-top:10px}
+.mx-dots{display:inline-flex;gap:4px}.mx-dots i{width:6px;height:6px;border-radius:50%;background:var(--mute);animation:mxd 1s infinite}
+.mx-dots i:nth-child(2){animation-delay:.15s}.mx-dots i:nth-child(3){animation-delay:.3s}
+@keyframes mxd{0%,100%{opacity:.25}50%{opacity:1}}
+.mx-big{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+.mx-bigpic{width:96px;flex:none;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:#0b090c;border:1px solid var(--line)}
+.mx-big[data-r="Transcendant"] .mx-bigpic{border-color:var(--warn)}
+.mx-big[data-r="Exclusive"] .mx-bigpic{border-color:var(--blood2)}
+.mx-bigpic img,.mx-bigpic .mx-fb{width:100%;height:100%;object-fit:cover}
+.mx-bign{font-size:17px}
+.mx-bid{margin-top:8px}
+.mx-bid input{font-size:20px;font-weight:700}
+.mx-quick{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.mx-quick button{min-height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink);font-weight:700;cursor:pointer}
+.mx-movet{margin-top:8px;font-size:15px}
+
+.mx-mkh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.mx-mkh h2{margin:0;font-size:18px}
+.mx-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-top:10px}
+.mx-card{position:relative;display:flex;flex-direction:column;text-align:left;padding:0;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--ink);overflow:hidden;cursor:pointer;font:inherit}
+.mx-card[data-r="Transcendant"]{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))}
+.mx-card[data-r="Exclusive"]{border-color:color-mix(in srgb,var(--blood2) 55%,var(--line))}
+.mx-card.click{box-shadow:0 0 0 1px var(--ok) inset}
+.mx-card.sel,.mx-card.live{box-shadow:0 0 0 2px var(--blood2);border-color:var(--blood2)}
+.mx-card.sold{opacity:.42}
+.mx-card.nouse:not(.sold){opacity:.7}
+.mx-pic{position:relative;aspect-ratio:4/3;background:#0b090c;overflow:hidden}
+.mx-pic img,.mx-pic .mx-fb{width:100%;height:100%;object-fit:cover;object-position:top}
+.mx-fb{display:grid;place-items:center;font-weight:800;color:var(--mute);font-size:22px;background:#0b090c}
+.mx-env{position:absolute;top:6px;left:6px;font-size:18px;background:rgba(0,0,0,.65);border-radius:8px;padding:0 5px}
+.mx-rar{position:absolute;top:6px;right:6px;font-size:11px;font-weight:800;background:rgba(0,0,0,.7);border-radius:6px;padding:1px 6px}
+.mx-card[data-r="Transcendant"] .mx-rar{color:var(--warn)}.mx-card[data-r="Exclusive"] .mx-rar{color:var(--blood2)}
+.mx-cap{display:flex;flex-direction:column;gap:2px;padding:8px 9px 10px;min-width:0}
+.mx-n{font-size:14px;line-height:1.25}
+.mx-st{font-size:12px;color:var(--mute)}
+.mx-tn{font-size:12px;color:var(--bone);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mx-role{display:inline-block;align-self:flex-start;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;border:1px solid var(--line);color:var(--ink)}
+.mx-role[data-role="degats"]{border-color:#c0392b;color:#ff8a7a}
+.mx-role[data-role="tank"]{border-color:#4f7cac;color:#9cc4f0}
+.mx-role[data-role="healer"]{border-color:#3f8f5e;color:#8fe0ad}
+.mx-role[data-role="stunner"]{border-color:#8e5bb5;color:#d1a8f2}
+.mx-role[data-role="polyvalence"]{border-color:#a38a3c;color:#ecd18a}
+.mx-sold,.mx-no{position:absolute;left:0;right:0;top:36%;text-align:center;font-weight:800;font-size:13px;background:rgba(7,6,7,.85);padding:6px 4px}
+.mx-no{color:var(--mute);font-weight:600}
+
+.mx-comp,.mx-teams{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin-bottom:12px}
+.mx-trio.ok{border-color:color-mix(in srgb,var(--ok) 50%,var(--line))}
+.mx-trio.bad{border-color:var(--blood)}
+.mx-trio h3,.mx-teams h3{margin:0 0 8px}
+.mx-trioc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.mx-teams .mx-trioc{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
+.mx-mini{display:flex;flex-direction:column;gap:2px;text-align:left;padding:0 0 8px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--ink);overflow:hidden;font:inherit;min-width:0}
+button.mx-mini{cursor:pointer}
+.mx-mini img,.mx-mini .mx-fb{width:100%;aspect-ratio:1;object-fit:cover;object-position:top}
+.mx-mini b,.mx-mini span{padding:0 7px;font-size:12px}
+.mx-mini b{font-size:13px;line-height:1.2}
+
+.mx-fight{border-radius:14px;overflow:hidden;border:1px solid var(--line);background:#0d0d14}
+.mx-frame{display:block;width:100%;border:0;min-height:560px}
+.mx-fhead{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:13px}
+.mx-fteam{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.mx-fteam span{padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--mute)}
+.mx-vs{font-weight:900;color:var(--blood2)}
+.mx-logw summary{cursor:pointer}
+.mx-log{display:grid;gap:4px;font-size:13px;color:var(--mute);max-height:260px;overflow:auto;margin-top:8px}
+.mx-modal{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.7);display:grid;place-items:center;padding:16px}
+.mx-modalc{width:min(460px,100%)}
+
+@media (max-width:600px){
+  .mx-hud{grid-template-columns:1fr 1fr;gap:8px}
+  .mx-pl{padding:8px}
+  .mx-money{font-size:14px}
+  .mx-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .mx-trioc{gap:6px}
+  .mx-bigpic{width:76px}
+  .mx-score b{font-size:18px}
+}
+.mx-bidin{position:relative}
+.mx-bidin input{padding-right:52px;letter-spacing:.5px}
+.mx-bidin span{position:absolute;right:16px;top:50%;transform:translateY(-50%);color:var(--mute);font-weight:700;pointer-events:none}
