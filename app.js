@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=217';
+import * as CFG from './config.js?v=218';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=217';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=217';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=218';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=218';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=217';
-import * as SCAN from './scan.js?v=217';
+import { duelRate } from './ranked.js?v=218';
+import * as SCAN from './scan.js?v=218';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -53,7 +53,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '217';
+const APP_V = '218';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -675,10 +675,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=217'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=218'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=217'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=218'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -814,7 +814,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=217'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=218'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1235,13 +1235,19 @@ P.collection = async (m, tab = '') => {
     // Lien direct vers un membre (depuis l'accueil) : seulement ses échanges, déjà ouverts.
     const fo = /^[0-9a-f-]{36}$/.test(autoImp || '') && view === 'echanges' ? out.find(o => o.p.id === autoImp) : null;
     if (fo) { out.length = 0; out.push(fo); }
-    el.innerHTML = (fo ? `<div class="row" style="margin-bottom:8px"><button class="btn ghost" id="trBack" style="min-height:34px">← Tous les échanges</button></div>` : '') + (fo ? '' : `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + (out.length ? '<div class="row" style="margin:8px 0"><button class="btn ghost" id="trAll" style="min-height:34px">Tout déplier</button></div>' : '')) + (out.map(o => `<details class="card section trd"><summary class="row" style="cursor:pointer;list-style:none"><span class="trc">▸</span><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="small mute">te donne ${o.get.length} · reçoit ${o.give.length}</span><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px" onclick="event.stopPropagation()">Profil</a></summary>
+    // Filtre « gagnant-gagnant » : seulement les membres avec qui l'échange va dans les deux sens (choix gardé sur l'appareil).
+    let win = false; try { win = localStorage.bf_trwin === '1'; } catch (e) { /* rien */ }
+    const nWin = out.filter(o => o.give.length && o.get.length).length, nAll = out.length;
+    if (!fo && win) { const keep = out.filter(o => o.give.length && o.get.length); out.length = 0; out.push(...keep); }
+    const trFilt = fo ? '' : `<div class="row" style="margin:8px 0;gap:8px;flex-wrap:wrap"><button class="btn ${win ? 'ghost' : 'primary'}" data-trw="0" style="min-height:34px">Tous (${nAll})</button><button class="btn ${win ? 'primary' : 'ghost'}" data-trw="1" style="min-height:34px">🤝 Gagnant-gagnant (${nWin})</button></div>`;
+    el.innerHTML = (fo ? `<div class="row" style="margin-bottom:8px"><button class="btn ghost" id="trBack" style="min-height:34px">← Tous les échanges</button></div>` : '') + (fo ? '' : `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + trFilt + (out.length ? '<div class="row" style="margin:8px 0"><button class="btn ghost" id="trAll" style="min-height:34px">Tout déplier</button></div>' : '')) + (out.map(o => `<details class="card section trd"><summary class="row" style="cursor:pointer;list-style:none"><span class="trc">▸</span><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="small mute">te donne ${o.get.length} · reçoit ${o.give.length}</span><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px" onclick="event.stopPropagation()">Profil</a></summary>
       <div class="small mute" style="margin-top:10px">Il peut te donner (${o.get.length})</div><div class="tiles">${o.get.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div>
       <div class="small mute" style="margin-top:10px">Tu peux lui donner (${o.give.length})</div><div class="tiles">${o.give.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div></details>`).join('') || '<div class="empty">Pas encore d\'échange possible sur les ' + X.label + '. Plus il y a de membres qui importent leur collection et la partagent, plus il y en aura.</div>');
     if (fo) { const d0 = el.querySelector('details.trd'); if (d0) d0.open = true;
       // Arrivée directe sur le membre (sous les menus fixés en haut).
       requestAnimationFrame(() => { const top = el.getBoundingClientRect().top + scrollY - (document.querySelector('.n2top')?.offsetHeight || document.querySelector('.top')?.offsetHeight || 0) - 12; scrollTo({ top: Math.max(0, top), behavior: 'instant' }); });
       const bk = el.querySelector('#trBack'); if (bk) bk.onclick = () => { autoImp = null; history.replaceState(null, '', `#collection/${rk}/echanges`); vTrades(el, X); }; }
+    el.querySelectorAll('[data-trw]').forEach(b => b.onclick = () => { try { localStorage.bf_trwin = b.dataset.trw; } catch (e) { /* rien */ } vTrades(el, X); });
     { const ta = el.querySelector('#trAll'); if (ta) ta.onclick = () => { const ds = [...el.querySelectorAll('details.trd')], open = !ds.every(d => d.open); ds.forEach(d => d.open = open); ta.textContent = open ? 'Tout replier' : 'Tout déplier'; }; }
   }
   // Import d'une seule rareté (SSR ou UR) : reconnaissance par l'illustration, ×N lu sur la capture, contrôle du nombre affiché par le jeu.
@@ -1661,7 +1667,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=217'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=218'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
