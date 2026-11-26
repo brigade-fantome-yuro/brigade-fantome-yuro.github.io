@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=190';
+import * as CFG from './config.js?v=191';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=190';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=190';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=191';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=191';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=190';
-import * as SCAN from './scan.js?v=190';
+import { duelRate } from './ranked.js?v=191';
+import * as SCAN from './scan.js?v=191';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '190';
+const APP_V = '191';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -548,10 +548,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=190'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=191'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=190'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=191'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -684,7 +684,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=190'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=191'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -755,7 +755,9 @@ P.calendrier = async m => {
 
 /* ---------- Collection Prestige : ma collection, membres, échanges ---------- */
 const SHARE_TXT = 'En activant le partage, les membres de la Brigade connectés au site verront : tes LR et leurs étoiles, tes équipes château et ranked, tes doublons et tes cartes manquantes par univers. Rien d\'autre : ni ton KI, ni ton compte, ni tes échanges privés. Tu peux le désactiver quand tu veux.';
-const RN = { S: 'LR', M: 'Mythique', L: 'SSR', E: 'Épique', R: 'Rare', C: 'Commune', T: 'Transcendante' };
+// Cercle de progression (comme la collection du jeu) : pourcentage animé.
+const ring = (pct, label, sz = 74) => { const r = 30, C = 2 * Math.PI * r, v = pct == null ? 0 : Math.max(0, Math.min(100, pct)); return `<div class="pring" style="--sz:${sz}px"><svg viewBox="0 0 72 72"><defs><linearGradient id="prG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#e3123a"/></linearGradient></defs><circle cx="36" cy="36" r="${r}" fill="none" stroke="#ffffff12" stroke-width="7"/><circle class="pr-v" cx="36" cy="36" r="${r}" fill="none" stroke="url(#prG)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${C.toFixed(1)}" style="--off:${(C * (1 - v / 100)).toFixed(1)}" transform="rotate(-90 36 36)"/></svg><b>${pct == null ? '—' : String(Math.round(v * 10) / 10).replace('.', ',') + '%'}</b><small>${label}</small></div>`; };
+const RN = { S: 'LR', M: 'Mythique', L: 'SSR', E: 'Épique', R: 'Rare', C: 'Commune', T: 'Transcendante', X: 'Exclusive' };
 const img = h => !h ? '' : /^https?:/.test(h) ? h : `${S.kb.prestige_series?.base || 'https://yurocollection.fr/card-art/'}${h}.webp`;
 async function loadCollections() {
   // La base renvoie au plus 1 000 lignes par demande : avec tous les membres il y en a bien plus (≈ 9 000 le 25/11). Sans pagination, les collections
@@ -939,7 +941,7 @@ P.collection = async (m, tab = '') => {
   const PSU = S.kb.prestige_series?.series || [];
   // Communes, Rares et SR : construites depuis le catalogue (comme dans le jeu), remplies par « ✍️ Communes / Rares / SR ».
   const catU = r => { const by = new Map(); for (const c of S.kb.card_catalog?.cards || []) { if (c[3] !== r || c[5]) continue; const s2 = c[2] || '—'; if (!by.has(s2)) by.set(s2, { s: s2, c: [] }); by.get(s2).c.push([c[1], r, c[4] || '', Number(c[0])]); } return [...by.values()].sort((a, b) => a.s.localeCompare(b.s)); };
-  const R = { C: { label: 'C', tag: 'Commune', U: catU('C'), low: true }, R: { label: 'R', tag: 'Rare', U: catU('R'), low: true }, E: { label: 'SR', tag: 'Épique', U: catU('E'), low: true }, L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true } };
+  const R = { C: { label: 'C', tag: 'Commune', U: catU('C'), low: true }, R: { label: 'R', tag: 'Rare', U: catU('R'), low: true }, E: { label: 'SR', tag: 'Épique', U: catU('E'), low: true }, L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true }, X: { label: 'EX', tag: 'Exclusive', U: catU('X'), low: true }, T: { label: 'TRS', tag: 'Transcendant', U: catU('T'), low: true } };
   const impFor = k => k === 'S' ? (location.hash = '#meslr') : R[k]?.low ? (location.hash = '#basses/' + k) : rarImport(k);
   await loadMyLR();
   let [rk, view, autoImp] = (tab || 'L/moi').split('/'); if (!R[rk]) rk = 'L'; const memId = view?.startsWith('m:') && FUS() ? view.slice(2) : null; if (memId) view = 'membres'; if (!['moi', 'doublons', 'manquantes', 'echanges', ...(FUS() ? ['completer', 'classement', 'membres'] : [])].includes(view)) view = 'moi';
@@ -958,11 +960,11 @@ P.collection = async (m, tab = '') => {
     coll = rk === 'S' ? lrColl() : realColl;
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
-    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span>${got ? `<button class="btn ghost" id="cupd" style="min-height:40px">${X.low ? '✍️ Mettre à jour' : '📷 Importer / mettre à jour'} mes ${X.label}</button>` : ''}<a class="btn ghost" href="#basses/C" style="min-height:40px">✍️ Communes / Rares / SR</a>${CLIC() ? '<a class="btn primary" href="#clic" style="min-height:40px">⚡ Import en 1 clic</a>' : ''}</div><p class="mute">Toutes tes SSR, UR et LR, rangées comme dans le jeu. ${CLIC() ? 'Sur ordinateur, l\'import en 1 clic remplit tout depuis le jeu ; sur téléphone, importe tes captures. Ensuite, ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change, ou relance l\'import en 1 clic.' : 'Importe tes captures pour tout remplir d\'un coup, puis ajuste à la main avec − / + (ou les étoiles pour les LR) quand ta collection change dans le jeu : le site ne peut pas lire ton compte YURO tout seul.'}</p>
+    m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span><a class="btn primary" href="#clic" style="min-height:40px">⚡ Mise à jour en 1 clic</a></div><p class="mute">Toute ta collection, rangée comme dans le jeu. La mise à jour en 1 clic (sur ordinateur ou téléphone) recopie tout depuis le jeu : cartes, doublons et étoiles des LR. Entre deux mises à jour, tu peux ajuster à la main avec − / +.</p>
       <div id="chist"></div>
-      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', S: '秘' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
+      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', S: '秘', X: 'EX', T: '超' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
       <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
-        <div class="row" style="margin-top:12px"><button class="btn primary" id="cimp">📷 Importer seulement mes ${X.label}</button><span class="small mute">Étape ${rk === 'L' ? '1 : les SSR' : '2 : les UR'}. Les deux raretés sont importées et rangées séparément.</span></div>
+        <div class="row" style="margin-top:12px"><a class="btn primary" href="#clic">⚡ Mise à jour en 1 clic</a></div>
         ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans <a href="#reglages">Réglages</a> pour apparaître dans les échanges.</p>'}</div>
       <div class="tabs" id="cv2" style="max-width:${FUS() ? 980 : 640}px">${[['moi', 'Ma collection'], ['doublons', 'Mes doublons'], ['manquantes', 'Manquantes'], ['echanges', 'Échanges'], ...(FUS() ? [['completer', '🏆 Univers à compléter'], ['classement', 'Classement'], ['membres', 'Membres']] : [])].map(([k, l]) => `<button data-v="${k}" class="${k === view ? 'on' : ''}">${l}</button>`).join('')}</div>
       <div id="cbody" style="margin-top:14px"></div>`;
@@ -970,7 +972,7 @@ P.collection = async (m, tab = '') => {
     const later = f => requestAnimationFrame(() => setTimeout(f, 0));
     m.querySelectorAll('#cr button').forEach(b => b.onclick = () => { if (b.dataset.k === rk) return; rk = b.dataset.k; m.querySelectorAll('#cr button').forEach(x => x.classList.toggle('on', x === b)); $('#cbody').style.opacity = '.35'; later(draw); });
     m.querySelectorAll('#cv2 button').forEach(b => b.onclick = () => { if (b.dataset.v === view) return; view = b.dataset.v; m.querySelectorAll('#cv2 button').forEach(x => x.classList.toggle('on', x === b)); $('#cbody').style.opacity = '.35'; later(draw); });
-    $('#cimp').onclick = () => impFor(rk); const cu = $('#cupd'); if (cu) cu.onclick = () => impFor(rk); 
+
     const PSX = S.kb.prestige_series || { series: [] }; const glob = ['completer', 'classement', 'membres'].includes(view);
     { const cr = m.querySelector('#cr'); if (cr) cr.style.display = glob ? 'none' : ''; }
     if (view === 'membres' && memId) { viewProfile($('#cbody'), PSX.series, memId); $('#cbody').style.opacity = ''; }
@@ -989,13 +991,8 @@ P.collection = async (m, tab = '') => {
     const W = 300, X0 = 44, Y0 = 8, Y1 = 66, xs = i => X0 + (pts.length > 1 ? i / (pts.length - 1) : 0) * (W - X0 - 4), ys = v => Y1 - ((v - min) / Math.max(1, max - min)) * (Y1 - Y0);
     const path = pts.length > 1 ? pts.map((h, i) => `${xs(i).toFixed(1)},${ys(+h.lr_value).toFixed(1)}`).join(' ') : '';
     const first = pts[0], diff = first ? cv.v - first.lr_value : 0;
-    el.innerHTML = `<div class="card section"><div class="row"><div><div class="small mute">Valeur estimée de ta collection</div><div class="cd">${fmt(cv.v)} <span class="small mute">KI</span></div></div><div><div class="small mute">Du jeu possédé</div><div class="cd">${me ? String(me.pct).replace('.', ',') + ' %' : '—'}</div></div>${first && pts.length > 1 ? `<div><div class="small mute">Gagné depuis ta 1re mesure (${dd(first.day)})</div><div class="cd ${diff >= 0 ? 'up' : 'red'}">${diff >= 0 ? '+' : ''}${fmt(diff)} <span class="small mute">KI</span></div></div>` : ''}<span class="sp"></span><a class="btn ghost" href="#checklist/classement" style="min-height:36px">🏆 Classement</a></div>
-      ${path ? `<div class="small mute" style="margin-top:10px">Évolution de la valeur de ta collection (KI), une mesure par jour</div><svg viewBox="0 0 ${W} 84" class="spark" style="width:100%;height:auto;margin-top:4px;overflow:visible" role="img" aria-label="Valeur de la collection par jour">
-        <line x1="${X0}" y1="${Y0}" x2="${X0}" y2="${Y1}" stroke="#333" stroke-width="1"/><line x1="${X0}" y1="${Y1}" x2="${W - 4}" y2="${Y1}" stroke="#333" stroke-width="1"/>
-        <line x1="${X0}" y1="${Y0}" x2="${W - 4}" y2="${Y0}" stroke="#222" stroke-dasharray="3 3"/>
-        <text x="${X0 - 4}" y="${Y0 + 3}" text-anchor="end" font-size="8" fill="#9a9a9a">${kfmt(max)}</text><text x="${X0 - 4}" y="${Y1 + 3}" text-anchor="end" font-size="8" fill="#9a9a9a">${kfmt(min)}</text>
-        <text x="${X0}" y="${Y1 + 13}" font-size="8" fill="#9a9a9a">${dd(first.day)}</text><text x="${W - 4}" y="${Y1 + 13}" text-anchor="end" font-size="8" fill="#9a9a9a">${dd(pts[pts.length - 1].day)}</text>
-        <polyline points="${path}" fill="none" stroke="#ff3b54" stroke-width="2" stroke-linejoin="round"/>${pts.map((h, i) => `<circle cx="${xs(i).toFixed(1)}" cy="${ys(+h.lr_value).toFixed(1)}" r="2.2" fill="#ff3b54"><title>${dd(h.day)} : ${fmt(h.lr_value)} KI</title></circle>`).join('')}</svg>` : '<p class="small mute" style="margin:8px 0 0">La courbe d\'évolution apparaîtra dès demain (une mesure par jour).</p>'}
+    el.innerHTML = `<div class="card section hcard"><div class="row" style="align-items:center"><div><div class="small mute">Valeur estimée de ta collection</div><div class="cd">${fmt(cv.v)} <span class="small mute">KI</span></div></div>${ring(me ? +me.pct : null, 'du jeu possédé')}${first && pts.length > 1 ? `<div><div class="small mute">Gagné depuis ta 1re mesure (${dd(first.day)})</div><div class="cd ${diff >= 0 ? 'up' : 'red'}">${diff >= 0 ? '+' : ''}${fmt(diff)} <span class="small mute">KI</span></div></div>` : ''}<span class="sp"></span><a class="btn ghost" href="#checklist/classement" style="min-height:36px">🏆 Classement</a></div>
+      ${path ? `<div class="small mute" style="margin-top:8px">Évolution de la valeur (KI), une mesure par jour</div><div class="spark3d"><svg viewBox="0 0 ${W} 84" class="spark" role="img" aria-label="Valeur de la collection par jour"><defs><linearGradient id="spG" x1="0" x2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset=".55" stop-color="#ff3b54"/><stop offset="1" stop-color="#c43cff"/></linearGradient><linearGradient id="spA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff3b54" stop-opacity=".45"/><stop offset="1" stop-color="#ff3b54" stop-opacity="0"/></linearGradient><filter id="spGl" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="2.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>${[0, .5, 1].map(f => `<line x1="${X0}" y1="${(Y0 + (Y1 - Y0) * f).toFixed(1)}" x2="${W - 4}" y2="${(Y0 + (Y1 - Y0) * f).toFixed(1)}" stroke="#ffffff14" stroke-dasharray="2 4"/>`).join('')}<text x="${X0 - 4}" y="${Y0 + 3}" text-anchor="end" font-size="8" fill="#9a9a9a">${kfmt(max)}</text><text x="${X0 - 4}" y="${Y1 + 3}" text-anchor="end" font-size="8" fill="#9a9a9a">${kfmt(min)}</text><text x="${X0}" y="${Y1 + 13}" font-size="8" fill="#9a9a9a">${dd(first.day)}</text><text x="${W - 4}" y="${Y1 + 13}" text-anchor="end" font-size="8" fill="#9a9a9a">${dd(pts[pts.length - 1].day)}</text><polygon class="sp-area" points="${xs(0).toFixed(1)},${Y1} ${path} ${xs(pts.length - 1).toFixed(1)},${Y1}" fill="url(#spA)"/><polyline class="sp-line" points="${path}" pathLength="1" fill="none" stroke="url(#spG)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" filter="url(#spGl)"/>${pts.map((h, i) => `<circle class="sp-dot${i === pts.length - 1 ? ' last' : ''}" cx="${xs(i).toFixed(1)}" cy="${ys(+h.lr_value).toFixed(1)}" r="${i === pts.length - 1 ? 3.2 : 2}" fill="${i === pts.length - 1 ? '#fff' : '#ff3b54'}" style="animation-delay:${(0.9 + i * 0.04).toFixed(2)}s"><title>${dd(h.day)} : ${fmt(h.lr_value)} KI</title></circle>`).join('')}</svg></div>` : '<p class="small mute" style="margin:8px 0 0">La courbe d\'évolution apparaîtra dès demain (une mesure par jour).</p>'}
       <p class="small mute" style="margin:6px 0 0">Valeur = somme des prix médians réels (ventes des 14 derniers jours) de tes cartes, ${cv.n} cartes avec un prix connu, doublons non comptés. Elle monte quand tu ajoutes des cartes ou quand leurs prix montent.</p></div>`; };
   (async () => { try { const [{ data: h }, { data: rk }] = await Promise.all([sb.from('coll_snap').select('day,pct,lr_value').eq('user_id', S.user.id).order('day'), sb.rpc('collection_ranking')]);
     hist = h || []; hist.me = (rk || []).find(r => r.user_id === S.user.id) || null; const today = new Date().toISOString().slice(0, 10), cv = collValueC();
@@ -1005,12 +1002,12 @@ P.collection = async (m, tab = '') => {
     let q = '', show = 'all', uni = '';
     const total = X.U.reduce((a, u) => a + u.c.length, 0), got = X.U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0);
     if (!got) {
-      el.innerHTML = `<div class="card section" style="text-align:center"><h2>Ta collection ${X.label} est vide pour l'instant</h2><p class="mute">Tu n'as rien à cocher toi-même : envoie tes captures du jeu et le site remplit tout seul tes ${X.label} possédées, tes doublons avec leur nombre (×2, ×3…) et les cartes qui te manquent.</p><button class="btn primary" id="cimp2" style="margin-top:8px">📷 Importer mes ${X.label}</button></div>`;
-      el.querySelector('#cimp2').onclick = () => impFor(rk); return;
+      el.innerHTML = `<div class="card section" style="text-align:center"><h2>Ta collection ${X.label} est vide pour l'instant</h2><p class="mute">Lance la mise à jour en 1 clic : le site recopie depuis le jeu tes ${X.label} possédées, tes doublons et les cartes qui te manquent.</p><a class="btn primary" href="#clic" style="margin-top:8px">⚡ Mise à jour en 1 clic</a></div>`;
+      return;
     }
     const st = u => ({ n: u.c.filter(c => has(coll, u, c[0])).length, t: u.c.length });
     const full = X.U.filter(u => st(u).n === u.c.length), part = X.U.filter(u => st(u).n < u.c.length);
-    el.innerHTML = `<p class="small mute" style="margin-top:0">Comme dans le jeu, rangées par numéro : en couleur tes ${X.label} (×N = exemplaires), en gris celles qui te manquent. Sous chaque carte, <b>− / +</b> règle le nombre d'exemplaires (pour une LR : ses étoiles, puis − / + pour ses doublons en plus) : c'est comme ça que tu tiens ta collection à jour quand elle change dans le jeu.</p>
+    el.innerHTML = `<div class="row" style="align-items:center;gap:14px;margin-bottom:6px">${ring(total ? got / total * 100 : 0, X.label + ' possédées', 64)}<div><b>${got} / ${total}</b> ${X.label} possédées<div class="small mute">${total - got} manquante${total - got > 1 ? 's' : ''}</div></div></div><p class="small mute" style="margin-top:0">Comme dans le jeu, rangées par numéro : en couleur tes ${X.label} (×N = exemplaires), en gris celles qui te manquent. Sous chaque carte, <b>− / +</b> règle le nombre d'exemplaires (pour une LR : ses étoiles, puis − / + pour ses doublons en plus) : c'est comme ça que tu tiens ta collection à jour quand elle change dans le jeu.</p>
       <div class="cfilters"><input id="cq" placeholder="Rechercher une carte ou un univers">
         <div class="tabs" id="cs" style="margin:0">${[['all', `Toutes ${total}`], ['own', `Possédées ${got}`], ['miss', `Manquantes ${total - got}`]].map(([k, l]) => `<button data-s="${k}" class="${k === show ? 'on' : ''}">${l}</button>`).join('')}</div>
         <select id="cuf"><option value="">✅ Univers complets (${full.length})</option>${full.map(u => `<option value="${esc(u.s)}">${esc(u.s)} · ${u.c.length}/${u.c.length}</option>`).join('')}</select>
@@ -1025,7 +1022,7 @@ P.collection = async (m, tab = '') => {
       L.sort((a, b) => (S.serial?.get(a[1][3]) || 9e9) - (S.serial?.get(b[1][3]) || 9e9));
       el.querySelector('#cinfo').textContent = `${L.length} carte${L.length > 1 ? 's' : ''} affichée${L.length > 1 ? 's' : ''}${uni ? ' · ' + uni : ''}`;
       el.querySelector('#cl').innerHTML = mosaic(L, 'Aucune carte.', true);
-      bindEdit(el.querySelector('#cl'), X, list);
+      bindEdit(el.querySelector('#cl'), X, list); bindWho(el.querySelector('#cl'), X);
     };
     const pickUni = v => { uni = v; el.querySelector('#cuf').value = full.some(u => u.s === v) ? v : ''; el.querySelector('#cup').value = part.some(u => u.s === v) ? v : ''; el.querySelector('#cux').style.display = v ? '' : 'none'; list(); };
     el.querySelector('#cuf').onchange = e => pickUni(e.target.value); el.querySelector('#cup').onchange = e => pickUni(e.target.value); el.querySelector('#cux').onclick = () => pickUni('');
@@ -1047,11 +1044,14 @@ P.collection = async (m, tab = '') => {
   const mosaic = (L, empty, color) => `<div class="mosaic">${L.map(([u, c, n, own]) => { const sn = S.serial?.get(c[3]); const o = color ? own : true; const lr = c[1] === 'S'; const st = lr ? S.mylr.cards[c[3]] : null;
     const ctl = !color ? '' : lr ? `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${own ? `<span class="stars5" role="group" aria-label="Étoiles">${[1, 2, 3, 4, 5].map(k => `<button data-sk="${k}" class="${st >= k ? 'on' : ''}" aria-label="${k} étoile${k > 1 ? 's' : ''}">★</button>`).join('')}</span><button data-x="0" class="rm" title="Je ne l'ai pas" aria-label="Je ne l'ai pas">✕</button>` : '<button data-st="0" class="add">+ Je l\'ai</button>'}</div>${own ? `<div class="mstep ldup" data-u="${esc(u.s)}" data-c="${esc(c[0])}" title="Exemplaires en plus de ta carte (après les montées d'étoiles)"><button data-ld="-1" ${n > 1 ? '' : 'disabled'}>−</button><b class="dlb"><small>doublons</small>${n - 1}</b><button data-ld="1">+</button></div>` : ''}`
       : `<div class="mstep" data-u="${esc(u.s)}" data-c="${esc(c[0])}"><button data-d="-1" ${own ? '' : 'disabled'}>−</button><b>${own ? '×' + n : 'Manquante'}</b><button data-d="1">+</button></div>`;
-    return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${({ M: 'UR', L: 'SSR', S: 'LR', E: 'SR', R: 'R', C: 'C' })[c[1]] || RN[c[1]] || ''}${lr && own ? ` · <span class="st">${st}★</span>${n > 1 ? ` · ×${n}` : ''}` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
+    return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${({ M: 'UR', L: 'SSR', S: 'LR', E: 'SR', R: 'R', C: 'C', X: 'EX', T: 'TRS' })[c[1]] || RN[c[1]] || ''}${lr && own ? ` · <span class="st">${st}★</span>${n > 1 ? ` · ×${n}` : ''}` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
   function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2, true])); const extra = L.reduce((a, x) => a + x[2] - 1, 0); el.innerHTML = `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>` + mosaic(L, 'Aucun doublon. Importe tes captures : les cartes à ×2 et plus y sont ajoutées avec leur nombre.', true); bindEdit(el, X, () => vDupes(el, X)); }
   function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c, 0, false])); el.innerHTML = `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade. Touche une carte pour voir qui l’a en double.</p>` + mosaic(L, 'Rien ne te manque 🎉', true); bindEdit(el, X, () => vMiss(el, X));
-    // Touche une carte manquante : qui l'a en double dans la Brigade (pour lui proposer un échange sur Discord).
-    el.querySelectorAll('figure.mcard').forEach(f => { f.style.cursor = 'pointer'; f.onclick = () => { const u = X.U.find(x => x.s === f.dataset.u), cn = f.dataset.c; if (!u) return;
+    bindWho(el, X);
+  }
+  function bindWho(el, X) {
+  // Touche une carte manquante : qui l'a en double dans la Brigade (pour lui proposer un échange sur Discord).
+    el.querySelectorAll('figure.mcard.miss').forEach(f => { f.style.cursor = 'pointer'; f.onclick = () => { const u = X.U.find(x => x.s === f.dataset.u), cn = f.dataset.c; if (!u) return;
       const who = []; for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = X.lr ? lrOf(p.id) : (S.coll[p.id] || {}); const q = dup(th, u, cn); if (q) who.push({ p, n: q === true ? 2 : +q }); }
       who.sort((a, b) => b.n - a.n);
       const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
@@ -1066,9 +1066,10 @@ P.collection = async (m, tab = '') => {
       for (const u of X.U) for (const c of u.c) { if (dup(th, u, c[0]) && !has(coll, u, c[0])) get.push(c); if (dup(coll, u, c[0]) && !has(th, u, c[0])) give.push(c); }
       if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
     out.sort((a, b) => b.score - a.score);
-    el.innerHTML = `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + (out.map(o => `<div class="card section"><div class="row"><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px">Profil</a></div>
+    el.innerHTML = `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + (out.length ? '<div class="row" style="margin:8px 0"><button class="btn ghost" id="trAll" style="min-height:34px">Tout déplier</button></div>' : '') + (out.map(o => `<details class="card section trd"><summary class="row" style="cursor:pointer;list-style:none"><span class="trc">▸</span><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="small mute">te donne ${o.get.length} · reçoit ${o.give.length}</span><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px" onclick="event.stopPropagation()">Profil</a></summary>
       <div class="small mute" style="margin-top:10px">Il peut te donner (${o.get.length})</div><div class="tiles">${o.get.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div>
-      <div class="small mute" style="margin-top:10px">Tu peux lui donner (${o.give.length})</div><div class="tiles">${o.give.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div></div>`).join('') || '<div class="empty">Pas encore d\'échange possible sur les ' + X.label + '. Plus il y a de membres qui importent leur collection et la partagent, plus il y en aura.</div>');
+      <div class="small mute" style="margin-top:10px">Tu peux lui donner (${o.give.length})</div><div class="tiles">${o.give.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div></details>`).join('') || '<div class="empty">Pas encore d\'échange possible sur les ' + X.label + '. Plus il y a de membres qui importent leur collection et la partagent, plus il y en aura.</div>');
+    { const ta = el.querySelector('#trAll'); if (ta) ta.onclick = () => { const ds = [...el.querySelectorAll('details.trd')], open = !ds.every(d => d.open); ds.forEach(d => d.open = open); ta.textContent = open ? 'Tout replier' : 'Tout déplier'; }; }
   }
   // Import d'une seule rareté (SSR ou UR) : reconnaissance par l'illustration, ×N lu sur la capture, contrôle du nombre affiché par le jeu.
   function rarImport(r) {
@@ -1420,13 +1421,13 @@ P.clic = async m => {
   const got = new Map(); for (const t of String(pay.d).split(',')) { const [id, q, st] = t.split('.').map(Number); if (id > 0 && q > 0) got.set(id, { q, s: Math.max(0, Math.min(5, st || 0)) }); }
   await loadFeats(); await loadCollections(); const coll = myColl(); const catAll = S.kb.card_catalog?.cards || [];
   const lowU = r => { const by = new Map(); for (const c of catAll) { if (c[3] !== r || c[5]) continue; const s2 = c[2] || '—'; if (!by.has(s2)) by.set(s2, { s: s2, c: [] }); by.get(s2).c.push([c[1], r, c[4] || '', Number(c[0])]); } return [...by.values()]; };
-  const U = { C: lowU('C'), R: lowU('R'), E: lowU('E'), L: rarUniverses('L'), M: rarUniverses('M') };
+  const U = { C: lowU('C'), R: lowU('R'), E: lowU('E'), L: rarUniverses('L'), M: rarUniverses('M'), X: lowU('X'), T: lowU('T') };
   const lrIds = new Set(catAll.filter(c => c[3] === 'S').map(c => Number(c[0]))); for (const u of rarUniverses('S')) for (const c of u.c) lrIds.add(c[3]);
   const lrName = id => (catAll.find(c => Number(c[0]) === id) || [])[1] || ('#' + id);
   const st = {}; for (const k of Object.keys(U)) { let own = 0, tot = 0, dup = 0; for (const u of U[k]) for (const c of u.c) { tot++; const g = got.get(c[3]); if (g) { own++; if (g.q >= 2) dup++; } } st[k] = { own, tot, dup }; }
   const lrs = [...lrIds].filter(id => got.has(id)).map(id => ({ id, n: lrName(id), ...got.get(id) })).sort((a, b) => b.s - a.s || a.n.localeCompare(b.n));
   const age = Math.round((Date.now() - (pay.t || Date.now())) / 60000);
-  const lab = { C: 'Communes', R: 'Rares', E: 'SR', L: 'SSR', M: 'UR' };
+  const lab = { C: 'Communes', R: 'Rares', E: 'SR', L: 'SSR', M: 'UR', X: 'EX', T: 'TRS' };
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Import en 1 clic</span><h1 style="margin-top:12px">Ta collection est arrivée</h1><p class="mute">Lue directement dans le jeu${age > 1 ? ` il y a ${age} min` : ''}. Vérifie le résumé, puis enregistre : ta collection sur le site sera remplacée par celle du jeu.</p></section>
     <div class="card section"><div class="grid">${Object.keys(lab).map(k => `<div><div class="mute small">${lab[k]}</div><div class="cd">${st[k].own} <span class="small mute">/ ${st[k].tot}</span></div><div class="small mute">${st[k].dup} en double</div></div>`).join('')}<div><div class="mute small">LR</div><div class="cd">${lrs.length}</div><div class="small mute">${lrs.filter(x => x.q > 1).length} en double</div></div></div></div>
     <div class="card section"><h3 style="margin-top:0">Tes LR et leurs étoiles</h3><div class="small" style="columns:2;column-gap:24px">${lrs.map(x => `<div>${esc(x.n)} · <b>${x.s}★</b>${x.q > 1 ? ` <span class="mute">(+${x.q - 1} doublon${x.q > 2 ? 's' : ''})</span>` : ''}</div>`).join('') || '<span class="mute">Aucune LR</span>'}</div></div>
@@ -1493,7 +1494,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=190'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=191'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };

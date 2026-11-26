@@ -479,3 +479,30 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 .cgbtns .btn{width:100%;justify-content:center}
 @media(min-width:900px){.cggrid:has(.cgcard){display:grid;grid-template-columns:repeat(2,1fr);gap:12px}}
 @media(max-width:400px){.cgbtns{grid-template-columns:1fr}}
+
+/* v191 : cercle de progression, courbe de valeur animée en 3D, onglets EX/TRS, échanges repliables */
+.pring{position:relative;width:var(--sz,74px);height:var(--sz,74px);flex-shrink:0;display:grid;place-items:center;text-align:center}
+.pring svg{position:absolute;inset:0;width:100%;height:100%;filter:drop-shadow(0 0 6px rgba(227,18,58,.35))}
+.pring .pr-v{animation:prFill 1.4s cubic-bezier(.2,.8,.2,1) .15s forwards}
+@keyframes prFill{to{stroke-dashoffset:var(--off)}}
+.pring b{position:relative;font-size:calc(var(--sz,74px)*.2);line-height:1;margin-top:-6px}
+.pring small{position:absolute;bottom:calc(var(--sz,74px)*.2);left:0;right:0;font-size:8px;color:#9a9a9a;line-height:1.1;padding:0 10px}
+.hcard{padding:14px 16px}
+.spark3d{perspective:700px;margin-top:2px}
+.spark3d .spark{width:100%;max-height:150px;height:auto;overflow:visible;transform:rotateX(14deg);transform-origin:50% 100%;transition:transform .6s ease;animation:spFloat 6s ease-in-out infinite}
+.spark3d:hover .spark{transform:rotateX(0deg)}
+@keyframes spFloat{0%,100%{transform:rotateX(14deg) translateY(0)}50%{transform:rotateX(10deg) translateY(-2px)}}
+.spark .sp-line{stroke-dasharray:1;stroke-dashoffset:1;animation:spDraw 1.6s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes spDraw{to{stroke-dashoffset:0}}
+.spark .sp-area{opacity:0;animation:spFade 1s ease .8s forwards}
+@keyframes spFade{to{opacity:1}}
+.spark .sp-dot{opacity:0;animation:spFade .4s ease forwards}
+.spark .sp-dot.last{transform-box:fill-box;transform-origin:center;animation:spFade .4s ease 1.4s forwards,spPulse 1.8s ease-in-out 1.8s infinite}
+@keyframes spPulse{0%,100%{r:3.2;filter:drop-shadow(0 0 2px #ff3b54)}50%{r:4.4;filter:drop-shadow(0 0 7px #ff3b54)}}
+@media (prefers-reduced-motion:reduce){.spark3d .spark,.spark .sp-line,.spark .sp-area,.spark .sp-dot,.pring .pr-v{animation:none!important;opacity:1;stroke-dashoffset:0}.pring .pr-v{stroke-dashoffset:var(--off)}}
+.rtabs .rt-X{border-color:#2fb3a3}.rtabs .rt-X i{color:#5ee8d6;font-size:12px}.rtabs .rt-X.on{background:#2fb3a3;color:#04201c;border-color:#2fb3a3}.rtabs .rt-X.on i{color:#04201c}
+.rtabs .rt-T{border-color:#e6e6e6}.rtabs .rt-T i{background:linear-gradient(90deg,#fff,#9be7ff,#ffd6ff);-webkit-background-clip:text;background-clip:text;color:transparent}.rtabs .rt-T.on{background:linear-gradient(135deg,#fff,#cdefff,#ffe0ff);color:#111;border-color:#fff}.rtabs .rt-T.on i{color:#111;-webkit-text-fill-color:#111}
+details.trd>summary::-webkit-details-marker{display:none}
+details.trd .trc{display:inline-block;transition:transform .2s;color:#9a9a9a}
+details.trd[open] .trc{transform:rotate(90deg)}
+details.trd:not([open]){padding-top:12px;padding-bottom:12px}
