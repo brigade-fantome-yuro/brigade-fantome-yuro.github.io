@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=221';
+import * as CFG from './config.js?v=222';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=221';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=221';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=222';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=222';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=221';
-import * as SCAN from './scan.js?v=221';
+import { duelRate } from './ranked.js?v=222';
+import * as SCAN from './scan.js?v=222';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,18 +52,22 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '221';
+const APP_V = '222';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
 const bfReload = v => { try { sessionStorage.setItem('bfv' + v, '1'); } catch (e) { } location.replace(location.pathname + '?v=' + v + location.hash); };
-const bfBusy = () => { const a = document.activeElement; return (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.value) || location.hash.startsWith('#clic') || document.querySelector('.modal'); };
+// En plein combat (Mercato, arène de tournoi, simulateurs ranked et château) : jamais de rechargement automatique, même onglet caché.
+const bfInGame = () => /^#(jeux|arene|simulateur|chateausim)(\/|$)/.test(location.hash) || !!document.querySelector('.cs-frame');
+const bfBusy = () => { const a = document.activeElement; return (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.value) || location.hash.startsWith('#clic') || document.querySelector('.modal') || bfInGame(); };
 let bfNewV = null, bfBarT = null;
 const bfCheckV = async (first) => { try { const v = (await (await fetch('version.txt?t=' + Date.now(), { cache: 'no-store' })).text()).trim(); if (!v || v === APP_V) return;
   if (first) { if (!sessionStorage.getItem('bfv' + v)) bfReload(v); return; }
-  bfNewV = v; if (document.hidden) return bfReload(v);
-  if (!document.getElementById('bfvbar')) { const b = document.createElement('div'); b.id = 'bfvbar'; b.innerHTML = '✨ Nouvelle version du site <button>Mettre à jour</button><small>mise à jour automatique dans 30 s</small>'; b.querySelector('button').onclick = () => bfReload(v); document.body.appendChild(b); }
-  clearTimeout(bfBarT); const tryGo = () => { if (bfBusy()) { bfBarT = setTimeout(tryGo, 10000); return; } bfReload(v); }; bfBarT = setTimeout(tryGo, 30000); } catch (e) { } };
+  bfNewV = v; if (document.hidden && !bfBusy()) return bfReload(v);
+  let b = document.getElementById('bfvbar');
+  if (!b) { b = document.createElement('div'); b.id = 'bfvbar'; b.innerHTML = '<span class="bfv-ic" aria-hidden="true">✦</span><span class="bfv-t"><b>Nouvelle version du site</b><small></small></span><button class="bfv-btn"><span>Mettre à jour</span></button>'; b.querySelector('button').onclick = () => bfReload(v); document.body.appendChild(b); requestAnimationFrame(() => b.classList.add('in')); }
+  b.querySelector('small').textContent = bfInGame() ? 'Elle s’installera à la fin de ton combat.' : 'Mise à jour automatique dans 30 s.';
+  clearTimeout(bfBarT); const tryGo = () => { if (bfBusy()) { const sm = document.querySelector('#bfvbar small'); if (sm && bfInGame()) sm.textContent = 'Elle s’installera à la fin de ton combat.'; bfBarT = setTimeout(tryGo, 10000); return; } bfReload(v); }; bfBarT = setTimeout(tryGo, 30000); } catch (e) { } };
 bfCheckV(true); setInterval(() => bfCheckV(false), 120000);
 document.addEventListener('visibilitychange', () => { if (bfNewV && document.hidden && !bfBusy()) bfReload(bfNewV); else if (!document.hidden) bfCheckV(false); });
 addEventListener('focus', () => bfCheckV(false));
@@ -674,10 +678,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=221'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=222'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=221'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=222'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -837,7 +841,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=221'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=222'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1690,7 +1694,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=221'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=222'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
