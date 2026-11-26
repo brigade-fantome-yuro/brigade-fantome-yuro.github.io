@@ -252,3 +252,59 @@ button.mx-mini:hover .mx-move{color:#fff}
 .mx-rrowh small{font-size:12px;color:var(--ash);font-weight:500}
 .mx-snd{display:inline-flex;gap:6px}
 .mx-snd[aria-pressed="false"]{color:var(--ash)}
+
+/* ---------- légende et étiquette des cartes sous enveloppe ---------- */
+.mx-envtag{position:absolute;top:13px;left:36px;z-index:2;padding:1px 7px 1px 10px;background:var(--blood);color:#fff;font-size:11px;font-weight:700;clip-path:polygon(4px 0,100% 0,100% 100%,4px 100%,0 50%)}
+.mx-big3d .mx-envtag{top:18px;left:46px;transform:translateZ(24px)}
+.mx-legend{display:flex;gap:10px;align-items:center;margin:10px 0 0;font-size:13px;color:var(--ash);max-width:80ch}
+.mx-legend b{color:#fff;font-weight:600}
+.mx-legend .mx-seal{position:static;flex:none;width:28px;height:28px}
+@media (max-width:600px){.mx-envtag{left:34px;top:12px;font-size:10px}}
+
+/* ---------- enchère chrono ---------- */
+.mx-amtw{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.mx-amt.lead{color:#fff}.mx-amt.behind{color:var(--silk)}
+.mx-leader{font-size:14px;font-weight:600;padding:2px 10px;border:1px solid var(--blood);color:var(--blood2)}
+.mx-leader.me{border-color:#fff;color:#fff}
+.mx-snipe{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.mx-sbtn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:64px;border-radius:2px;border:1px solid #fff;background:#fff;color:#030303;font:inherit;cursor:pointer;transition:transform .1s,background .2s}
+.mx-sbtn b{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.mx-sbtn small{font-size:12px;opacity:.7;font-variant-numeric:tabular-nums}
+.mx-sbtn:active{transform:scale(.96)}
+.mx-sbtn.sent{background:var(--blood);border-color:var(--blood);color:#fff}
+.mx-feed{list-style:none;margin:10px 0 0;padding:0;display:flex;gap:6px;flex-wrap:wrap;font-size:13px}
+.mx-feed li{display:flex;gap:6px;padding:2px 8px;border:1px solid var(--wire);color:var(--ash)}
+.mx-feed li b{font-weight:600;color:var(--silk)}
+.mx-feed li.top{border-color:#666;color:#fff}
+.mx-feed li.me b{color:#fff}
+.mx-feed li.top{animation:mxFeed .35s var(--ease)}
+@keyframes mxFeed{from{transform:translateX(-10px);opacity:0}}
+.mx-ready{color:#fff;border-left:2px solid #fff;padding-left:8px}
+
+/* ---------- ouverture des enveloppes ---------- */
+.mx-reveal{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;margin:16px 0 8px;perspective:1000px}
+.mx-vs2{color:var(--ash);font-size:13px}
+.mx-env3d{height:150px}
+.mx-envin{position:relative;height:100%;transform-style:preserve-3d;transform:rotateY(180deg);animation:mxFlip .8s cubic-bezier(.3,1.3,.5,1) var(--d,.4s) both}
+@keyframes mxFlip{from{transform:rotateY(0deg) translateY(-10px)}to{transform:rotateY(180deg)}}
+.mx-envf,.mx-envb{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-radius:2px;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.mx-envf{background:linear-gradient(160deg,#e9e2d4,#cfc5b2);color:#2b2016;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.mx-envf::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom right,transparent 49.5%,rgba(0,0,0,.15) 50%,transparent 50.5%),linear-gradient(to bottom left,transparent 49.5%,rgba(0,0,0,.15) 50%,transparent 50.5%);background-size:100% 60%;background-repeat:no-repeat}
+.mx-envf .mx-seal{position:relative;top:auto;left:auto;width:46px;height:46px}
+.mx-envf b{font-size:14px;position:relative}
+.mx-envb{transform:rotateY(180deg);background:#0a0a0a;border:1px solid #333}
+.mx-envb b{font-size:14px;color:var(--ash);font-weight:600}
+.mx-envb span{font-size:clamp(22px,4vw,30px);font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mx-envb i{font-style:normal;font-size:12px;font-weight:700;color:#fff;background:var(--blood);padding:1px 8px}
+.mx-env3d.win .mx-envb{border-color:var(--blood);box-shadow:0 0 0 1px var(--blood),0 0 34px rgba(227,18,58,.5);animation:mxWin .6s ease 1.8s both}
+.mx-env3d.lose .mx-envb{animation:mxLose .6s ease 1.8s both}
+@keyframes mxWin{from{box-shadow:none;border-color:#333}}
+@keyframes mxLose{to{opacity:.45}}
+.mx-env3d.lose .mx-envb{opacity:.45}
+.mx-late{animation:mxLate .5s var(--ease) 1.9s both}
+.mx-late .mx-stamp.slam{animation-delay:2.1s}
+@keyframes mxLate{from{opacity:0;transform:translateY(12px)}}
+.mx-verdict{margin:6px 0 0;font-size:16px;font-weight:600}
+.mx-still,.mx-still *{animation:none!important}
+@media (max-width:600px){.mx-snipe{gap:6px}.mx-sbtn b{font-size:16px}.mx-env3d{height:130px}}
+.mx-timer b{display:inline-block;min-width:3.4ch;text-align:right;font-feature-settings:"tnum" 1}

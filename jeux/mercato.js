@@ -7,7 +7,7 @@ const K = 10000;                 // une tranche de mise : 10 000 KI
 const BUDGET = 1000000;          // budget de départ
 const MAIN = { n: 6, per: 2 };   // mercato principal : 6 cartes, 2 au plus par rôle
 const SD = { n: 3, per: 1 };     // mort subite : 3 cartes de 3 rôles différents
-const TIME = { nominate: 40, open: 20, sealed: 30, pick: 40, compose: 150, done: 4, fres: 6, move: 45, away: 60 };
+const TIME = { nominate: 40, open: 30, sealed: 30, reveal: 7, pick: 40, compose: 150, done: 4, fres: 6, move: 45, away: 60 };
 // Répartitions des rôles qui ne bloquent jamais un joueur (vérifiées sur toutes les façons d'acheter).
 // [répartition, poids du tirage] : la plupart des parties ont les 5 rôles, mais un rôle peut être rare ou absent.
 const DIST14 = [[[3, 3, 3, 3, 2], 4], [[4, 3, 3, 3, 1], 3], [[4, 4, 3, 3, 0], 2], [[4, 4, 4, 1, 1], 1], [[4, 4, 4, 2, 0], 1], [[5, 4, 4, 1, 0], 0], [[5, 5, 4, 0, 0], 0], [[6, 4, 4, 0, 0], 0]];
@@ -61,7 +61,11 @@ function drawMarket(pool, roles, dists, envN, exclude, capSmall) {
   const cap = r => { const n = distinctCount(r); return capSmall && n <= 3 ? n - 1 : n; };
   const order = []; const left = dists.filter(d => d[1] > 0).slice();
   while (left.length) { let x = Math.random() * left.reduce((a, d) => a + d[1], 0), k = 0; for (; k < left.length - 1; k++) { x -= left[k][1]; if (x <= 0) break; } order.push(left.splice(k, 1)[0][0]); }
-  const tryPlans = (list, lim) => { for (const d of list) for (let t = 0; t < 80; t++) { const rs = shuffle(roles.slice()); if (d.every((n, i) => lim(rs[i]) >= n)) return rs.map((r, i) => [r, d[i]]); } return null; };
+  // Les petits nombres vont aux rôles qui ont peu de personnages (un marché sans Dégâts n'arrive plus) ; un peu de hasard garde de la variété.
+  const tryPlans = (list, lim) => { for (const d of list) {
+    for (let t = 0; t < 12; t++) { const rs = roles.slice().sort((a, b) => distinctCount(a) * (.7 + Math.random() * .6) - distinctCount(b) * (.7 + Math.random() * .6)), ds = d.slice().sort((x, y) => x - y); if (ds.every((n, i) => lim(rs[i]) >= n)) return rs.map((r, i) => [r, ds[i]]); }
+    for (let t = 0; t < 80; t++) { const rs = shuffle(roles.slice()); if (d.every((n, i) => lim(rs[i]) >= n)) return rs.map((r, i) => [r, d[i]]); }
+  } return null; };
   const plan = tryPlans(order, cap) || tryPlans(dists.map(d => d[0]), distinctCount);
   if (!plan) throw new Error('Pas assez de cartes avec un rôle pour tirer le marché.');
   const out = [];
@@ -135,7 +139,7 @@ function award(G, w, price, extra = {}) {
   p.budget -= price; owned(G, w).push(k); m.by = w; m.price = price;
   addLog(G, `${p.name} recrute ${c.n} ${extra.free ? 'gratuitement' : 'pour ' + ki(price)}${extra.sealed ? ' (sous enveloppe)' : ''}.`);
   if (G.ph.k !== 'pick') G.nom = other(G.ph.nom ?? G.nom);
-  setPh(G, { k: 'done', c: k, w, price, ...extra }, TIME.done);
+  setPh(G, { k: 'done', c: k, w, price, ...extra }, extra.sealed ? TIME.reveal : TIME.done);
 }
 function endStage(G) {
   if (G.stage === 'main') {
@@ -180,27 +184,28 @@ function apply(G, who, a) {
   const ph = G.ph, P = G.players, H = X.hid;
   if (a.t === 'ff') { finish(G, other(who), 'ff'); return true; }
   if (a.t === 'claim') { if (X.awayFor(other(who)) < TIME.away * 1000) return false; finish(G, who, 'away'); return true; }
-  if (a.pid !== G.pid) return false;
+  if (a.pid !== G.pid && !(ph.k === 'open' && a.c === ph.c)) return false;   // enchère chrono : les mises arrivent librement pendant 30 s
   const inR = (v, lo, hi) => Number.isInteger(v) && v % K === 0 && v >= lo && v <= hi || (Number.isInteger(v) && v === hi && v >= lo);
   switch (ph.k) {
     case 'nominate': {
       if (who !== ph.who || a.t !== 'nom' || !canUse(G, who, a.k)) return false;
       const m = item(G, a.k), o = other(who), oCan = canUse(G, o, a.k);
-      if (m.env) { setPh(G, { k: 'sealed', c: a.k, nom: who, has: [false, false] }, TIME.sealed); if (!oCan) { X.hid.bids[o] = 0; G.ph.has[o] = true; } addLog(G, `${P[who].name} met ${G.cards[a.k].n} en vente : sous enveloppe !`); return true; }
+      if (m.env && !oCan) { G.ph = { k: 'open', c: a.k, nom: who }; addLog(G, `${P[who].name} met ${G.cards[a.k].n} en vente.`); award(G, who, minBid(G, who), { why: slots(G, o) ? 'role' : 'full' }); return true; }   // personne en face : pas d'enveloppe à attendre
+      if (m.env) { setPh(G, { k: 'sealed', c: a.k, nom: who, has: [false, false] }, TIME.sealed); addLog(G, `${P[who].name} met ${G.cards[a.k].n} en vente : sous enveloppe !`); return true; }
       if (!inR(a.v, minBid(G, who), maxBid(G, who))) return false;
-      G.ph = { k: 'open', c: a.k, nom: who, high: a.v, lead: who, turn: o };
+      G.ph = { k: 'open', c: a.k, nom: who, high: a.v, lead: who, hist: [[who, a.v]] };
       addLog(G, `${P[who].name} met ${G.cards[a.k].n} en vente et ouvre à ${ki(a.v)}.`);
-      if (!oCan || maxBid(G, o) < a.v + K) { award(G, who, a.v); return true; }
-      G.pid++; G.dl = Date.now() + TIME.open * 1000; return true;
+      if (!oCan || maxBid(G, o) < a.v + K) { award(G, who, a.v, { why: !oCan ? (slots(G, o) ? 'role' : 'full') : 'money' }); return true; }
+      G.pid++; G.dl = Date.now() + TIME.open * 1000; return true;   // chrono de 30 s, qui ne repart jamais en arrière
     }
     case 'open': {
-      if (who !== ph.turn) return false;
-      if (a.t === 'pass') { addLog(G, `${P[who].name} passe.`); award(G, ph.lead, ph.high); return true; }
-      if (a.t !== 'bid' || !inR(a.v, ph.high + K, maxBid(G, who))) return false;
+      // Enchère chrono : chacun mise quand il veut ; celui qui n'est pas en tête peut passer pour finir tout de suite.
+      if (a.t === 'pass') { if (who === ph.lead) return false; addLog(G, `${P[who].name} passe.`); award(G, ph.lead, ph.high, { why: 'pass' }); return true; }
+      if (a.t !== 'bid' || who === ph.lead || !canUse(G, who, ph.c) || !inR(a.v, ph.high + K, maxBid(G, who))) return false;
       addLog(G, `${P[who].name} surenchérit à ${ki(a.v)}.`);
-      Object.assign(ph, { high: a.v, lead: who, turn: other(who) });
-      if (maxBid(G, other(who)) < a.v + K) { award(G, who, a.v); return true; }
-      G.pid++; G.dl = Date.now() + TIME.open * 1000; return true;
+      ph.high = a.v; ph.lead = who; ph.hist = [[who, a.v], ...(ph.hist || [])].slice(0, 8);
+      if (maxBid(G, other(who)) < a.v + K) { award(G, who, a.v, { why: 'money' }); return true; }
+      return true;
     }
     case 'sealed': {
       if (a.t !== 'seal' || ph.has[who]) return false;
@@ -227,8 +232,9 @@ function timeout(G) {
   const ph = G.ph, H = X.hid;
   switch (ph.k) {
     case 'nominate': { const L = usable(G, ph.who); const k = L[Math.floor(Math.random() * L.length)]; if (!k) return nextTurn(G); addLog(G, `${G.players[ph.who].name} n'a pas choisi à temps : carte tirée au hasard.`); return apply(G, ph.who, { t: 'nom', k, v: minBid(G, ph.who), pid: G.pid }); }
-    case 'open': addLog(G, `Temps écoulé pour ${G.players[ph.turn].name}.`); return apply(G, ph.turn, { t: 'pass', pid: G.pid });
-    case 'sealed': for (const i of [0, 1]) if (!ph.has[i]) apply(G, i, { t: 'seal', v: i === ph.nom ? minBid(G, i) : 0, pid: G.pid }); return true;
+    case 'open': addLog(G, 'Fin du chrono.'); return award(G, ph.lead, ph.high, { why: 'clock' });
+    // enveloppe non validée à temps : mise minimale de 10 000 KI (ou ce qu'il reste) pour chaque joueur qui peut recruter la carte
+    case 'sealed': for (const i of [0, 1]) if (!ph.has[i]) apply(G, i, { t: 'seal', v: canUse(G, i, ph.c) ? minBid(G, i) : 0, pid: G.pid }); return true;
     case 'pick': { const L = usable(G, ph.who); if (L[0]) apply(G, ph.who, { t: 'pick', k: L[Math.floor(Math.random() * L.length)], pid: G.pid }); return true; }
     case 'done': return nextTurn(G);
     case 'compose': for (const i of [0, 1]) if (!ph.ready[i]) { addLog(G, `${G.players[i].name} n'a pas validé à temps : trios faits automatiquement.`); apply(G, i, { t: 'comp', v: autoSplit(G, G.players[i].own), pid: G.pid }); } return true;
@@ -288,8 +294,8 @@ function hub(m) {
 const RULES = `<ul class="mx-rules">
   <li>Partie en ligne à 2 : chacun a <b>1 000 000 KI</b> et recrute <b>6 cartes</b> parmi les <b>14 du marché</b>, visibles dès le début (stats à 5★).</li>
   <li><b>Une carte par rôle dans un trio</b>, comme dans le jeu : au plus 2 cartes du même rôle sur tes 6.</li>
-  <li><b>Chacun son tour</b>, un joueur choisit la carte mise en vente et ouvre l'enchère (10 000 KI minimum). On surenchérit par tranches de 10 000 KI, jusqu'à ce que l'un passe.</li>
-  <li>📩 <b>Les 3 cartes les mieux classées du marché sont sous enveloppe</b>, d'après la tier list PvP de la Brigade (une par rôle, connues dès le début) : chacun mise en secret, la plus haute mise l'emporte. À égalité, c'est celui qui l'a mise en vente.</li>
+  <li><b>Chacun son tour</b>, un joueur choisit la carte mise en vente et l'ouvre (10 000 KI minimum). <b>Enchère chrono de 30 s</b> : les deux joueurs surenchérissent quand ils veulent, par tranches de 10 000 KI, et le chrono ne repart jamais en arrière. À zéro, le meilleur enchérisseur l'emporte : on peut sniper à la dernière seconde. Celui qui ne veut plus enchérir peut passer.</li>
+  <li>📩 <b>Les 3 cartes les mieux classées du marché sont sous enveloppe</b>, d'après la tier list PvP de la Brigade (une par rôle, connues dès le début) : chacun mise en secret et valide son enveloppe en 30 s (sinon : 10 000 KI). La plus haute mise l'emporte ; à égalité, c'est celui qui l'a mise en vente.</li>
   <li>Il te reste toujours au moins 10 000 KI par carte qu'il te manque. Quand un joueur a ses 6 cartes, l'autre complète gratuitement.</li>
   <li>Ensuite, chacun forme <b>deux trios en secret</b> (le trio 1 joue le combat 1). Deux combats en 3 contre 3, joués en direct, 45 s par coup.</li>
   <li><b>1-1 : mort subite</b>. 8 nouvelles cartes, payées avec l'argent qu'il te reste : un trio neuf de 3 rôles différents pour le dernier combat. L'argent mis de côté peut tout changer !</li>
@@ -326,7 +332,7 @@ async function game(m, ctx, code) {
   const { sb, S } = ctx, uid = S.user.id, name = S.profile?.discord || 'Membre';
   const db = ctx.db || supaDB(sb, uid);
   X = { ctx, db, code, uid, myName: name, me: null, host: false, G: null, hid: { bids: [null, null], comp: [null, null] }, timers: [], online: new Set(), away: [0, 0], seen: [Date.now(), Date.now()],
-    draft: null, sel: null, myBid: {}, compSel: null, F: null, W: null, frame: null, saveT: 0, off: 0 };
+    draft: null, sel: null, myBid: {}, compSel: null, F: null, W: null, frame: null, saveT: 0, off: null };
   X.onHash = () => { if (!location.hash.startsWith('#jeux/mercato/' + code)) cleanup(); };
   window.addEventListener('hashchange', X.onHash);
   m.addEventListener('pointerdown', () => { if (SFX.on) audio(); }, { once: true });
@@ -346,12 +352,12 @@ async function game(m, ctx, code) {
   X.host = row.host === uid; X.me = X.host ? 0 : 1; X.row = row; X.hs = Math.random().toString(36).slice(2, 8);
   X.pool = buildPool(ctx); X.roles = Object.keys(ctx.ROLE);
   const net = X.net = (ctx.net || supaNet)(sb, code, uid);
-  net.onPresence(ids => { const now = Date.now(); X.online = new Set(ids); if (X.G) X.G.players.forEach((p, i) => { if (X.online.has(p.uid)) X.seen[i] = now; }); else if (X.host && ids.length > 1) hostStart(); render(); });
+  net.onPresence(ids => { const now = Date.now(), before = [...X.online].sort().join(); X.online = new Set(ids); const same = before === [...X.online].sort().join(); if (X.G) X.G.players.forEach((p, i) => { if (X.online.has(p.uid)) X.seen[i] = now; }); else if (X.host && ids.length > 1) hostStart(); if (!same) render(); });
   if (X.host) {
     net.on('act', a => { if (!X.G || a.uid !== X.G.players[1].uid) return; if (apply(X.G, 1, a)) commit(); });
     net.on('hello', () => { if (X.G) sendState(); else hostStart(); });
   } else {
-    net.on('state', s => { if (!s || (X.G && s.hs === X.G.hs && s.seq < X.G.seq)) return; X.off = Date.now() - (s.now || Date.now()); X.G = s; resendMoves(); render(); });
+    net.on('state', s => { if (!s || (X.G && s.hs === X.G.hs && s.seq < X.G.seq)) return; { const d = Date.now() - (s.now || Date.now()); X.off = X.off == null || X.offAt < Date.now() - 60000 ? d : Math.min(X.off, d); X.offAt = X.offAt && X.offAt > Date.now() - 60000 ? X.offAt : Date.now(); } X.G = s; resendMoves(); render(); });
   }
   net.on('mv', p => onRemoteMove(p));
   await net.start(); if (!X) return;
@@ -368,6 +374,8 @@ async function game(m, ctx, code) {
   if (X.host && !X.G && row.guest) hostStart();
   if (!X.host) net.send('hello', { uid });
   X.timers.push(setInterval(tick, 500));
+  // le chrono a son propre rafraîchissement, plus fin, pour que les secondes tombent régulièrement
+  X.timers.push(setInterval(() => { if (!X) return; X.root.querySelectorAll('[data-dl]').forEach(el => { const t = timerState(+el.dataset.dl, +el.dataset.tot || 30), b = el.querySelector('b'), u = el.querySelector('u'); if (b && b.textContent !== t.s + ' s') b.textContent = t.s + ' s'; if (u) u.style.transform = `scaleX(${t.k.toFixed(3)})`; el.classList.toggle('hot', t.s <= 5); }); }, 100));
   render();
 }
 async function hostStart() {
@@ -388,7 +396,7 @@ function sendState() { if (!X?.G) return; X.G.now = Date.now(); X.net.send('stat
 function save() { if (!X?.G) return; const G = X.G; X.db.save(X.code, { state: G, status: G.over ? 'over' : 'playing', ...(G.over ? { winner: G.players[G.over.w].uid } : {}) }).then(r => { if (r?.error) console.warn('[mercato] enregistrement', r.error.message); }); }
 function act(t, v, extra = {}) {
   const G = X.G; if (!G) return;
-  const a = { t, v, pid: G.pid, uid: X.uid, ...extra };
+  const a = { t, v, pid: G.pid, c: G.ph?.c, uid: X.uid, ...extra };
   if (t === 'seal') X.myBid[G.pid] = v;
   if (X.host) { if (apply(G, 0, a)) commit(); } else X.net.send('act', a);
   if (!X.host && t === 'claim') { // l'hôte est absent : l'invité enregistre lui-même la victoire
@@ -398,10 +406,11 @@ function act(t, v, extra = {}) {
 function tick() {
   if (!X) return;
   const G = X.G, now = Date.now();
-  if (X.host && G && !G.over && G.dl && now > G.dl && G.ph.k !== 'fight') { G.dl = 0; timeout(G); commit(); }
+  if (X.host && G && !G.over && G.dl && now > G.dl + (G.ph.k === 'open' ? 300 : 0) && G.ph.k !== 'fight') {   // 0,3 s de grâce pour les mises de dernière seconde
+    G.dl = 0; timeout(G); commit(); }
   if (G) G.players.forEach((p, i) => { if (X.online.has(p.uid)) X.seen[i] = now; });
-  if (G && X.snd?.myTurn && G.dl) { const s5 = Math.ceil((G.dl - (now - (X.host ? 0 : X.off))) / 1000); if (s5 <= 5 && s5 > 0 && s5 !== X.lastTick) { X.lastTick = s5; sfx('tick'); } }
-  X.root.querySelectorAll('[data-dl]').forEach(el => { const left = +el.dataset.dl - (now - (X.host ? 0 : X.off)), s = Math.max(0, Math.ceil(left / 1000)), b = el.querySelector('b'), u = el.querySelector('u'); if (b) b.textContent = s + ' s'; if (u) u.style.transform = `scaleX(${Math.max(0, Math.min(1, left / 1000 / (+el.dataset.tot || 30)))})`; el.classList.toggle('hot', s <= 5); });
+  if (G && (X.snd?.myTurn || X.snd?.behind) && G.dl) { const s5 = Math.ceil((G.dl - (now - (X.host ? 0 : X.off || 0))) / 1000); if (s5 <= 5 && s5 > 0 && s5 !== X.lastTick) { X.lastTick = s5; sfx('tick'); } }
+
   if (X.F) fightTick();
   const o = other(X.me ?? 0); const aw = G && !G.over && G.players[o]?.uid && X.awayFor(o) >= TIME.away * 1000;
   const cb = X.root.querySelector('#mxClaim'); if (cb) cb.hidden = !aw; else if (aw) render();
@@ -420,7 +429,7 @@ const rarShort = c => c.rar === 'Transcendant' ? 'TRS' : c.rar === 'Exclusive' ?
 const statsHTML = c => `<span class="mx-st"><span><i>PV</i>${fmtN(c.hp)}</span><span><i>ATQ</i>${fmtN(c.atk)}</span></span>`;
 // Face de carte façon TCG : illustration pleine, reflet selon la rareté, plaque du nom en bas.
 function face(c, opt = {}) {
-  return `<span class="mx-face" data-r="${esc(c.rar)}">${cardImg(c)}<span class="mx-foil"></span>${opt.env ? SEAL : ''}<span class="mx-rar">${rarShort(c)}</span>
+  return `<span class="mx-face" data-r="${esc(c.rar)}">${cardImg(c)}<span class="mx-foil"></span>${opt.env ? SEAL + '<span class="mx-envtag">Enveloppe</span>' : ''}<span class="mx-rar">${rarShort(c)}</span>
     <span class="mx-plate"><b class="mx-n">${esc(c.n)}</b>${opt.mini ? '' : roleTag(c) + statsHTML(c)}</span></span>`;
 }
 const SWAY = [4.6, 5.4, 6.2];
@@ -493,6 +502,7 @@ const SOUNDS = {
   select: a => { tone(a, 660, .12, { type: 'triangle', vol: .1 }); tone(a, 990, .1, { type: 'triangle', vol: .06, at: .04 }); },
   bid: a => { tone(a, 1320, .09, { type: 'square', vol: .05 }); tone(a, 1760, .16, { type: 'triangle', vol: .09, at: .06 }); hiss(a, .06, { filter: 'highpass', f: 5000, vol: .08 }); }, // pièce posée sur la table
   pass: a => { tone(a, 300, .28, { to: 190, vol: .12 }); },
+  outbid: a => { tone(a, 880, .1, { type: 'square', vol: .06 }); tone(a, 660, .14, { type: 'square', vol: .06, at: .1 }); tone(a, 1760, .12, { type: 'triangle', vol: .08, at: .02 }); },   // tu viens d'être dépassé
   seal: a => { hiss(a, .09, { filter: 'bandpass', f: 2600, q: 3, vol: .3 }); tone(a, 420, .2, { to: 260, type: 'triangle', vol: .1, at: .03 }); }, // cire qui craque
   stamp: a => { hiss(a, .18, { f: 380, vol: .55 }); tone(a, 75, .35, { to: 45, vol: .5 }); tone(a, 640, .05, { type: 'triangle', vol: .12, at: .01 }); },  // tampon « Adjugé »
   free: a => { tone(a, 784, .14, { vol: .1 }); tone(a, 1046, .22, { vol: .1, at: .1 }); },
@@ -508,18 +518,19 @@ function sfx(name) { if (!SFX.on) return; try { const a = audio(); if (a) SOUNDS
 // Les sons suivent ce qui change dans la partie (pour les deux joueurs), jamais au premier affichage.
 function sounds(G) {
   const ph = G.ph, me = X.me, prev = X.snd;
-  const myTurn = !G.over && ((ph.k === 'nominate' || ph.k === 'pick') && ph.who === me || ph.k === 'open' && ph.turn === me || ph.k === 'sealed' && !ph.has[me] && canUse(G, me, ph.c) || ph.k === 'compose' && !ph.ready[me]);
-  const cur = { pid: G.pid, k: ph.k, c: ph.c, high: ph.high, log: G.log[0], stage: G.stage, fights: G.fights.length, myTurn, over: !!G.over };
+  const myTurn = !G.over && ((ph.k === 'nominate' || ph.k === 'pick') && ph.who === me ||  ph.k === 'sealed' && !ph.has[me] && canUse(G, me, ph.c) || ph.k === 'compose' && !ph.ready[me]);
+  const behind = !G.over && ph.k === 'open' && ph.lead !== me && canUse(G, me, ph.c);
+  const cur = { pid: G.pid, k: ph.k, c: ph.c, high: ph.high, lead: ph.lead, log: G.log[0], stage: G.stage, fights: G.fights.length, myTurn, behind, over: !!G.over };
   X.snd = cur;
   if (!prev) return;
   if (cur.over && !prev.over) return sfx(G.over.w === me ? 'over' : 'lose');
   if (cur.k !== prev.k || cur.c !== prev.c) {
     if ((cur.k === 'open' || cur.k === 'sealed') && cur.c !== prev.c) { sfx('drop'); if (cur.k === 'sealed') setTimeout(() => sfx('seal'), 450); return; }
-    if (cur.k === 'done') { if (ph.bids) sfx('seal'); setTimeout(() => sfx(ph.free ? 'free' : 'stamp'), ph.bids ? 250 : 0); return; }
+    if (cur.k === 'done') { if (ph.bids) { setTimeout(() => sfx('seal'), 500); setTimeout(() => sfx('seal'), 1000); setTimeout(() => sfx('stamp'), 2000); } else sfx(ph.free ? 'free' : 'stamp'); return; }
     if (cur.k === 'fight' && prev.stage === 'compose') return sfx('reveal');
     if (cur.k === 'fres') return sfx(ph.w === me ? 'win' : ph.w === 'draw' ? 'pass' : 'lose');
   }
-  if (cur.k === 'open' && prev.k === 'open' && cur.high > prev.high) return sfx('bid');
+  if (cur.k === 'open' && prev.k === 'open' && cur.c === prev.c && cur.high > prev.high) return sfx(prev.lead === me && cur.lead !== me ? 'outbid' : 'bid');
   if (cur.log !== prev.log && / passe\.$/.test(cur.log || '')) sfx('pass');
   if (cur.myTurn && !prev.myTurn) setTimeout(() => sfx('turn'), cur.k === 'open' || cur.k === 'sealed' ? 650 : 0);
 }
@@ -527,6 +538,9 @@ function sounds(G) {
 function motion(G) {
   const R = X.root, ph = G.ph, hold = R.querySelector('.mx-hold');
   if (hold) { const key = ph.k === 'done' ? 'v:' + ph.c : 'c:' + (ph.c || X.sel); if (X.lastStage !== key) { hold.classList.add('enter'); X.lastStage = key; } bindTilt(hold); }
+  const fd = R.querySelector('.mx-feed'); if (fd) { if (X.lastFeed === ph.c + ':' + ph.high) fd.classList.add('mx-still'); X.lastFeed = ph.c + ':' + ph.high; }
+  const rv = R.querySelector('.mx-reveal');
+  if (rv) { if (X.lastReveal === G.pid) { rv.classList.add('mx-still'); R.querySelector('.mx-late')?.classList.add('mx-still'); } X.lastReveal = G.pid; }
   const st = R.querySelector('.mx-stamp'); if (st && X.lastStamp !== G.pid) { st.classList.add('slam'); X.lastStamp = G.pid; }
   const amt = R.querySelector('.mx-amt');
   if (amt) { const to = +amt.dataset.v, from = X.lastAmt ?? to; X.lastAmt = to; if (from !== to && !matchMedia('(prefers-reduced-motion: reduce)').matches) { const t0 = performance.now(); const f = t => { const k = Math.min(1, (t - t0) / 520), e = 1 - Math.pow(1 - k, 3); amt.firstChild.nodeValue = grp(Math.round((from + (to - from) * e) / 1000) * 1000) + ' '; if (k < 1 && amt.isConnected) requestAnimationFrame(f); }; requestAnimationFrame(f); amt.classList.add('bump'); } }
@@ -551,17 +565,20 @@ function marketHTML(G) {
   let body;
   if (f === 'rows') body = roles.map(r => `<section class="mx-rrow"><h3 class="mx-rrowh" data-role="${r}">${roleIco(r)}${esc(roleLbl(r))}<small>${left(r)} à vendre</small></h3>${web(M.filter(m => G.cards[m.k].role === r))}</section>`).join('');
   else body = web(f === 'all' ? M : M.filter(m => G.cards[m.k].role === f));
-  return `<div class="mx-mkh"><h2>${isSD(G) ? 'Marché de la mort subite' : 'Le marché'}</h2><span class="small mute">${M.filter(m => m.by == null).length} cartes à vendre. Touche une carte pour lire sa technique.</span></div>${bar}${body}`;
+  const legend = M.some(m => m.env) ? `<p class="mx-legend">${SEAL}<span><b>Sceau rouge : carte sous enveloppe.</b> Quand elle est mise en vente, chacun mise en secret et la plus haute mise l'emporte. Ce sont les cartes les mieux classées de la tier list PvP.</span></p>` : '';
+  return `<div class="mx-mkh"><h2>${isSD(G) ? 'Marché de la mort subite' : 'Le marché'}</h2><span class="small mute">${M.filter(m => m.by == null).length} cartes à vendre. Touche une carte pour lire sa technique.</span></div>${legend}${bar}${body}`;
 }
 function hudHTML(G, i) {
   const p = G.players[i], me = X.me, list = owned(G, i), on = X.online.has(p.uid);
-  const active = (G.ph.k === 'nominate' || G.ph.k === 'pick') ? G.ph.who === i : G.ph.k === 'open' ? G.ph.turn === i : G.ph.k === 'sealed' ? !G.ph.has[i] : false;
+  const active = (G.ph.k === 'nominate' || G.ph.k === 'pick') ? G.ph.who === i : G.ph.k === 'open' ? G.ph.lead === i : G.ph.k === 'sealed' ? !G.ph.has[i] : false;
   return `<div class="mx-pl ${active ? 'on' : ''} ${i === me ? 'mx-me' : 'mx-opp'}"><div class="mx-pln"><b>${esc(p.name)}</b>${i === me ? '<span class="mx-you">toi</span>' : ''}<i class="mx-dot ${on ? 'ok' : ''}" title="${on ? 'En ligne' : 'Hors ligne'}"></i></div>
     <div class="mx-money">${grp(p.budget)}<small>KI</small></div><div class="mx-bar"><i style="width:${Math.max(0, p.budget / BUDGET * 100)}%"></i></div>
     <div class="mx-slots" style="--n:${cfg(G).n}">${Array.from({ length: cfg(G).n }, (_, k) => { const c = list[k] && G.cards[list[k]]; return `<span class="mx-slot ${c ? 'full' : ''}" title="${c ? esc(c.n + ', ' + roleLbl(c.role)) : 'Place libre'}">${c ? cardImg(c) + `<span class="mx-slotr" data-role="${esc(c.role)}">${roleIco(c.role)}</span>` : ''}</span>`; }).join('')}</div>
     ${G.stage === 'main' || G.stage === 'sd' ? `<div class="small mute">${slots(G, i) ? `Mise max : ${ki(maxBid(G, i))}` : 'Équipe complète'}</div>` : ''}</div>`;
 }
-const timer = G => G.dl ? `<span class="mx-timer" data-dl="${G.dl}" data-tot="${(G.ph.k === 'open' ? TIME.open : TIME[G.ph.k] || 30)}"><b>…</b><i><u></u></i></span>` : '';
+const timerState = (dl, tot) => { const left = dl - (Date.now() - (X.host ? 0 : X.off || 0)), s = Math.max(0, Math.ceil(left / 1000)); return { s, k: Math.max(0, Math.min(1, left / 1000 / tot)) }; };
+const timerTot = G => G.ph.k === 'done' && G.ph.sealed ? TIME.reveal : TIME[G.ph.k] || 30;
+const timer = G => { if (!G.dl || G.ph.k === 'done' || G.ph.k === 'fres') return ''; const tot = timerTot(G), t = timerState(G.dl, tot); return `<span class="mx-timer ${t.s <= 5 ? 'hot' : ''}" data-dl="${G.dl}" data-tot="${tot}"><b>${t.s} s</b><i><u style="transform:scaleX(${t.k.toFixed(3)})"></u></i></span>`; };
 const wait = t => `<div class="mx-wait"><span class="mx-dots"><i></i><i></i><i></i></span>${t}</div>`;
 function bigCard(G, k, opt = {}) {
   const c = G.cards[k], env = item(G, k)?.env;
@@ -573,7 +590,7 @@ function bidBox(G, min, max, label, opt = {}) {
   const key = G.pid + ':' + label, d = X.draft && X.draft.k === key ? X.draft.v : (opt.def ?? min);
   return `<div class="mx-bid" data-min="${min}" data-max="${max}" data-key="${esc(key)}"><label class="small mute" for="mxBid">Ta mise, par tranches de 10 000 KI : de ${ki(min)} à ${ki(max)}</label>
     <div class="mx-bidin"><input id="mxBid" type="text" inputmode="numeric" value="${grp(d)}" autocomplete="off" aria-label="Ta mise en KI"><span>KI</span></div>
-    <div class="mx-quick"><button data-add="${K}">+10 000</button><button data-add="${5 * K}">+50 000</button><button data-add="${10 * K}">+100 000</button><button data-set="${min}">Min</button><button data-set="${max}">Max</button></div>
+    ${opt.noquick ? '' : `<div class="mx-quick"><button data-add="${K}">+10 000</button><button data-add="${5 * K}">+50 000</button><button data-add="${10 * K}">+100 000</button><button data-set="${min}">Min</button><button data-set="${max}">Max</button></div>`}
     <div class="row"><button class="btn primary" id="mxBidGo">${label}</button>${opt.pass ? `<button class="btn ghost" id="mxPass">${opt.pass}</button>` : ''}</div><div class="red small" id="mxBidErr"></div></div>`;
 }
 function actHTML(G) {
@@ -586,19 +603,25 @@ function actHTML(G) {
       return head('Mettre en vente', '') + bigCard(G, X.sel) + (item(G, X.sel).env ? `<p class="small">📩 Carte sous enveloppe : vous misez chacun en secret, la plus haute mise l'emporte.</p><div class="row"><button class="btn primary" id="mxNomEnv">Mettre en vente sous enveloppe</button><button class="btn ghost" id="mxUnsel">Choisir une autre carte</button></div>`
         : bidBox(G, minBid(G, me), maxBid(G, me), 'Mettre en vente et ouvrir', { pass: 'Choisir une autre carte' }));
     case 'open': {
-      const lead = ph.lead === me ? 'Tu mènes' : `${esc(P[ph.lead].name)} mène`;
-      const top = head('Enchère en cours', `${lead} l'enchère.`) + `<div class="mx-amt" data-v="${ph.high}">${grp(ph.high)} <small>KI</small></div>` + bigCard(G, ph.c);
-      if (ph.turn !== me) return top + wait(`${esc(P[o].name)} réfléchit : surenchérir ou passer…`);
+      const leadMe = ph.lead === me, feed = (ph.hist || []).map(([w, v], n) => `<li class="${w === me ? 'me' : ''} ${n ? '' : 'top'}"><b>${w === me ? 'Toi' : esc(P[w].name)}</b><span>${ki(v)}</span></li>`).join('');
+      const top = head('Enchère chrono', leadMe ? 'Tu es en tête : si personne ne surenchérit avant la fin du chrono, la carte est à toi.' : `${esc(P[ph.lead].name)} est en tête. Surenchéris avant la fin du chrono, jusqu'à la dernière seconde, ou passe.`)
+        + `<div class="mx-amtw"><div class="mx-amt ${leadMe ? 'lead' : 'behind'}" data-v="${ph.high}">${grp(ph.high)} <small>KI</small></div><span class="mx-leader ${leadMe ? 'me' : ''}">${leadMe ? 'Tu mènes' : esc(P[ph.lead].name) + ' mène'}</span></div>`
+        + bigCard(G, ph.c) + `<ol class="mx-feed" aria-label="Dernières mises">${feed}</ol>`;
+      if (leadMe) return top + wait(`${esc(P[o].name)} peut encore surenchérir…`);
+      if (!canUse(G, me, ph.c)) return top + '<p class="mute">Tu ne peux pas recruter cette carte.</p>';
       const mn = ph.high + K, mx = maxBid(G, me);
-      return top + (mx >= mn ? bidBox(G, mn, mx, 'Surenchérir', { pass: `Passer (${esc(P[ph.lead].name)} l'emporte)` }) : `<p>Tu ne peux pas monter plus haut.</p><button class="btn primary" id="mxPass">Passer</button>`);
+      if (mx < mn) return top + `<p>Tu ne peux pas monter plus haut.</p><button class="btn primary" id="mxPass">Passer</button>`;
+      const quick = [[K, '+10 000'], [5 * K, '+50 000'], [10 * K, '+100 000']].filter(([d]) => ph.high + d <= mx);
+      return top + `<div class="mx-snipe">${quick.map(([d, l]) => `<button class="mx-sbtn" data-bid="${ph.high + d}"><b>${l}</b><small>${ki(ph.high + d)}</small></button>`).join('')}</div>`
+        + bidBox(G, mn, mx, 'Miser ce montant', { pass: 'Je passe', noquick: true });
     }
     case 'sealed': {
-      const top = head('Enchère sous enveloppe', `Chacun mise en secret. La plus haute mise l'emporte ; à égalité, ${ph.nom === me ? 'toi (tu l\'as mise en vente)' : esc(P[ph.nom].name) + ' (il l\'a mise en vente)'}.`) + bigCard(G, ph.c);
+      const top = head('Enchère sous enveloppe', `Chacun mise en secret et valide son enveloppe. Sans validation à la fin du chrono, c'est la mise minimale (10 000 KI). La plus haute mise l'emporte ; à égalité, ${ph.nom === me ? 'toi (tu l\'as mise en vente)' : esc(P[ph.nom].name) + ' (il l\'a mise en vente)'}.`) + bigCard(G, ph.c);
       if (ph.has[me]) return top + (X.myBid[G.pid] != null ? `<p>Ta mise : <b>${ki(X.myBid[G.pid])}</b></p>` : '<p>Ta mise est envoyée.</p>') + (ph.has[o] ? '' : wait(`${esc(P[o].name)} prépare sa mise…`));
       if (!canUse(G, me, ph.c)) return top + '<p class="mute">Tu ne peux pas recruter cette carte.</p>';
       const isNom = ph.nom === me, mx = maxBid(G, me);
-      return top + (ph.has[o] ? `<p class="small mute">${esc(P[o].name)} a déjà misé.</p>` : '') + (isNom ? bidBox(G, minBid(G, me), mx, 'Envoyer ma mise secrète', { secret: true })
-        : mx >= K ? bidBox(G, K, mx, 'Envoyer ma mise secrète', { secret: true, pass: 'Ne pas miser' }) : '<button class="btn" id="mxPass">Ne pas miser</button>');
+      return top + (ph.has[o] ? `<p class="small mx-ready">${esc(P[o].name)} a validé son enveloppe.</p>` : '') + (isNom ? bidBox(G, minBid(G, me), mx, 'Valider mon enveloppe', { secret: true })
+        : mx >= K ? bidBox(G, K, mx, 'Valider mon enveloppe', { secret: true, pass: 'Ne pas miser' }) : '<button class="btn" id="mxPass">Ne pas miser</button>');
     }
     case 'pick':
       if (ph.who !== me) return head(`${esc(P[o].name)} complète son équipe`, 'Ton équipe est complète : il choisit gratuitement parmi les cartes restantes.') + wait('En attente…');
@@ -606,10 +629,15 @@ function actHTML(G) {
     case 'done': {
       const w = ph.w === me ? 'Tu recrutes' : `${esc(P[ph.w].name)} recrute`;
       const stamp = `<span class="mx-stamp"><b>Adjugé</b><small>${ph.w === me ? 'à toi' : 'à ' + esc(P[ph.w].name)}</small></span>`;
-      return head(`${w} ${esc(c.n)}`, ph.free ? 'Gratuitement.' : `Pour ${ki(ph.price)}.`) + (ph.bids ? `<p class="small mx-bids">Mises secrètes : ${esc(P[0].name)} ${ki(ph.bids[0])}, ${esc(P[1].name)} ${ki(ph.bids[1])}</p>` : '') + bigCard(G, ph.c, { stamp });
+      if (ph.sealed && ph.bids) {   // ouverture des deux enveloppes, puis le tampon
+        const env = i => `<div class="mx-env3d ${ph.w === i ? 'win' : 'lose'}" style="--d:${.45 + i * .5}s"><div class="mx-envin"><div class="mx-envf">${SEAL}<b>${i === me ? 'Toi' : esc(P[i].name)}</b></div><div class="mx-envb"><b>${i === me ? 'Toi' : esc(P[i].name)}</b><span>${ki(ph.bids[i])}</span>${ph.w === i ? '<i>Remporte la carte</i>' : ''}</div></div></div>`;
+        return head('Ouverture des enveloppes', '') + `<div class="mx-reveal">${env(0)}<span class="mx-vs2">contre</span>${env(1)}</div><div class="mx-late"><p class="mx-verdict">${w} ${esc(c.n)} pour ${ki(ph.price)}.</p>${bigCard(G, ph.c, { stamp })}</div>`;
+      }
+      const other_ = esc(P[other(ph.w)].name), why = { pass: `${ph.w === me ? other_ + ' a passé' : 'Tu as passé'} : adjugé sans attendre la fin du chrono.`, clock: 'Fin du chrono.', role: `${ph.w === me ? other_ + ' ne peut pas la recruter (rôle déjà complet)' : 'Tu ne peux pas la recruter (rôle déjà complet)'} : adjugé tout de suite.`, full: `${ph.w === me ? other_ + ' a déjà toute son équipe' : 'Ton équipe est déjà complète'} : adjugé tout de suite.`, money: `${ph.w === me ? other_ + ' n\'a plus assez de KI' : 'Tu n\'as plus assez de KI'} pour surenchérir : adjugé tout de suite.` }[ph.why];
+      return head(`${w} ${esc(c.n)}`, (ph.free ? 'Gratuitement.' : `Pour ${ki(ph.price)}.`) + (why ? ' ' + why : '')) + (ph.bids ? `<p class="small mx-bids">Mises secrètes : ${esc(P[0].name)} ${ki(ph.bids[0])}, ${esc(P[1].name)} ${ki(ph.bids[1])}</p>` : '') + bigCard(G, ph.c, { stamp });
     }
     case 'compose':
-      return head('Prépare tes deux trios', 'En secret : ton adversaire ne voit rien avant que les deux aient validé. Une carte par rôle dans chaque trio.') + (ph.ready[me] ? wait(ph.ready[o] ? 'Révélation…' : `Tes trios sont prêts. ${esc(P[o].name)} prépare les siens…`) : '');
+      return head('Prépare tes deux trios', 'En secret : ton adversaire ne voit rien avant que les deux soient prêts. Dès que vous l\'êtes tous les deux, le combat commence.') + (ph.ready[o] && !ph.ready[me] ? `<p class="small mx-ready">${esc(P[o].name)} a ses trios prêts.</p>` : '') + (ph.ready[me] ? wait(ph.ready[o] ? 'Révélation…' : `Tes trios sont prêts. ${esc(P[o].name)} prépare les siens…`) : '');
     case 'fight': { const f = G.fights[G.fights.length - 1]; return head(f.n === 3 ? 'Combat de mort subite' : `Combat ${f.n} sur 2`, 'Joue tes coups dans l\'écran de combat. 45 s par coup : sinon une attaque simple est jouée pour toi (3 fois de suite = forfait).') + '<div id="mxMoveT" class="mx-movet"></div>'; }
     case 'fres': return head(ph.w === 'draw' ? 'Égalité : le combat est rejoué' : ph.w === me ? `Tu gagnes le combat ${ph.n === 3 ? 'de mort subite' : ph.n} !` : `${esc(P[ph.w].name)} gagne le combat ${ph.n === 3 ? 'de mort subite' : ph.n}`, `Score : ${G.score[0]} - ${G.score[1]}.`);
     case 'over': { const w = G.over.w; return `<div class="mx-acth"><h2>${w === me ? '🏆 Victoire !' : 'Défaite'}</h2></div><p>${w === me ? 'Tu remportes' : esc(P[w].name) + ' remporte'} le Mercato ${G.score[w]} - ${G.score[other(w)]}${G.over.why === 'ff' ? ' par forfait' : G.over.why === 'away' ? ' (adversaire absent)' : ''}.</p>`; }
@@ -629,7 +657,7 @@ function composeHTML(G) {
   return `<p class="mx-comphelp">${help}</p><div class="mx-comp">${[0, 1].map(t => { const dup = dupOf(t); return `<div class="card mx-trio ${ok[t] ? 'mx-ok' : 'mx-bad'}" data-trio="${t}"><div class="mx-trioh"><h3>Trio ${t + 1}</h3><span class="small mute">joue le combat ${t + 1}</span></div>
     <div class="mx-trioc">${T[t].map(k => cardBtn(k, t, dup)).join('')}</div>
     <p class="small mx-triost">${ok[t] ? 'Trois rôles différents : prêt.' : 'Deux cartes du même rôle (en rouge) : échange l\'une avec l\'autre trio.'}</p></div>`; }).join('')}</div>
-    <div class="row"><button class="btn ghost" id="mxSwapT">Inverser l'ordre des combats</button><button class="btn primary" id="mxComp" ${ok[0] && ok[1] ? '' : 'disabled'}>Valider mes trios</button></div>`;
+    <div class="row"><button class="btn ghost" id="mxSwapT">Inverser l'ordre des combats</button><button class="btn primary" id="mxComp" ${ok[0] && ok[1] ? '' : 'disabled'}>Mes trios sont prêts</button></div>`;
 }
 function teamsHTML(G) {
   return `<div class="mx-teams">${[X.me, other(X.me)].map(i => { const p = G.players[i]; return `<div class="card"><h3>${esc(p.name)}</h3><div class="mx-trioc">${p.own.map(k => { const c = G.cards[k], m = G.market.find(x => x.k === k); return `<div class="mx-mini">${face(c, { mini: true })}${roleTag(c)}<span class="small mute">${m?.price ? ki(m.price) : 'gratuit'}</span></div>`; }).join('')}</div></div>`; }).join('')}</div>`;
@@ -711,6 +739,7 @@ function wire(G) {
     };
     $('#mxBidGo').onclick = go; inp.onkeydown = e => { if (e.key === 'Enter') go(); };
   }
+  R.querySelectorAll('[data-bid]').forEach(b => b.onclick = () => { act('bid', +b.dataset.bid); b.classList.add('sent'); });
   $('#mxPass') && ($('#mxPass').onclick = () => { if (ph.k === 'nominate') { X.sel = null; render(); } else if (ph.k === 'open') act('pass'); else if (ph.k === 'sealed') act('seal', 0); });
   wireCompose(R);
   $('#mxSwapT') && ($('#mxSwapT').onclick = () => { for (const k in X.compSel.t) X.compSel.t[k] = 1 - X.compSel.t[k]; render(); });
