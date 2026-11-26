@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=210';
+import * as CFG from './config.js?v=211';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=210';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=210';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=211';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=211';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=210';
-import * as SCAN from './scan.js?v=210';
+import { duelRate } from './ranked.js?v=211';
+import * as SCAN from './scan.js?v=211';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '210';
+const APP_V = '211';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -295,7 +295,7 @@ async function accueil2(m) {
       per.sort((x, y) => y[1] - x[1]);
       const el = $('#n2ex'); if (!n || !el) return;
       el.hidden = false;
-      el.innerHTML = `<div class="n2sh"><span class="n2k">Échanges · ${ppl.size} membre${ppl.size > 1 ? 's ont' : ' a'} en double ${n} carte${n > 1 ? 's' : ''} qui te manque${n > 1 ? 'nt' : ''}</span><a class="small mute" href="#collection/A/echanges">Tous les échanges →</a></div><div class="n2grid">${per.slice(0, 6).map(([p, k]) => `<a class="card n2item" href="#collection/A/echanges"><b>${esc(p.discord)}</b><span class="small mute">${k} carte${k > 1 ? 's' : ''} en double qui te manque${k > 1 ? 'nt' : ''}</span></a>`).join('')}</div>`;
+      el.innerHTML = `<div class="n2sh"><span class="n2k">Échanges · ${ppl.size} membre${ppl.size > 1 ? 's ont' : ' a'} en double ${n} carte${n > 1 ? 's' : ''} qui te manque${n > 1 ? 'nt' : ''}</span><a class="small mute" href="#collection/A/echanges">Tous les échanges →</a></div><div class="n2grid">${per.slice(0, 6).map(([p, k]) => `<a class="card n2item" href="#collection/A/echanges/${p.id}"><b>${esc(p.discord)}</b><span class="small mute">${k} carte${k > 1 ? 's' : ''} en double qui te manque${k > 1 ? 'nt' : ''}</span></a>`).join('')}</div>`;
     } catch (e) { /* rien */ } })();
 }
 
@@ -674,10 +674,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=210'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=211'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=210'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=211'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -810,7 +810,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=210'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=211'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1122,7 +1122,8 @@ P.collection = async (m, tab = '') => {
     for (const [ser, r] of Object.entries(realColl)) for (const name of r.owned || []) add(name, ser);
     for (const u of R.S.U) for (const c of u.c) if (S.mylr.cards[c[3]] != null) add(c[0], u.s); return { v, n }; };
   let hist = null, cvC = null; const collValueC = () => cvC || ((cvC = collValue()), (() => { try { if (cvC.v > 0) localStorage.bf_cv = JSON.stringify({ v: Math.round(cvC.v), t: Date.now(), u: S.user.id }); } catch (e) { /* rien */ } })(), cvC);
-  const drawHist = () => { const el = $('#chist'); if (!el || !hist) return; const cv = collValueC(), H = hist.slice(-60), me = hist.me;
+  if (!hist) { try { const c = S.collHist || JSON.parse(localStorage.bf_hist || 'null'); if (c && c.u === S.user.id) { hist = c.h; hist.me = c.me; } } catch (e) { /* rien */ } }
+  const drawHist = () => { const el = $('#chist'); if (!el) return; if (view !== 'moi') { el.innerHTML = ''; return; } if (!hist) return; const cv = collValueC(), H = hist.slice(-60), me = hist.me;
     const pts = H.filter(h => h.lr_value != null).map(h => ({ day: h.day, v: +h.lr_value }));
     // le point du jour suit la valeur en direct (elle bouge avec les prix et les mises à jour de collection)
     const today = new Date().toISOString().slice(0, 10); if (cv.v > 0) { const t = pts.find(x => x.day === today); if (t) t.v = cv.v; else pts.push({ day: today, v: cv.v }); }
@@ -1142,15 +1143,26 @@ P.collection = async (m, tab = '') => {
         <span class="vc-dot live" id="vcd" style="left:${(last[0] / W * 100).toFixed(2)}%;top:${(last[1] / H0 * 100).toFixed(2)}%"></span><div class="vc-tip" id="vct"></div></div>` : ''}
       <details class="vc-help"><summary>Comment est calculée cette valeur ?</summary><p class="small mute">Somme des prix médians réels (ventes des 14 derniers jours) de tes ${cv.n} cartes qui ont un prix connu, doublons non comptés. Une mesure par jour ; le point d'aujourd'hui suit la valeur en direct. Passe le doigt ou la souris sur la courbe pour voir la valeur à chaque date.</p></details></div>`;
     const box = el.querySelector('#vch'); if (!box) return; const cur = box.querySelector('#vcx'), dot = box.querySelector('#vcd'), tip = box.querySelector('#vct');
-    const show = i => { const [x, y] = P[i], h = pts[i], pv = i ? pts[i - 1].v : null; cur.setAttribute('x1', x); cur.setAttribute('x2', x); dot.style.left = (x / W * 100) + '%'; dot.style.top = (y / H0 * 100) + '%'; dot.classList.toggle('live', i === P.length - 1);
-      tip.innerHTML = `<b>${fmt(h.v)} KI</b><small>${h.day === today ? 'Aujourd\'hui · en direct' : new Date(h.day).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' })}${pv != null ? ` · <span class="${h.v >= pv ? 'up' : 'dn'}">${h.v >= pv ? '+' : ''}${fmt(h.v - pv)}</span>` : ''}</small>`;
+    // Curseur libre sur toute la courbe : position exacte sur la ligne, valeur et date interpolées entre deux mesures (calées sur la mesure quand on est dessus).
+    const svg = box.querySelector('svg'), sp = document.createElementNS('http://www.w3.org/2000/svg', 'path'); sp.setAttribute('d', d); sp.setAttribute('fill', 'none'); sp.setAttribute('stroke', 'none'); svg.appendChild(sp);
+    const LEN = sp.getTotalLength(), yAt = x => { let a = 0, b = LEN; for (let k = 0; k < 24; k++) { const mm = (a + b) / 2; if (sp.getPointAtLength(mm).x < x) a = mm; else b = mm; } return sp.getPointAtLength(b).y; };
+    const tOf = h => h.day === today ? Date.now() : new Date(h.day + 'T12:00:00').getTime();
+    const showX = x => { x = Math.max(P[0][0], Math.min(last[0], x)); let i = 0; while (i < P.length - 2 && P[i + 1][0] < x) i++;
+      const f = P.length > 1 ? Math.max(0, Math.min(1, (x - P[i][0]) / Math.max(1e-6, P[i + 1][0] - P[i][0]))) : 0;
+      const snap = f < .04 ? i : f > .96 ? i + 1 : -1; if (snap >= 0) x = P[snap][0];
+      const y = snap >= 0 ? P[snap][1] : yAt(x), a = pts[i], b = pts[i + 1] || a, v = snap >= 0 ? pts[snap].v : a.v + f * (b.v - a.v), t = snap >= 0 ? tOf(pts[snap]) : tOf(a) + f * (tOf(b) - tOf(a));
+      const ref = snap > 0 ? pts[snap - 1].v : snap === 0 ? null : a.v, isLive = snap === P.length - 1;
+      cur.setAttribute('x1', x); cur.setAttribute('x2', x); dot.style.left = (x / W * 100) + '%'; dot.style.top = (y / H0 * 100) + '%'; dot.classList.toggle('live', isLive);
+      const dt = new Date(t), when = isLive ? 'Aujourd\'hui · en direct' : snap >= 0 ? dt.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' }) : dt.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: 'short' }) + ' · ' + dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      tip.innerHTML = `<b>${snap >= 0 ? '' : '≈ '}${fmt(v)} KI</b><small>${when}${ref != null ? ` · <span class="${v >= ref ? 'up' : 'dn'}">${v >= ref ? '+' : ''}${fmt(v - ref)}</span>` : ''}</small>`;
       const px = x / W * box.clientWidth; tip.style.left = Math.max(70, Math.min(box.clientWidth - 70, px)) + 'px'; tip.classList.add('on'); box.classList.add('hov'); };
-    const at = ev => { const r = box.getBoundingClientRect(), cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left, x = cx / r.width * W; let b = 0; for (let i = 1; i < P.length; i++) if (Math.abs(P[i][0] - x) < Math.abs(P[b][0] - x)) b = i; show(b); };
+    const at = ev => { const r = box.getBoundingClientRect(), cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left; showX(cx / r.width * W); };
     const off = () => { tip.classList.remove('on'); box.classList.remove('hov'); cur.setAttribute('x1', -10); cur.setAttribute('x2', -10); dot.style.left = (last[0] / W * 100) + '%'; dot.style.top = (last[1] / H0 * 100) + '%'; dot.classList.add('live'); };
     box.onpointermove = at; box.onpointerdown = at; box.onpointerleave = off; box.ontouchmove = e => { at(e); e.preventDefault(); }; box.ontouchend = () => setTimeout(off, 1600); };
   (async () => { try { const [{ data: h }, { data: rk }] = await Promise.all([sb.from('coll_snap').select('day,pct,lr_value').eq('user_id', S.user.id).order('day'), sb.rpc('collection_ranking')]);
     hist = h || []; hist.me = (rk || []).find(r => r.user_id === S.user.id) || null; const today = new Date().toISOString().slice(0, 10), cv = collValueC();
     if (cv.v > 0 && !hist.some(x => x.day === today)) { const row = { user_id: S.user.id, day: today, pct: hist.me?.pct ?? null, owned: hist.me?.owned ?? null, total: hist.me?.total ?? null, lr_value: Math.round(cv.v) }; await sb.from('coll_snap').upsert(row); hist.push(row); }
+    try { const c = { u: S.user.id, h: hist.slice(-60), me: hist.me }; S.collHist = c; localStorage.bf_hist = JSON.stringify(c); } catch (e) { /* rien */ }
     drawHist(); } catch (e) { /* rien */ } })();
   function vMine(el, X) {
     let q = '', show = 'all', uni = '';
@@ -1216,9 +1228,13 @@ P.collection = async (m, tab = '') => {
       for (const u of X.U) for (const c of u.c) { if (dup(th, u, c[0]) && !has(coll, u, c[0])) get.push(c); if (dup(coll, u, c[0]) && !has(th, u, c[0])) give.push(c); }
       if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
     out.sort((a, b) => b.score - a.score);
-    el.innerHTML = `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + (out.length ? '<div class="row" style="margin:8px 0"><button class="btn ghost" id="trAll" style="min-height:34px">Tout déplier</button></div>' : '') + (out.map(o => `<details class="card section trd"><summary class="row" style="cursor:pointer;list-style:none"><span class="trc">▸</span><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="small mute">te donne ${o.get.length} · reçoit ${o.give.length}</span><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px" onclick="event.stopPropagation()">Profil</a></summary>
+    // Lien direct vers un membre (depuis l'accueil) : seulement ses échanges, déjà ouverts.
+    const fo = /^[0-9a-f-]{36}$/.test(autoImp || '') && view === 'echanges' ? out.find(o => o.p.id === autoImp) : null;
+    if (fo) { out.length = 0; out.push(fo); }
+    el.innerHTML = (fo ? `<div class="row" style="margin-bottom:8px"><a class="btn ghost" href="#collection/${rk}/echanges" style="min-height:34px">← Tous les échanges</a></div>` : '') + `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + (out.length ? '<div class="row" style="margin:8px 0"><button class="btn ghost" id="trAll" style="min-height:34px">Tout déplier</button></div>' : '') + (out.map(o => `<details class="card section trd"><summary class="row" style="cursor:pointer;list-style:none"><span class="trc">▸</span><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="small mute">te donne ${o.get.length} · reçoit ${o.give.length}</span><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px" onclick="event.stopPropagation()">Profil</a></summary>
       <div class="small mute" style="margin-top:10px">Il peut te donner (${o.get.length})</div><div class="tiles">${o.get.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div>
       <div class="small mute" style="margin-top:10px">Tu peux lui donner (${o.give.length})</div><div class="tiles">${o.give.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div></details>`).join('') || '<div class="empty">Pas encore d\'échange possible sur les ' + X.label + '. Plus il y a de membres qui importent leur collection et la partagent, plus il y en aura.</div>');
+    if (fo) { const d0 = el.querySelector('details.trd'); if (d0) d0.open = true; }
     { const ta = el.querySelector('#trAll'); if (ta) ta.onclick = () => { const ds = [...el.querySelectorAll('details.trd')], open = !ds.every(d => d.open); ds.forEach(d => d.open = open); ta.textContent = open ? 'Tout replier' : 'Tout déplier'; }; }
   }
   // Import d'une seule rareté (SSR ou UR) : reconnaissance par l'illustration, ×N lu sur la capture, contrôle du nombre affiché par le jeu.
@@ -1638,7 +1654,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=210'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=211'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
