@@ -2235,7 +2235,7 @@ function duelPolicyStep(D){var m=duelPolicy(D);if(!m)return null;for(const a of 
 var __mode='castle',__D=null,__dh=[],__di=0;
 var __cRender=renderInfinity,__cAuto=infinityScheduleAuto,__cPerform=performInfinityAction,__cResult=infinityResultHTML;
 infinityResultHTML=function(b){if(__mode!=='duel')return __cResult(b);var D=__D,won=D.winner===0,draw=D.winner==='draw',n=__opts.names||['Toi','Adversaire'];
-  return '<section class="story-end-screen '+(won?'won':'lost')+'"><div class="story-end-panel"><div class="story-result-trophy">'+storyResultEmblem(won)+'</div><h2 id="storyResultTitle" tabindex="-1">'+(draw?'ÉGALITÉ':won?'VICTOIRE':'DÉFAITE')+'</h2><p>'+escapeHTML(n[0])+' contre '+escapeHTML(n[1])+' · '+(D.b.turn)+' tours.</p><p>Simulation : aucun Elo n’est en jeu.</p><div class="story-end-actions"><button class="btn primary" data-infinity-replay>Rejouer le match</button><button class="btn ghost" data-infinity-lobby>Changer les équipes</button></div></div></section>';};
+  return '<section class="story-end-screen '+(won?'won':'lost')+'"><div class="story-end-panel"><div class="story-result-trophy">'+storyResultEmblem(won)+'</div><h2 id="storyResultTitle" tabindex="-1">'+(draw?'ÉGALITÉ':won?'VICTOIRE':'DÉFAITE')+'</h2><p>'+escapeHTML(n[0])+' contre '+escapeHTML(n[1])+' · '+(D.b.turn)+' tours.</p>'+(__opts.remote?'<p>Tournoi de la Brigade : la suite arrive dans quelques secondes.</p>':'<p>Simulation : aucun Elo n’est en jeu.</p><div class="story-end-actions"><button class="btn primary" data-infinity-replay>Rejouer le match</button><button class="btn ghost" data-infinity-lobby>Changer les équipes</button></div>')+'</div></section>';};
 function duelView(){var D=__D,anim=infinityPlayback.animating&&D.animB,side=anim?D.animSide:(D.winner!=null?0:D.s);var pb=anim?D.animB:duelPersp(D.b,side);pb=Object.assign({},pb);
   pb.room=1;pb.result=D.winner==null||anim&&!D.animB.result?null:(D.winner===side?'win':'loss');return {pb:pb,side:side,anim:!!anim};}
 renderInfinity=function(){if(__mode!=='duel'){__cRender();__animToggle();return;}if(!__R||!(__R===document||__R.host)||!__D)return;storyAuto=infinityPlayback.auto;storyAnimating=infinityPlayback.animating;
@@ -2257,7 +2257,7 @@ infinityScheduleAuto=function(){if(__mode!=='duel')return __cAuto();clearTimeout
   infinityPlayback.timer=setTimeout(function(){infinityPlayback.timer=null;if(infinityPlayback.animating||__D!==D)return;
     var simple=function(){var m=duelPolicy(D);if(!m)return;infinityPlayback.active=m.i;infinityPlayback.target=m.t;for(const a of m.order){if(duelPerform(a,true))return;}};
     // Ordinateur « fort » : il joue le coup que le coach juge le meilleur (mêmes calculs que l'analyse de tes coups).
-    if(ai&&__opts.aiPick){var tok=D;Promise.resolve(__opts.aiPick(D)).then(function(mv){if(__D!==tok||infinityPlayback.animating)return;if(!mv)return simple();infinityPlayback.active=mv.i;infinityPlayback.target=mv.t;if(!duelPerform(mv.a,true))simple();}).catch(function(){if(__D===tok)simple();});return;}
+    if(ai&&__opts.aiPick){var tok=D;Promise.resolve(__opts.aiPick(D)).then(function(mv){if(__D!==tok)return;if(__opts.remote){if(!mv)return;var go=function(){if(__D!==tok)return;if(infinityPlayback.animating)return setTimeout(go,150);infinityPlayback.active=mv.i;infinityPlayback.target=mv.t;if(!duelPerform(mv.a,true)&&__opts.onBad)__opts.onBad(mv);};return go();}if(infinityPlayback.animating)return;if(!mv)return simple();infinityPlayback.active=mv.i;infinityPlayback.target=mv.t;if(!duelPerform(mv.a,true))simple();}).catch(function(){if(__D===tok&&!__opts.remote)simple();});return;}
     simple();},(ai?600:400)/storySpeed);};
 function duelPerform(action,quiet){var D=__D;if(!D||D.winner!=null||infinityPlayback.animating)return false;var side=D.s,pb=duelPersp(D.b,side),active=infinityPlayback.active,actor=pb.players[active];
   if(!duelReady(actor)){if(!quiet)notify('Cette carte a déjà joué, est figée ou K.O.');return false;}
@@ -2267,7 +2267,7 @@ function duelPerform(action,quiet){var D=__D;if(!D||D.winner!=null||infinityPlay
   var D2=duelAfter(side,structuredClone(next));D2.animSide=side;D2.animB=next;next.result=D2.winner==null?null:(D2.winner===side?'win':'loss');
   __dh=__dh.slice(0,__di+1);__dh.push({D:D2,from:D,side:side,mv:{i:active,a:action,t:target}});__di=__dh.length-1;__D=D2;
   infinityUI.data.me.battle=next;infinityAnimate(action,pb);renderInfinity();return true;}
-performInfinityAction=function(action){if(__mode!=='duel')return __cPerform(action);if(action==='replay'||action==='start'){duelApi.start(__opts.starter);return;}duelPerform(action,false);};
+performInfinityAction=function(action){if(__mode!=='duel')return __cPerform(action);if(action==='replay'||action==='start'||action==='lobby'){if(__opts.remote)return;duelApi.start(__opts.starter);return;}duelPerform(action,false);};
 var duelApi={
   mount:function(host,opts){__mode='duel';__opts=opts;if(opts.frame){__host=document.documentElement;__R=document;if(!document.__bfc){document.addEventListener('click',__click);document.__bfc=1;}return;}__host=host;var sr=host.shadowRoot||host.attachShadow({mode:'open'});
     sr.innerHTML='<link rel="stylesheet" href="'+opts.css+'"><div id="bfStage" class="bf-castle"></div>';__R=sr;if(!sr.__bfc){sr.addEventListener('click',__click);sr.__bfc=1;}},
@@ -2275,6 +2275,8 @@ var duelApi={
     infinityUI.data.me.battle=duelPersp(__D.b,__D.s);infinityAnimate('start',null);renderInfinity();infinityScheduleAuto();},
   go:function(i){if(i<0||i>=__dh.length)return;__stop();__di=i;__D=__dh[i].D;infinityPlayback.active=0;renderInfinity();infinityScheduleAuto();},
   info:function(){return {hist:__dh,idx:__di,D:__D};},
+  // Arène de tournoi : reprend un combat déjà commencé (coups rejoués par le moteur) sans animation.
+  jump:function(D){__mode='duel';__stop();__D=D;__dh=[{D:D,from:null}];__di=0;infinityPlayback.active=0;infinityPlayback.target=0;infinityUI.data.me.battle=duelPersp(D.b,D.winner!=null?0:D.s);renderInfinity();infinityScheduleAuto();},
   stop:function(){__stop();},
   engine:{start:duelStart,step:duelStep,options:duelOptions,policy:duelPolicy,policyStep:duelPolicyStep,persp:duelPersp,ready:duelReady}
 };

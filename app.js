@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=204';
+import * as CFG from './config.js?v=205';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=204';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=204';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=205';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=205';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=204';
-import * as SCAN from './scan.js?v=204';
+import { duelRate } from './ranked.js?v=205';
+import * as SCAN from './scan.js?v=205';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '204';
+const APP_V = '205';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -212,7 +212,7 @@ const NAV2_TREE = () => [
     { n: 'Alertes', i: [['Mes alertes', 'alertes']] }] },
   { t: 'Guilde', ic: 'users', g: [
     { n: 'Membres', i: [['Profils', 'guilde'], ['Classement collection', 'collection/L/classement']] },
-    { n: 'Tournoi', i: [['Tournoi de guildes', 'tournoi']] },
+    { n: 'Tournoi', i: [['Tournoi de guildes', 'tournoi'], ...(S.profile?.role === 'admin' ? [['Arène (bêta)', 'arene']] : [])] },
     { n: 'Calendrier', i: [['Calendrier', 'calendrier']] },
     { n: 'Kakashi', i: [['Kakashi', 'kakashi']] },
     { n: 'Plus', i: [['Espace Discord', 'discord'], ['Nouveautés du jeu', 'nouveautes'], ['Lexique', 'lexique'], ['Réglages', 'reglages'], ...(S.profile?.role === 'admin' ? [['Administration', 'admin']] : [])] }] },
@@ -664,10 +664,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=204'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=205'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=204'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=205'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -800,7 +800,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=204'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=205'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1628,7 +1628,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=204'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=205'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2176,6 +2176,274 @@ async function betSection(el, t, admin, save) {
   el.querySelectorAll('[data-lk]').forEach(b => b.onclick = async () => { const key = b.dataset.lk; lock.has(key) ? lock.delete(key) : lock.add(key); t.lock = [...lock]; await save(); betSection(el, t, admin, save); });
 }
 
+
+/* ---------- Arène de tournoi : combats en direct sur le site, moteur de combat de la Brigade (bêta, admins + joueurs inscrits) ----------
+   Ban (30 s, 1 carte chacun, secret) → choix de l'équipe (3 min, 1 carte par rôle, UR + LR, mêmes étoiles pour tous) → combat tour par tour.
+   Chaque écran (les deux joueurs et les spectateurs) fait tourner le moteur : le serveur range les coups dans l'ordre et contrôle le tour,
+   l'adversaire recalcule chaque coup. 60 s sans jouer = forfait. Spectateurs : 5 s de différé. */
+const AR_ROLES = { tank: 'Tank', stunner: 'Stunner', healer: 'Healer', degats: 'Dégâts', polyvalence: 'Polyvalence' };
+const arPool = () => (S.kb.cards || []).filter(c => c.r !== 'Transcendant');
+const arCard = id => (S.kb.cards || []).find(c => c.id === +id);
+const arName = id => S.members?.find(p => p.id === id)?.discord || (id ? 'Joueur' : '—');
+const arUnit = (c, st) => { const s = statsAt(c, st); return { name: c.n, rarity: 'Secret', image: lrImg(c), hp: s.hp, atk: s.atk }; };
+const arRoundName = (k, R) => k === R - 1 ? 'Finale' : k === R - 2 ? 'Demi-finales' : k === R - 3 ? 'Quarts de finale' : `Tour ${k + 1}`;
+let AR_OFF = 0; // décalage horloge serveur (ms)
+async function arClock() { try { const r = await fetch(SUPABASE_URL + '/rest/v1/', { method: 'HEAD', headers: { apikey: SUPABASE_ANON_KEY } }); const d = Date.parse(r.headers.get('date')); if (d) AR_OFF = d - Date.now(); } catch (e) { /* rien */ } }
+const arNow = () => Date.now() + AR_OFF;
+const arRpc = async (fn, args) => { const { error } = await sb.rpc(fn, args); if (error) { toast(error.message); throw error; } };
+async function arMembers() { if (!S.members?.length) { const { data } = await sb.from('profiles').select('id,discord,share,status,avatar').eq('status', 'approved'); S.members = data || []; } return S.members; }
+const arIsAdmin = () => S.profile?.role === 'admin';
+
+P.arene = async (m, arg) => {
+  if (S.arenaOff) { try { S.arenaOff(); } catch (e) { /* rien */ } S.arenaOff = null; }
+  await arMembers(); arClock();
+  const [tid, mid] = (arg || '').split('/').map(x => x ? +x : null);
+  const { data: T } = await sb.from('arena_tourn').select('*').order('created_at', { ascending: false });
+  const me = S.user.id, mine = (T || []).some(t => t.players.includes(me) || t.referees.includes(me));
+  if (!arIsAdmin() && !mine) { m.innerHTML = '<div class="empty">L’arène de tournoi arrive bientôt.</div>'; return; }
+  if (mid) return arRoom(m, (T || []).find(t => t.id === tid), mid);
+  if (tid) return arTourn(m, (T || []).find(t => t.id === tid));
+  arList(m, T || []);
+};
+
+function arList(m, T) {
+  const st = { draft: ['À lancer', ''], live: ['En cours', 'red'], done: ['Terminé', 'ok'] };
+  m.innerHTML = `<h1>Arène de tournoi <span class="chip warn" style="vertical-align:middle">bêta</span></h1>
+    <p class="mute">Les combats du tournoi se jouent ici, avec le moteur de combat de la Brigade : tout le monde a les mêmes cartes (UR et LR) au même niveau d’étoiles. Ban d’une carte, 3 minutes pour faire son équipe, puis combat en direct. Les autres membres peuvent regarder.</p>
+    ${T.length ? `<div class="grid2" style="margin-top:14px">${T.map(t => `<a class="card n2item" href="#arene/${t.id}"><span class="n2k">${st[t.status]?.[0] || t.status}</span><b>${esc(t.name)}</b><span class="small mute">${t.players.length} joueurs · ${t.stars}★ · ${new Date(t.created_at).toLocaleDateString('fr-FR')}</span></a>`).join('')}</div>` : '<div class="empty">Aucun tournoi pour l’instant.</div>'}
+    ${arIsAdmin() ? arCreateForm() : ''}`;
+  if (arIsAdmin()) arBindCreate(m);
+}
+
+function arCreateForm() {
+  const mem = (S.members || []).slice().sort((a, b) => (a.discord || '').localeCompare(b.discord || ''));
+  return `<details class="card section" id="arNew"><summary><b>➕ Créer un tournoi</b></summary>
+    <label>Nom</label><input id="arNm" placeholder="Tournoi de la Brigade">
+    <label>Étoiles pour toutes les cartes</label><div class="row"><label class="chk"><input type="radio" name="arSt" value="5" checked> 5★</label><label class="chk"><input type="radio" name="arSt" value="0"> 0★</label></div>
+    <label>Rôles interdits</label><div class="row" style="flex-wrap:wrap">${Object.entries(AR_ROLES).map(([k, v]) => `<label class="chk"><input type="checkbox" class="arBc" value="${k}"> ${v}</label>`).join('')}</div>
+    <details style="margin-top:10px"><summary class="small">Cartes interdites (facultatif)</summary><div class="ar-mini">${arPool().map(c => `<label class="chk small"><input type="checkbox" class="arBk" value="${c.id}"> ${esc(c.n)}</label>`).join('')}</div></details>
+    <label>Règle de budget (facultatif, vérifiée par les arbitres)</label><textarea id="arBud" rows="2" placeholder="Ex. : 10 points par équipe, LR à 4 points, UR à 3 points…"></textarea>
+    <label>Arbitres</label><div class="ar-mini">${mem.map(p => `<label class="chk small"><input type="checkbox" class="arRf" value="${p.id}"> ${esc(p.discord)}</label>`).join('')}</div>
+    <label>Joueurs</label><div class="row" style="margin:4px 0"><button class="btn ghost" id="arAll" style="min-height:34px">Tout cocher</button></div><div class="ar-mini">${mem.map(p => `<label class="chk small"><input type="checkbox" class="arPl" value="${p.id}"> ${esc(p.discord)}</label>`).join('')}</div>
+    <div class="row section"><button class="btn primary" id="arGo">Créer le tournoi</button></div></details>`;
+}
+function arBindCreate(m) {
+  const v = sel => [...m.querySelectorAll(sel + ':checked')].map(x => x.value);
+  $('#arAll').onclick = e => { e.preventDefault(); m.querySelectorAll('.arPl').forEach(x => x.checked = true); };
+  $('#arGo').onclick = async () => {
+    const nm = $('#arNm').value.trim() || 'Tournoi de la Brigade', pl = v('.arPl');
+    if (pl.length < 2) { toast('Coche au moins 2 joueurs.'); return; }
+    const rules = { bancat: v('.arBc'), bancard: v('.arBk').map(Number), budget: $('#arBud').value.trim() };
+    const { data, error } = await sb.rpc('arena_create', { nm, st: +m.querySelector('[name=arSt]:checked').value, rl: rules, refs: v('.arRf'), pls: pl });
+    if (error) { toast(error.message); return; } location.hash = '#arene/' + data;
+  };
+}
+
+function arRules(t) {
+  const r = t.rules || {}, out = [`Toutes les cartes à ${t.stars}★`, '1 carte par rôle', 'UR et LR (pas d’EX ni de TRS)', 'Ban d’1 carte chacun avant chaque manche', '3 min pour faire son équipe', '60 s sans jouer = forfait', 'BO3 à partir des demi-finales'];
+  if (r.bancat?.length) out.push('Rôles interdits : ' + r.bancat.map(k => AR_ROLES[k] || k).join(', '));
+  if (r.bancard?.length) out.push('Cartes interdites : ' + r.bancard.map(id => arCard(id)?.n || id).join(', '));
+  if (r.budget) out.push('Budget (arbitres) : ' + r.budget);
+  return `<ul class="small ar-rules">${out.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+}
+
+async function arTourn(m, t) {
+  if (!t) { m.innerHTML = '<div class="empty">Tournoi introuvable.</div>'; return; }
+  const draw = async () => {
+    const { data: M } = await sb.from('arena_match').select('*').eq('tourn_id', t.id).order('round').order('slot');
+    const { data: t2 } = await sb.from('arena_tourn').select('*').eq('id', t.id).single(); if (t2) t = t2;
+    if (!$('#arT')) return;
+    const me = S.user.id, ref = arIsAdmin() || t.referees.includes(me), R = t.rounds || 0;
+    const lab = { wait: 'En attente', queue: 'Salle pleine, en attente', ban: 'Ban en cours', pick: 'Choix des équipes', live: 'En direct', dispute: 'Arbitre demandé', done: 'Terminé' };
+    const mine = (M || []).find(x => (x.p1 === me || x.p2 === me) && ['ban', 'pick', 'live', 'dispute'].includes(x.status));
+    $('#arT').innerHTML = `<div class="row" style="justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap"><div><a class="small mute" href="#arene">← Arène</a><h1 style="margin:4px 0 0">${esc(t.name)}</h1></div>
+      ${t.status === 'done' ? `<span class="chip ok">🏆 ${esc(arName(t.winner))}</span>` : t.status === 'live' ? '<span class="chip red">En cours</span>' : '<span class="chip">À lancer</span>'}</div>
+      ${mine ? `<a class="btn primary section" href="#arene/${t.id}/${mine.id}" style="width:100%">⚔️ Ton match est prêt : entrer dans la salle</a>` : ''}
+      <div class="card section"><b>Règles</b>${arRules(t)}<p class="small mute">Arbitres : ${t.referees.map(arName).map(esc).join(', ') || 'aucun'} · ${t.players.length} joueurs</p></div>
+      ${t.status === 'draft' ? `<div class="card section"><b>Joueurs inscrits</b><p class="small">${t.players.map(arName).map(esc).join(', ')}</p>${arIsAdmin() ? '<div class="row"><button class="btn primary" id="arLaunch">🎲 Tirer le tableau et lancer le tournoi</button><button class="btn ghost" id="arDel">Supprimer</button></div>' : '<p class="small mute">Le tournoi n’a pas encore commencé.</p>'}</div>` : ''}
+      ${R ? `<div class="ar-br">${Array.from({ length: R }, (_, k) => `<div class="ar-col"><h3>${arRoundName(k, R)}${k >= R - 2 ? ' <span class="small mute">BO3</span>' : ''}</h3>${(M || []).filter(x => x.round === k).map(x => {
+        const w1 = x.winner && x.winner === x.p1, w2 = x.winner && x.winner === x.p2, sc = x.bo === 3 ? ` <i>${x.wins[0]}</i>` : '', sc2 = x.bo === 3 ? ` <i>${x.wins[1]}</i>` : '';
+        const can = ['ban', 'pick', 'live', 'dispute'].includes(x.status);
+        return `<div class="ar-m ${x.status}"><div class="${w1 ? 'w' : ''}">${esc(x.p1 ? arName(x.p1) : x.note === 'vide' ? '—' : '…')}${sc}</div><div class="${w2 ? 'w' : ''}">${esc(x.p2 ? arName(x.p2) : x.note ? '—' : '…')}${sc2}</div>
+          <span class="small mute">${x.note === 'exempt' ? 'Exempt' : lab[x.status]}${x.status === 'pick' || x.status === 'ban' ? ` · manche ${x.game}` : ''}</span>${can ? `<a class="btn ghost" href="#arene/${t.id}/${x.id}" style="min-height:32px;margin-top:6px">${x.p1 === me || x.p2 === me ? 'Entrer' : x.status === 'live' ? '👁 Regarder' : ref ? 'Arbitrer' : 'Voir'}</a>` : ''}</div>`;
+      }).join('')}</div>`).join('')}</div>` : ''}`;
+    const L = $('#arLaunch'); if (L) L.onclick = async () => { L.disabled = true; try { await arRpc('arena_launch', { tid: t.id }); } catch (e) { L.disabled = false; } draw(); };
+    const D = $('#arDel'); if (D) D.onclick = async () => { if (!confirm('Supprimer ce tournoi ?')) return; await arRpc('arena_delete', { tid: t.id }); location.hash = '#arene'; };
+  };
+  m.innerHTML = '<div id="arT"><div class="skel"><i></i><i></i></div></div>';
+  await draw();
+  const ch = sb.channel('arT' + t.id).on('postgres_changes', { event: '*', schema: 'public', table: 'arena_match', filter: 'tourn_id=eq.' + t.id }, () => draw()).subscribe();
+  const iv = setInterval(draw, 15000);
+  S.arenaOff = () => { sb.removeChannel(ch); clearInterval(iv); };
+}
+
+/* Salle de match : ban → équipe → combat (joueur) ou spectateur / arbitre. */
+async function arRoom(m, t, mid) {
+  if (!t) { m.innerHTML = '<div class="empty">Tournoi introuvable.</div>'; return; }
+  const me = S.user.id, ref = arIsAdmin() || t.referees.includes(me);
+  let M = null, side = null, myPick = [], myBan = null, view = '', duel = null, saveT = null;
+  m.innerHTML = `<div class="row" style="justify-content:space-between;gap:10px;flex-wrap:wrap"><a class="small mute" href="#arene/${t.id}">← ${esc(t.name)}</a><span id="arHud" class="small"></span></div><div id="arBody"></div>`;
+  const load = async () => { const { data } = await sb.from('arena_match').select('*').eq('id', mid).single(); return data; };
+  const loadPick = async () => { if (side == null) return; const { data } = await sb.from('arena_pick').select('team,ban').eq('match_id', mid).eq('side', side).maybeSingle(); myPick = (data?.team || []).map(Number); myBan = data?.ban ?? null; };
+  const names = () => [arName(M.p1), arName(M.p2)];
+  const hud = () => {
+    const h = $('#arHud'); if (!h || !M) return;
+    const sc = M.bo === 3 ? ` · BO3 <b>${M.wins[0]}–${M.wins[1]}</b>` : '';
+    let tm = '';
+    if (M.status === 'ban') tm = ` · ⏱ ${Math.max(0, Math.ceil((Date.parse(M.ban_until) - arNow()) / 1000))} s`;
+    if (M.status === 'pick') tm = ` · ⏱ ${(s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`)(Math.max(0, Math.ceil((Date.parse(M.pick_until) - arNow()) / 1000)))}`;
+    if (M.status === 'live' && M.last_at) { const s = Math.max(0, 60 - Math.floor((arNow() - Date.parse(M.last_at)) / 1000)); tm = ` · ${M.turn_side === side ? '<b class="red">À toi</b>' : 'Tour de ' + esc(names()[M.turn_side])} · ⏱ ${s} s`; }
+    h.innerHTML = `${esc(names()[0])} vs ${esc(names()[1])} · manche ${M.game}${sc}${tm}`;
+  };
+  // Horloge : fins de ban / de choix / forfait (le serveur vérifie toujours les délais).
+  let lastPoke = 0;
+  const tick = () => { hud(); if (!M || side == null) return; const n = arNow();
+    const due = (M.status === 'ban' && n > Date.parse(M.ban_until) + 800) || (M.status === 'pick' && n > Date.parse(M.pick_until) + 800) || (M.status === 'live' && M.turn_side !== side && n > Date.parse(M.last_at) + 61500);
+    if (due && n - lastPoke > 4000) { lastPoke = n; sb.rpc('arena_afk', { mid }); } };
+
+  const cardTile = (c, st, cls, extra = '') => { const s = statsAt(c, st); return `<button class="ar-c ${cls}" data-c="${c.id}" ${cls.includes('off') ? 'disabled' : ''}><img src="${esc(lrImg(c))}" alt="" loading="lazy"><b>${esc(c.n)}</b><span class="small">${c.c ? AR_ROLES[c.c] || c.c : 'Sans rôle'}${c.p ? ' · UR' : ' · LR'}</span><span class="small mute">${s.hp} PV · ${s.atk} ATQ</span>${extra}</button>`; };
+  const banOk = c => !(t.rules?.bancard || []).map(Number).includes(c.id);
+
+  function drawBan() {
+    view = 'ban'; const B = $('#arBody');
+    if (side == null) { B.innerHTML = `<div class="card section"><b>Phase de ban</b><p class="small mute">Chaque joueur bannit une carte en secret. Les bans seront révélés au début du choix des équipes.</p><p class="small">${M.ready.map((r, i) => `${esc(names()[i])} : ${r ? '✅ a banni' : '…'}`).join(' · ')}</p></div>`; return; }
+    B.innerHTML = `<div class="card section"><b>Bannis une carte</b> <span class="small mute">(secret, 30 s) : elle sera interdite aux deux joueurs pour cette manche.</span>
+      <p class="small">${M.ready[1 - side] ? '✅ Ton adversaire a banni.' : 'Ton adversaire choisit son ban…'}${myBan != null ? ` · Ton ban : <b>${esc(arCard(myBan)?.n || '?')}</b>` : ''}</p></div>
+      <div class="ar-grid">${arPool().map(c => cardTile(c, t.stars, (myBan === c.id ? 'ban' : '') + (banOk(c) ? '' : ' off'))).join('')}</div>`;
+    B.querySelectorAll('.ar-c').forEach(b => b.onclick = async () => { const id = +b.dataset.c; try { await arRpc('arena_set_ban', { mid, card: id }); myBan = id; drawBan(); } catch (e) { /* toast déjà affiché */ } });
+  }
+
+  function drawPick() {
+    view = 'pick'; const B = $('#arBody'), banned = (M.banned || []).map(Number);
+    const bnTxt = banned.length ? `Bannies : <b>${banned.map(id => esc(arCard(id)?.n || id)).join(', ')}</b>` : 'Aucune carte bannie.';
+    if (side == null) {
+      B.innerHTML = `<div class="card section"><b>Choix des équipes</b><p class="small">${bnTxt}</p><p class="small">${M.ready.map((r, i) => `${esc(names()[i])} : ${r ? '✅ prêt' : '…'}`).join(' · ')}</p><div id="arRef"></div></div>`;
+      if (ref) arRefPanel(); return;
+    }
+    const cats = new Set(myPick.map(id => arCard(id)?.c).filter(Boolean)), full = myPick.length >= 3;
+    const cls = c => { const pick = myPick.includes(c.id); if (pick) return 'on'; const bad = banned.includes(c.id) || !banOk(c) || (t.rules?.bancat || []).includes(c.c) || (c.c && cats.has(c.c)) || full; return bad ? 'off' : ''; };
+    const why = c => banned.includes(c.id) ? '<i class="ar-tag">Bannie</i>' : !banOk(c) || (t.rules?.bancat || []).includes(c.c) ? '<i class="ar-tag">Interdite</i>' : '';
+    B.innerHTML = `<div class="card section"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><b>Ton équipe</b><span class="small">${bnTxt}</span></div>
+      <div class="ar-team">${[0, 1, 2].map(i => { const c = arCard(myPick[i]); return c ? cardTile(c, t.stars, 'on', '') : '<div class="ar-c empty">Carte ' + (i + 1) + '</div>'; }).join('')}</div>
+      <div class="row section"><button class="btn primary" id="arRdy" ${myPick.length === 3 ? '' : 'disabled'}>${M.ready[side] ? '✅ Prêt (annuler)' : 'Je suis prêt'}</button><span class="small">${M.ready[1 - side] ? '✅ Ton adversaire est prêt.' : 'Ton adversaire prépare son équipe…'}</span></div>
+      ${t.rules?.budget ? `<p class="small mute">Budget : ${esc(t.rules.budget)} (vérifié par l’arbitre)</p>` : ''}${M.note ? `<p class="small warn">${esc(M.note)}</p>` : ''}</div>
+      <div class="ar-grid">${arPool().map(c => cardTile(c, t.stars, cls(c), why(c))).join('')}</div>`;
+    B.querySelectorAll('.ar-grid .ar-c, .ar-team .ar-c[data-c]').forEach(b => b.onclick = () => { const id = +b.dataset.c; myPick = myPick.includes(id) ? myPick.filter(x => x !== id) : [...myPick, id].slice(0, 3); drawPick(); clearTimeout(saveT); saveT = setTimeout(() => arRpc('arena_set_pick', { mid, team: myPick }).catch(() => { }), 250); });
+    $('#arRdy').onclick = async () => { clearTimeout(saveT); try { await arRpc('arena_set_pick', { mid, team: myPick }); await arRpc('arena_ready', { mid, on_: !M.ready[side] }); } catch (e) { /* toast */ } };
+  }
+
+  async function arRefPanel() {
+    const el = $('#arRef'); if (!el) return;
+    const { data: P2 } = await sb.from('arena_pick').select('side,team').eq('match_id', mid);
+    const tm = s => ((P2 || []).find(x => x.side === s)?.team || []).map(id => arCard(id)?.n || id).join(', ') || '—';
+    el.innerHTML = `<div class="card" style="margin-top:10px"><b>Arbitre</b><p class="small">${esc(names()[0])} : ${esc(tm(0))}<br>${esc(names()[1])} : ${esc(tm(1))}</p>${t.rules?.budget ? `<p class="small mute">Budget : ${esc(t.rules.budget)}</p><button class="btn ${M.ref_ok ? 'ghost' : 'primary'}" id="arOk">${M.ref_ok ? '✅ Budget validé (annuler)' : 'Valider le budget'}</button>` : ''}</div>`;
+    const b = $('#arOk'); if (b) b.onclick = () => arRpc('arena_ref_ok', { mid, ok: !M.ref_ok }).catch(() => { });
+  }
+
+  function drawDispute() {
+    view = 'dispute';
+    $('#arBody').innerHTML = `<div class="card section"><b>⚠️ Arbitre demandé</b><p class="small">${esc(M.note || '')}</p>${ref ? `<div class="row"><button class="btn" data-w="0">Victoire ${esc(names()[0])}</button><button class="btn" data-w="1">Victoire ${esc(names()[1])}</button><button class="btn ghost" id="arRe">Rejouer la manche</button></div>` : '<p class="small mute">Un arbitre va trancher.</p>'}</div>`;
+    $('#arBody').querySelectorAll('[data-w]').forEach(b => b.onclick = () => arRpc('arena_ref_decide', { mid, win_side: +b.dataset.w, replay: false }).catch(() => { }));
+    const r = $('#arRe'); if (r) r.onclick = () => arRpc('arena_ref_decide', { mid, win_side: 0, replay: true }).catch(() => { });
+  }
+
+  function drawDone() {
+    view = 'done'; if (duel) { duel.stop(); duel = null; }
+    $('#arBody').innerHTML = `<div class="card section" style="text-align:center"><h2>🏆 ${esc(arName(M.winner))}</h2><p class="small mute">${M.bo === 3 ? `${M.wins[0]} – ${M.wins[1]} · ` : ''}${esc(M.note || 'Victoire')}</p><a class="btn" href="#arene/${t.id}">Voir le tableau</a></div>`;
+  }
+
+  /* Combat en direct. Côté local 0 = moi (ou le joueur 1 pour un spectateur). */
+  async function drawLive() {
+    if (duel && duel.key === M.game + ':' + M.seed) { duel.feed(M); return; }
+    if (duel) duel.stop();
+    view = 'live';
+    $('#arBody').innerHTML = `<div class="cs-wrap"><div class="cs-stage" id="arHost"></div></div><p class="small mute section" id="arInfo">${side == null ? 'Mode spectateur : 5 s de différé.' : 'Joue tes cartes dans l’écran de combat. 60 s sans jouer = forfait.'}</p>`;
+    let W; try { W = await loadBattleFrame($('#arHost')); } catch (e) { $('#arInfo').textContent = 'Impossible de charger le moteur de combat.'; return; }
+    duel = arDuel(W, M, side, t, names(), mid);
+  }
+
+  let endWait = false;
+  const show = async () => {
+    if (!M) return;
+    // Fin de manche : on laisse l'écran de fin quelques secondes (plus le différé pour les spectateurs) avant la suite.
+    if (view === 'live' && M.status !== 'live') { if (endWait) return; endWait = true; setTimeout(() => { endWait = false; if (duel) { duel.stop(); duel = null; } view = ''; show(); }, side == null ? 9000 : 4000); return; }
+    if (M.status === 'ban') { if (view !== 'ban') await loadPick(); drawBan(); }
+    else if (M.status === 'pick') { if (view !== 'pick') await loadPick(); drawPick(); }
+    else if (M.status === 'live') await drawLive();
+    else if (M.status === 'dispute') drawDispute();
+    else if (M.status === 'done') drawDone();
+    else $('#arBody').innerHTML = '<div class="empty">Ce match attend ses joueurs.</div>';
+    hud();
+  };
+  M = await load(); if (!M) { $('#arBody').innerHTML = '<div class="empty">Match introuvable.</div>'; return; }
+  side = M.p1 === me ? 0 : M.p2 === me ? 1 : null;
+  await show();
+  const ch = sb.channel('arM' + mid).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'arena_match', filter: 'id=eq.' + mid }, p => { M = { ...M, ...p.new }; show(); }).subscribe();
+  const poll = setInterval(async () => { const x = await load(); if (x && (x.updated_at !== M.updated_at)) { M = x; show(); } }, 4000);
+  const iv = setInterval(tick, 1000);
+  S.arenaOff = () => { sb.removeChannel(ch); clearInterval(poll); clearInterval(iv); if (duel) duel.stop(); };
+}
+
+/* Pilote du combat dans l'écran du jeu : coups de l'adversaire reçus du serveur, les miens envoyés, hasard du moteur tiré avec la graine de la manche. */
+function arDuel(W, M0, side, t, nm, mid) {
+  const spec = side == null, me = spec ? 0 : side;
+  const toL = s => s == null ? s : s ^ me; // côté serveur → côté local
+  const teamIds = s => (s === 0 ? M0.team1 : M0.team2).map(Number);
+  const A = teamIds(me).map(id => arUnit(arCard(id), t.stars)), B = teamIds(1 - me).map(id => arUnit(arCard(id), t.stars));
+  const E = W.BFDuel.engine;
+  // Hasard identique sur tous les écrans : graine de la manche + numéro du coup.
+  W.__arSeed = M0.seed | 0; W.__arIdx = 0;
+  if (!W.__arWrapped) {
+    const rng = salt => { let s = (W.__arSeed ^ Math.imul(W.__arIdx + 1, 2654435761) ^ salt) | 0; return () => { s = s + 0x6D2B79F5 | 0; let x = Math.imul(s ^ s >>> 15, 1 | s); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; }; };
+    const wrap = (fn, salt) => function () { const R = W.Math.random; W.Math.random = rng(salt); try { return fn.apply(this, arguments); } finally { W.Math.random = R; } };
+    W.duelAdvanceCore = wrap(W.duelAdvanceCore, 0x1F2E3D); W.duelAfter = wrap(W.duelAfter, 0x4C5B6A); W.__arWrapped = 1;
+  }
+  let moves = [], applied = 0, waiter = null, lastLen = 1, stopped = false;
+  const key = M0.game + ':' + M0.seed;
+  const nextMove = () => new Promise(ok => { waiter = ok; flush(); });
+  // Coup suivant de l'autre camp (spectateur : les deux camps, avec 5 s de différé).
+  const flush = () => {
+    if (!waiter) return; const mv = moves[applied]; if (!mv) return;
+    if (!spec && ((mv.s ^ me) !== 1)) return;
+    const w = waiter; waiter = null; const go = () => { if (!stopped) w({ i: mv.i, a: mv.a, t: mv.t }); };
+    if (spec) { const d = (mv._at || 0) + 5000 - Date.now(); if (d > 0) setTimeout(go, d); else go(); } else go();
+  };
+  const send = (args, n = 0) => sb.rpc('arena_move', args).then(({ error }) => {
+    if (!error) return;
+    if (/séquence|pas ton tour|pas en cours/i.test(error.message) || n >= 5) { toast('Coup refusé : ' + error.message); return; }
+    setTimeout(() => send(args, n + 1), 1000);
+  }, () => setTimeout(() => n < 5 && send(args, n + 1), 1000));
+  const winL = D => D.winner == null ? null : D.winner === 'draw' ? -1 : D.winner;
+  const onChange = info => {
+    const H = info.hist; if (H.length <= lastLen) return;
+    for (let k = lastLen; k < H.length; k++) {
+      const h = H[k]; applied++; W.__arIdx = applied;
+      if (!spec && h.side === 0) { // mon coup : on l'envoie
+        const D = h.D, res = winL(D), idx = applied - 1;
+        send({ mid, idx, mv: { i: h.mv.i, a: h.mv.a, t: h.mv.t }, nxt: D.winner == null ? (D.s ^ me) : null, res: res == null ? null : res < 0 ? -1 : (res ^ me) });
+      }
+    }
+    lastLen = H.length;
+  };
+  const onBad = mv => { if (!spec) sb.rpc('arena_dispute', { mid, why: 'Coup adverse impossible selon le moteur : ' + JSON.stringify(mv) }); toast('Coup impossible selon le moteur : l’arbitre est prévenu.'); };
+  const ai = spec ? [true, true] : [false, true];
+  W.BFDuel.mount(null, { frame: true, A, B, names: spec ? nm : ['Toi', nm[1 - me]], ai, aiPick: () => nextMove(), remote: true, onBad, onChange });
+  const starterL = toL(M0.starter);
+  const feed = M => {
+    const ms = (M.moves || []).map((x, k) => moves[k] || { ...x, _at: Date.now() });
+    moves = ms; flush();
+  };
+  // Reprise : les coups déjà joués sont rejoués par le moteur sans animation, puis l'écran reprend au coup actuel.
+  const past = (M0.moves || []);
+  const keep = spec ? Math.max(0, past.length - 1) : past.length;
+  let D = E.start(A, B, starterL);
+  for (let k = 0; k < keep; k++) { W.__arIdx = k; try { D = E.step(D, past[k]); } catch (e) { break; } }
+  applied = keep; W.__arIdx = applied; moves = past.map(x => ({ ...x, _at: spec ? Date.now() - 5000 : 0 }));
+  if (keep) W.BFDuel.jump(D); else W.BFDuel.start(starterL);
+  lastLen = 1;
+  return { key, feed, stop: () => { stopped = true; try { W.BFDuel.stop(); } catch (e) { /* rien */ } } };
+}
+
 P.tournoi = async m => {
   const pool = T_RULES;
   const { data: rm } = await sb.from('content').select('data').eq('key', 'ranked_meta').maybeSingle();
@@ -2220,6 +2488,7 @@ P.tournoi = async m => {
 /* ---------- Routeur ---------- */
 async function render() {
   S.timers.forEach(t => { clearInterval(t); clearTimeout(t); }); S.timers = [];
+  if (S.arenaOff) { try { S.arenaOff(); } catch (e) { /* rien */ } S.arenaOff = null; }
   const h = (location.hash || '#accueil').slice(1);
   const [base, ...rest] = h.split('/'); const arg = rest.join('/');
   const route = ['guide', 'equipe'].includes(base) ? h : base;
