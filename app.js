@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=198';
+import * as CFG from './config.js?v=199';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=198';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=198';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=199';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=199';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=198';
-import * as SCAN from './scan.js?v=198';
+import { duelRate } from './ranked.js?v=199';
+import * as SCAN from './scan.js?v=199';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '198';
+const APP_V = '199';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -187,12 +187,111 @@ function shell(route) {
   side.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { side.classList.remove('open'); document.querySelector('.scrim')?.remove(); }));
   return $('#main');
 }
+
+/* ---------- Nouvelle architecture « 1 + 5 » (aperçu admin : ?nav2 pour l'activer, ?nav1 pour revenir) ----------
+   5 rubriques en haut (barre d'onglets en bas sur téléphone) → onglets de la rubrique → pastilles d'outils. Jamais plus de 5 choix à la fois.
+   Tant que NAV2_LIVE est false, seuls les admins qui l'activent la voient : les membres gardent l'ancien menu. */
+const NAV2_LIVE = false;
+const NAV2 = () => { try { const q = new URLSearchParams(location.search); if (q.has('nav2')) localStorage.bf_nav2 = '1'; if (q.has('nav1')) localStorage.removeItem('bf_nav2'); } catch (e) { /* rien */ }
+  return NAV2_LIVE || (S.profile?.role === 'admin' && (() => { try { return localStorage.bf_nav2 === '1'; } catch (e) { return false; } })()); };
+const NAV2_TREE = () => [
+  { t: 'Accueil', ic: 'home', g: [] },
+  { t: 'Jouer', ic: 'layers', g: [
+    { n: 'Château', i: [['Simulateur', 'chateausim'], ['Meilleure équipe', 'equipe/chateau'], ['Guide', 'guide/chateau']] },
+    { n: 'Ranked', i: [['Jouer un match', 'simulateur'], ['Meilleure équipe', 'equipe/ranked'], ['Guide', 'guide/ranked']] },
+    { n: 'Salle du temps', i: [['Guide et calculateur', 'guide/temps']] },
+    { n: 'Calculateurs', i: [['Calculateurs', 'calculs']] }] },
+  { t: 'Collection', ic: 'check', g: [
+    { n: 'Ma collection', i: [['Mes cartes', 'collection/A/moi'], ['Doublons', 'collection/A/doublons'], ['Manquantes', 'collection/A/manquantes'], ['Échanges', 'collection/A/echanges'], ['Mise à jour', 'clic']] },
+    { n: 'Mes LR', i: [['Mes LR', 'meslr']] },
+    { n: 'Prestige', i: [['Univers à compléter', 'collection/L/completer'], ['Guide', 'guide/prestige'], ['Éveil', 'guide/eveil'], ['Raids et farm', 'guide/raids']] },
+    { n: 'Fiches perso', i: [['Fiches perso', 'persos']] }] },
+  { t: 'Marché', ic: 'chart', g: [
+    { n: 'Prix', i: [['Prix du marché', 'prix']] },
+    { n: 'Transactions', i: [['Dernières transactions', 'transactions']] },
+    { n: 'Alertes', i: [['Mes alertes', 'alertes']] }] },
+  { t: 'Guilde', ic: 'users', g: [
+    { n: 'Membres', i: [['Profils', 'guilde'], ['Classement collection', 'collection/L/classement']] },
+    { n: 'Tournoi', i: [['Tournoi de guildes', 'tournoi']] },
+    { n: 'Calendrier', i: [['Calendrier', 'calendrier']] },
+    { n: 'Kakashi', i: [['Kakashi', 'kakashi']] },
+    { n: 'Plus', i: [['Espace Discord', 'discord'], ['Nouveautés du jeu', 'nouveautes'], ['Lexique', 'lexique'], ['Réglages', 'reglages'], ...(S.profile?.role === 'admin' ? [['Administration', 'admin']] : [])] }] },
+];
+// Où suis-je ? L'outil dont la route ressemble le plus au lien actuel (même page, puis mêmes segments ; la rareté de la collection compte peu).
+function nav2Where(h) {
+  const T = NAV2_TREE(), hs = h.split('/'); let best = { s: 0, ti: 0, gi: 0, ii: 0 };
+  T.forEach((tab, ti) => tab.g.forEach((g, gi) => g.i.forEach((it, ii) => { const rs = it[1].split('/'); if (rs[0] !== hs[0]) return;
+    let s = 10; for (let k = 1; k < rs.length; k++) { if (rs[0] === 'collection' && k === 1) { if (rs[1] === hs[1]) s += 1; continue; } if (rs[k] === hs[k]) s += 5; else if (hs[k] != null) s -= 3; }
+    if (rs[0] === 'collection' && !hs[2] && rs[2] === 'moi') s += 4;
+    if (s > best.s) best = { s, ti, gi, ii }; })));
+  return best.s ? best : { s: 0, ti: hs[0] === 'accueil' || !hs[0] ? 0 : -1, gi: -1, ii: -1 };
+}
+(() => { const rs = history.replaceState.bind(history); history.replaceState = function (st, t, u) { const r = rs(st, t, u); try { if (app?.dataset.mode === 'full2' && $('#n2pills')) nav2Update(location.hash.slice(1) || 'accueil'); } catch (e) { /* rien */ } return r; }; })();
+function shell2() {
+  const T = NAV2_TREE();
+  app.innerHTML = `<header class="n2top"><div class="n2bar"><a href="#accueil" class="brand n2brand">${SPIDER}<b>Brigade Fantôme</b></a>
+    <nav class="n2tabs" id="n2tabs">${T.map((t, i) => `<a href="#${i ? t.g[0].i[0][1] : 'accueil'}" data-t="${i}">${t.t}</a>`).join('')}</nav><span class="sp"></span>
+    <a class="btn primary n2clic" href="#clic">Mise à jour en 1 clic</a><button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button>
+    <a class="n2me" href="#reglages" title="Réglages">${esc((S.profile.discord || '?').replace(/^@/, '').slice(0, 1).toUpperCase())}</a></div>
+    <nav class="n2subs" id="n2subs"></nav></header>
+    <div class="n2wrap"><main id="mainw" class="n2main"><div id="alertbar"></div><div class="n2pills" id="n2pills"></div><div id="main"></div></main></div>
+    <nav class="n2bot" id="n2bot">${T.map((t, i) => `<a href="#${i ? t.g[0].i[0][1] : 'accueil'}" data-t="${i}">${ico(t.ic)}<span>${t.t}</span></a>`).join('')}</nav>`;
+  app.dataset.mode = 'full2'; try { ONB_OBS?.disconnect(); } catch (e) { /* rien */ }
+  initBell(); document.body.classList.add('nav2');
+  return $('#main');
+}
+function nav2Update(h) {
+  const T = NAV2_TREE(), w = nav2Where(h);
+  document.querySelectorAll('#n2tabs a, #n2bot a').forEach(a => a.classList.toggle('on', +a.dataset.t === w.ti));
+  const tab = T[w.ti]; const subs = $('#n2subs'), pills = $('#n2pills');
+  subs.innerHTML = tab && tab.g.length ? tab.g.map((g, gi) => `<a href="#${g.i[0][1]}" class="${gi === w.gi ? 'on' : ''}">${g.n}</a>`).join('') : '';
+  subs.hidden = !(tab && tab.g.length);
+  const g = tab && tab.g[w.gi];
+  const hs = h.split('/'), keepR = r => (hs[0] === 'collection' && hs[1] && /^collection\/A\//.test(r) ? r.replace('/A/', '/' + hs[1] + '/') : r);
+  pills.innerHTML = g && g.i.length > 1 ? g.i.map((it, ii) => `<a href="#${keepR(it[1])}" class="${ii === w.ii ? 'on' : ''}">${it[0]}</a>`).join('') : '';
+  pills.hidden = !(g && g.i.length > 1);
+}
+// Accueil « fil de la guilde » : ce qui bouge dans la Brigade + ta collection et tes raccourcis.
+async function accueil2(m) {
+  const ago = t => { const s = Math.max(0, (Date.now() - new Date(t).getTime()) / 1000); return s < 3600 ? `il y a ${Math.max(1, Math.round(s / 60))} min` : s < 86400 ? `il y a ${Math.round(s / 3600)} h` : new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); };
+  m.innerHTML = `<div class="n2head"><div><span class="mute small">Bonsoir ${esc(S.profile.discord)}</span><h1 style="margin:4px 0 0">Ça bouge dans la Brigade</h1></div></div>
+    <div class="n2home"><div class="n2feed" id="n2feed"><div class="skel"><i></i><i></i><i></i></div></div>
+    <aside class="n2side"><div class="card n2val" id="n2val"><span class="small mute">Valeur de ta collection</span><div class="cd">…</div></div>
+      <div class="card"><b>Raccourcis</b><div class="n2links">${[['#clic', 'Mise à jour en 1 clic'], ['#equipe/ranked', 'Meilleure équipe ranked'], ['#chateausim', 'Simulateur du château'], ['#prix', 'Prix du marché'], ['#collection/A/manquantes', 'Mes cartes manquantes']].map(x => `<a href="${x[0]}">${x[1]}</a>`).join('')}</div></div>
+      <div class="card"><b>Kakashi</b><p class="small mute" style="margin:4px 0 10px">Une question sur YURO ou sur le site ? Le bot de la Brigade te répond.</p><a class="btn" href="#kakashi">Demander à Kakashi</a></div>
+      ${standalone() ? '' : `<div class="card small"><b>📲 Installer le site comme une app</b><div class="mute" style="margin-top:4px">${isIOS() ? 'Sur iPhone : Partager → Sur l\'écran d\'accueil.' : 'Menu du navigateur (⋮) → Installer l\'application.'}</div></div>`}</aside></div>`;
+  const items = [];
+  const [news, ev, txr, lrr, rk, snap] = await Promise.all([loadNews().catch(() => []), loadEvents().catch(() => []),
+    sb.from('tx').select('card,rarity,price,sold_at').gte('sold_at', new Date(Date.now() - 2 * 864e5).toISOString()).order('price', { ascending: false }).limit(3).then(r => r.data || [], () => []),
+    sb.from('my_lr').select('user_id,updated_at,teams').order('updated_at', { ascending: false }).limit(40).then(r => r.data || [], () => []),
+    sb.rpc('collection_ranking').then(r => r.data || [], () => []),
+    sb.from('coll_snap').select('day,lr_value,pct').eq('user_id', S.user.id).order('day', { ascending: false }).limit(60).then(r => r.data || [], () => [])]);
+  if (!$('#n2feed')) return;
+  if (!S.members?.length) { try { const { data } = await sb.from('profiles').select('id,discord,share,status').eq('status', 'approved'); S.members = data || []; } catch (e) { /* rien */ } }
+  const who = id => S.members?.find(p => p.id === id)?.discord || 'Un membre';
+  for (const e of ev.slice(0, 1)) items.push({ t: Date.now() + 1, k: 'Calendrier', b: esc(e.title), s: `<span class="cd" data-cd="${e.t}"></span>`, h: '#calendrier' });
+  for (const r of lrr.filter(r => r.teams?.done && r.user_id !== S.user.id).slice(0, 4)) items.push({ t: new Date(r.updated_at).getTime(), k: 'Membres', b: `${esc(who(r.user_id))} a mis sa collection à jour`, s: ago(r.updated_at), h: '#guilde' });
+  for (const x of txr) items.push({ t: new Date(x.sold_at).getTime(), k: 'Marché', b: `${esc(x.card)}${x.rarity ? ` (${esc(x.rarity === 'Secret' ? 'LR' : x.rarity)})` : ''} vendue ${fmt(x.price)} KI`, s: ago(x.sold_at) + ' · plus grosses ventes des 2 derniers jours', h: '#transactions' });
+  for (const n of (news || []).slice(0, 2)) items.push({ t: new Date(n.d + 'T12:00:00').getTime(), k: 'Site', b: esc(n.t), s: esc(n.x).slice(0, 140), h: n.h || '#accueil' });
+  items.sort((a, b) => b.t - a.t);
+  $('#n2feed').innerHTML = items.map(x => `<a class="card n2item" href="${x.h}"><span class="n2k">${x.k}</span><b>${x.b}</b><span class="small mute">${x.s}</span></a>`).join('') || '<div class="empty">Rien de neuf pour l’instant.</div>';
+  tickCountdowns();
+  const me = rk.find(r => r.user_id === S.user.id), last = snap[0], first = snap[snap.length - 1];
+  const v = $('#n2val'); if (v) v.innerHTML = `<span class="small mute">Valeur de ta collection</span><div class="cd">${last ? fmt(last.lr_value) + ' <span class="small mute">KI</span>' : '—'}</div>${last && first && last !== first ? `<span class="small ${last.lr_value >= first.lr_value ? 'up' : 'down'}">${last.lr_value >= first.lr_value ? '▲ +' : '▼ '}${fmt(last.lr_value - first.lr_value)} KI depuis le ${new Date(first.day).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>` : ''}<span class="small mute">${me ? String(me.pct).replace('.', ',') + ' % du jeu' : ''}${S.mylr?.cards ? ` · ${Object.keys(S.mylr.cards).length} LR` : ''}</span><a class="btn ghost" href="#collection/A/moi" style="margin-top:8px;min-height:38px">Voir ma collection</a>`;
+  // Échanges possibles : chargés en arrière-plan (collections des membres).
+  (async () => { try { if (!S.collAt) { await loadCollections(); S.collAt = Date.now(); } const mine = myColl(); let n = 0, ppl = new Set();
+      for (const p of S.members || []) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; for (const [u, r] of Object.entries(th)) for (const c of r.dupes || []) if (!mine[u]?.owned?.has(c)) { n++; ppl.add(p.id); } }
+      if (n && $('#n2feed')) $('#n2feed').insertAdjacentHTML('afterbegin', `<a class="card n2item" href="#collection/A/echanges"><span class="n2k">Échanges</span><b>${ppl.size} membre${ppl.size > 1 ? 's ont' : ' a'} en double ${n} carte${n > 1 ? 's' : ''} qui te manque${n > 1 ? 'nt' : ''}</b><span class="small mute">Voir les échanges possibles</span></a>`);
+    } catch (e) { /* rien */ } })();
+}
+
 function confirmBox(msg) { return window.confirm ? (() => { try { return window.confirm(msg); } catch { return true; } })() : true; }
 
 /* ---------- Pages ---------- */
 const P = {};
 
 P.accueil = m => {
+  if (NAV2()) return accueil2(m);
   const top = S.prices.slice(0, 4);
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Carnet de guilde</span>
     <h1 style="margin-top:12px">Bienvenue dans le repaire, ${esc(S.profile.discord)}</h1>${S.profile.nen ? `<p style="margin:6px 0 0"><span class="chip">🕷 Rôle Nen : ${esc(S.profile.nen)}${S.profile.level != null ? ' · niveau ' + S.profile.level : ''}</span> <span class="small mute">Gagne de l'XP en étant actif sur le Discord.</span></p>` : ''}
@@ -561,10 +660,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=198'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=199'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=198'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=199'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -697,7 +796,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=198'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=199'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1525,7 +1624,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=198'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=199'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2125,10 +2224,11 @@ async function render() {
   const onb = onbMode() || reimp;
   if (onbMode() && (!onbAllowed(base, arg) || (base !== 'bienvenue' && !S.mylr?.teams?.video && !isPreview()))) { if (location.hash !== '#bienvenue') { location.hash = '#bienvenue'; return; } }
   let m = $('#main');
-  if (onb) { if (!m || app.dataset.mode !== 'onb') m = shellOnb(); else m.innerHTML = '';
+  if (onb) { document.body.classList.remove('nav2'); if (!m || app.dataset.mode !== 'onb') m = shellOnb(); else m.innerHTML = '';
     $('#onbback').innerHTML = (base !== 'bienvenue' && !reimp ? '<a class="btn ghost" href="#bienvenue" style="min-height:38px;margin-bottom:12px">← Retour aux étapes</a>' : '') + (isPreview() ? ' <a class="btn ghost" id="qprev" href="#" style="min-height:38px;margin-bottom:12px">Quitter l\'aperçu</a>' : '');
     const q = $('#qprev'); if (q) q.onclick = e => { e.preventDefault(); location.href = location.pathname + '#accueil'; }; }
-  else if (!m || !$('#side') || app.dataset.mode !== 'full') m = shell(route);
+  else if (NAV2()) { if (!m || app.dataset.mode !== 'full2') m = shell2(); else m.innerHTML = ''; nav2Update(h); }
+  else if (!m || !$('#side') || app.dataset.mode !== 'full') { document.body.classList.remove('nav2'); m = shell(route); }
   else { $('#side').querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + route)); m.innerHTML = ''; }
   // Thème « La toile » partout sauf dans les simulateurs de jeu.
   const sim = ['chateausim', 'simulateur'].includes(base); document.body.classList.toggle('th-c', !sim);
