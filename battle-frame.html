@@ -18,6 +18,6 @@
   }catch(e){local();}
   var t=await (await fetch('castle-engine.js?v='+v)).text();
   var s=document.createElement('script');s.textContent=t.replace('(function(){','').replace(/\}\)\(\);\s*$/,'');document.head.appendChild(s);
-  var f=document.createElement('script');f.src='fx.js?v='+v;f.onload=f.onerror=function(){window.__bfReady=true;try{parent.postMessage('bf-frame-ready','*')}catch(e){}};document.body.appendChild(f);
+  var f=document.createElement('script');f.src='fx.js?v='+v;f.onload=f.onerror=function(){var u=document.createElement('script');u.src='yuro-ui.js?v='+v;u.onload=u.onerror=function(){window.__bfReady=true;try{parent.postMessage('bf-frame-ready','*')}catch(e){}};document.body.appendChild(u);};document.body.appendChild(f);
 })();
 </script></body></html>
