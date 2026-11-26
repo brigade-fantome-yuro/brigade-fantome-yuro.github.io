@@ -616,3 +616,6 @@ body.nav2 .th-spider{display:none}
 .ar-c.empty{display:grid;place-items:center;min-height:120px;color:var(--mute);border-style:dashed;cursor:default}
 .ar-tag{position:absolute;top:12px;left:12px;background:var(--blood);color:#fff;font-style:normal;font-size:11px;font-weight:800;padding:2px 6px;border-radius:6px}
 #arHud b.red{color:var(--blood2)}
+.ar-team .ar-c{min-height:200px}.ar-team .ar-c img{aspect-ratio:auto;height:120px}
+#arCall{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:60;background:var(--blood);color:#fff;font-weight:800;padding:12px 18px;border-radius:14px;text-decoration:none;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+@media (max-width:720px){#arCall{bottom:calc(76px + env(safe-area-inset-bottom))}}
