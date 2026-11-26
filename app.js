@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=193';
+import * as CFG from './config.js?v=194';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=193';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=193';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=194';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=194';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=193';
-import * as SCAN from './scan.js?v=193';
+import { duelRate } from './ranked.js?v=194';
+import * as SCAN from './scan.js?v=194';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '193';
+const APP_V = '194';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -548,10 +548,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=193'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=194'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=193'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=194'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -684,7 +684,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=193'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=194'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -948,13 +948,18 @@ P.collection = async (m, tab = '') => {
   const PSU = S.kb.prestige_series?.series || [];
   // Communes, Rares et SR : construites depuis le catalogue (comme dans le jeu), remplies par « ✍️ Communes / Rares / SR ».
   const catU = r => { const by = new Map(); for (const c of S.kb.card_catalog?.cards || []) { if (c[3] !== r || c[5]) continue; const s2 = c[2] || '—'; if (!by.has(s2)) by.set(s2, { s: s2, c: [] }); by.get(s2).c.push([c[1], r, c[4] || '', Number(c[0])]); } return [...by.values()].sort((a, b) => a.s.localeCompare(b.s)); };
-  const R = { C: { label: 'C', tag: 'Commune', U: catU('C'), low: true }, R: { label: 'R', tag: 'Rare', U: catU('R'), low: true }, E: { label: 'SR', tag: 'Épique', U: catU('E'), low: true }, L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true }, X: { label: 'EX', tag: 'Exclusive', U: catU('X'), low: true }, T: { label: 'TRS', tag: 'Transcendant', U: catU('T'), low: true } };
+  const R0 = { C: { label: 'C', tag: 'Commune', U: catU('C'), low: true }, R: { label: 'R', tag: 'Rare', U: catU('R'), low: true }, E: { label: 'SR', tag: 'Épique', U: catU('E'), low: true }, L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true }, X: { label: 'EX', tag: 'Exclusive', U: catU('X'), low: true }, T: { label: 'TRS', tag: 'Transcendant', U: catU('T'), low: true } };
+  // « Toutes » : toutes les raretés réunies, univers par univers (consigne du Chef 26/11).
+  const allU = () => { const by = new Map(); for (const x of Object.values(R0)) for (const u of x.U) { if (!by.has(u.s)) by.set(u.s, { s: u.s, c: [] }); by.get(u.s).c.push(...u.c); } return [...by.values()].sort((a, b) => a.s.localeCompare(b.s)); };
+  const R = { A: { label: 'Toutes', tag: 'Toutes', U: allU(), all: true }, ...R0 };
   const impFor = k => k === 'S' ? (location.hash = '#meslr') : R[k]?.low ? (location.hash = '#basses/' + k) : rarImport(k);
   let [rk, view, autoImp] = (tab || 'L/moi').split('/'); if (!R[rk]) rk = 'L'; const memId = view?.startsWith('m:') && FUS() ? view.slice(2) : null; if (memId) view = 'membres'; if (!['moi', 'doublons', 'manquantes', 'echanges', ...(FUS() ? ['completer', 'classement', 'membres'] : [])].includes(view)) view = 'moi';
   const realColl = myColl(); let coll = realColl;
   // Les LR (et leurs étoiles) vivent dans « Mes LR » : on les présente comme une collection pour l'affichage.
   const lrCollOf = (cards, dupes) => { const o = {}; for (const u of R.S.U) for (const c of u.c) if (cards?.[c[3]] != null) { const r = uget(o, u.s); r.owned.add(c[0]); const x = +(dupes?.[c[3]] || 0); if (x > 0) { r.dupes.add(c[0]); r.qty[c[0]] = x + 1; } } return o; };
   const lrColl = () => lrCollOf(S.mylr.cards, S.mylr.dupes);
+  const mergeColl = (a, b) => { const o = {}; for (const src of [a, b]) for (const [k, r] of Object.entries(src || {})) { const t = uget(o, k); for (const n of r.owned || []) t.owned.add(n); for (const n of r.dupes || []) t.dupes.add(n); Object.assign(t.qty, r.qty || {}); } return o; };
+  const collFor = k => k === 'S' ? lrColl() : k === 'A' ? mergeColl(realColl, lrColl()) : realColl;
   // LR des autres membres (profils partagés) pour les échanges de doublons LR.
   let lrRows = []; const lrP = sb.from('my_lr').select('user_id,cards,dupes').then(({ data }) => { lrRows = data || []; }, () => { });
   const lrOf = id => { const r = lrRows.find(x => x.user_id === id); return r ? lrCollOf(r.cards, r.dupes) : {}; };
@@ -963,12 +968,12 @@ P.collection = async (m, tab = '') => {
   const saveMany = async us => { const L = [...new Map([...us].map(u => [u.s, u])).values()].map(u => { const r = uget(coll, u.s), pu = PSU.find(x => x.s === u.s); return { user_id: S.user.id, universe: u.s, done: pu ? ownN(coll, pu) === pu.c.length : false, owned: [...r.owned], dupes: [...r.dupes], qty: r.qty || {}, missing: '' }; }); for (let i = 0; i < L.length; i += 100) { const { error } = await sb.from('checklist').upsert(L.slice(i, i + 100)); if (error) return error; } return null; };
   const has = (cl, u, n) => !!cl[u.s]?.owned.has(n), dup = (cl, u, n) => cl[u.s]?.dupes.has(n) ? (cl[u.s].qty?.[n] || true) : false;
   const draw = () => {
-    coll = rk === 'S' ? lrColl() : realColl;
+    coll = collFor(rk);
     const X = R[rk], U = X.U, total = U.reduce((a, u) => a + u.c.length, 0), got = U.reduce((a, u) => a + u.c.filter(c => has(coll, u, c[0])).length, 0), nd = U.reduce((a, u) => a + u.c.filter(c => dup(coll, u, c[0])).length, 0);
     history.replaceState(null, '', `#collection/${rk}/${view}`);
     m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span><a class="btn primary" href="#clic" style="min-height:40px">⚡ Mise à jour en 1 clic</a></div><p class="mute">Toute ta collection, rangée comme dans le jeu. Elle se met à jour uniquement par la mise à jour en 1 clic (ordinateur ou téléphone), qui recopie tout depuis le jeu : cartes, doublons et étoiles des LR. Pas de saisie à la main : aucune erreur ni oubli.</p>
       <div id="chist"></div>
-      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = k === 'S' ? lrColl() : realColl; const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', S: '秘', X: 'EX', T: '超' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
+      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = collFor(k); const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ A: '全', C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', S: '秘', X: 'EX', T: '超' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
       <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
         <div class="row" style="margin-top:12px"><a class="btn primary" href="#clic">⚡ Mise à jour en 1 clic</a></div>
         ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans <a href="#reglages">Réglages</a> pour apparaître dans les échanges.</p>'}</div>
@@ -1066,7 +1071,7 @@ P.collection = async (m, tab = '') => {
   // Touche une carte manquante : qui l'a en double dans la Brigade (pour lui proposer un échange sur Discord).
     el.querySelectorAll('figure.mcard.miss').forEach(f => { f.style.cursor = 'pointer'; f.onclick = async () => { const u = X.U.find(x => x.s === f.dataset.u), cn = f.dataset.c; if (!u) return;
       if (!allReady) { f.classList.add('wait'); await Promise.all([allP, lrP]); f.classList.remove('wait'); }
-      const who = []; for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = X.lr ? lrOf(p.id) : (S.coll[p.id] || {}); const q = dup(th, u, cn); if (q) who.push({ p, n: q === true ? 2 : +q }); }
+      const who = []; for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const isLr = X.lr || (X.all && u.c.find(x => x[0] === cn)?.[1] === 'S'); const th = isLr ? lrOf(p.id) : (S.coll[p.id] || {}); const q = dup(th, u, cn); if (q) who.push({ p, n: q === true ? 2 : +q }); }
       who.sort((a, b) => b.n - a.n);
       const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
       d.innerHTML = `<div class="mbox"><span class="chip red">${X.label}</span><h2 style="margin-top:10px">${esc(cn)}</h2><p class="small mute" style="margin-top:0">${esc(u.s)} · ${who.length ? `${who.length} membre${who.length > 1 ? 's l\u2019ont' : ' l\u2019a'} en double : contacte-${who.length > 1 ? 'les' : 'le'} sur Discord pour proposer un échange.` : 'Personne ne l\u2019a en double pour l\u2019instant (parmi les membres qui partagent leur collection).'}</p>`
@@ -1502,7 +1507,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=193'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=194'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };

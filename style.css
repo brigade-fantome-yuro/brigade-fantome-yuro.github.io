@@ -526,3 +526,5 @@ details.trd>summary::-webkit-details-marker{display:none}
 details.trd .trc{display:inline-block;transition:transform .2s;color:#9a9a9a}
 details.trd[open] .trc{transform:rotate(90deg)}
 details.trd:not([open]){padding-top:12px;padding-bottom:12px}
+
+.rtabs .rt-A{border-color:#e8433a}.rtabs .rt-A i{color:#e8433a}.rtabs .rt-A.on{background:#e8433a;color:#fff;border-color:#e8433a}.rtabs .rt-A.on i{color:#fff}
