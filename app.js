@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=202';
+import * as CFG from './config.js?v=203';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=202';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=202';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=203';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=203';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=202';
-import * as SCAN from './scan.js?v=202';
+import { duelRate } from './ranked.js?v=203';
+import * as SCAN from './scan.js?v=203';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '202';
+const APP_V = '203';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -269,9 +269,8 @@ async function accueil2(m) {
   if (!$('#n2feed')) return;
   if (!S.members?.length) { try { const { data } = await sb.from('profiles').select('id,discord,share,status').eq('status', 'approved'); S.members = data || []; } catch (e) { /* rien */ } }
   const who = id => S.members?.find(p => p.id === id)?.discord || 'Un membre';
-  // Fil public : seulement les membres qui partagent leur collection, et jamais les comptes masqués (empreinte du pseudo, pas le pseudo en clair).
-  const nh = s => { let x = 5381; for (const c of String(s || '').replace(/^@/, '').toLowerCase()) x = ((x * 33) ^ c.charCodeAt(0)) >>> 0; return x; }, HIDE = [2362456204];
-  const feedOk = id => { const p = S.members?.find(q => q.id === id); return !!p && p.share && !HIDE.includes(nh(p.discord)); };
+  // Fil public : seulement les membres qui partagent leur collection.
+  const feedOk = id => { const p = S.members?.find(q => q.id === id); return !!p && p.share; };
   for (const e of ev.slice(0, 1)) items.push({ t: Date.now() + 1, k: 'Calendrier', b: esc(e.title), s: `<span class="cd" data-cd="${e.t}"></span>`, h: '#calendrier' });
   for (const r of lrr.filter(r => r.teams?.done && r.user_id !== S.user.id && feedOk(r.user_id)).slice(0, 4)) items.push({ t: new Date(r.updated_at).getTime(), k: 'Membres', b: `${esc(who(r.user_id))} a mis sa collection à jour`, s: ago(r.updated_at), h: '#guilde' });
   for (const x of txr) items.push({ t: new Date(x.sold_at).getTime(), k: 'Marché', b: `${esc(x.card)}${x.rarity ? ` (${esc(x.rarity === 'Secret' ? 'LR' : x.rarity)})` : ''} vendue ${fmt(x.price)} KI`, s: ago(x.sold_at) + ' · plus grosses ventes des 2 derniers jours', h: '#transactions' });
@@ -285,7 +284,7 @@ async function accueil2(m) {
   const v = $('#n2val'); if (v) v.innerHTML = `<span class="small mute">Valeur de ta collection</span><div class="cd">${last ? fmt(last.lr_value) + ' <span class="small mute">KI</span>' : '—'}</div>${last && first && last !== first ? `<span class="small ${last.lr_value >= first.lr_value ? 'up' : 'down'}">${last.lr_value >= first.lr_value ? '▲ +' : '▼ '}${fmt(last.lr_value - first.lr_value)} KI depuis le ${new Date(first.day).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>` : ''}<span class="small mute">${me ? String(me.pct).replace('.', ',') + ' % du jeu' : ''}${S.mylr?.cards ? ` · ${Object.keys(S.mylr.cards).length} LR` : ''}</span><a class="btn ghost" href="#collection/A/moi" style="margin-top:8px;min-height:38px">Voir ma collection</a>`;
   // Échanges possibles : chargés en arrière-plan (collections des membres).
   (async () => { try { if (!S.collAt) { await loadCollections(); S.collAt = Date.now(); } const mine = myColl(); let n = 0, ppl = new Set();
-      for (const p of S.members || []) { if (!p.share || p.id === S.user.id || HIDE.includes(nh(p.discord))) continue; const th = S.coll[p.id] || {}; for (const [u, r] of Object.entries(th)) for (const c of r.dupes || []) if (!mine[u]?.owned?.has(c)) { n++; ppl.add(p.id); } }
+      for (const p of S.members || []) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; for (const [u, r] of Object.entries(th)) for (const c of r.dupes || []) if (!mine[u]?.owned?.has(c)) { n++; ppl.add(p.id); } }
       if (n && $('#n2feed')) $('#n2feed').insertAdjacentHTML('afterbegin', `<a class="card n2item" href="#collection/A/echanges"><span class="n2k">Échanges</span><b>${ppl.size} membre${ppl.size > 1 ? 's ont' : ' a'} en double ${n} carte${n > 1 ? 's' : ''} qui te manque${n > 1 ? 'nt' : ''}</b><span class="small mute">Voir les échanges possibles</span></a>`);
     } catch (e) { /* rien */ } })();
 }
@@ -665,10 +664,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=202'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=203'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=202'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=203'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -801,7 +800,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=202'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=203'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1033,7 +1032,7 @@ function viewProfile(el, U, id) {
 }
 function viewTrades(el, U) {
   const mine = myColl(); const out = [];
-  for (const p of S.members) { if (!p.share || p.id === S.user.id || HIDE.includes(nh(p.discord))) continue; const th = S.coll[p.id] || {}; const give = [], get = [];
+  for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; const give = [], get = [];
     for (const u of U) for (const c of u.c) { if (th[u.s]?.dupes.has(c[0]) && !mine[u.s]?.owned.has(c[0])) get.push(c); if (mine[u.s]?.dupes.has(c[0]) && !th[u.s]?.owned.has(c[0])) give.push(c); }
     if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
   out.sort((a, b) => b.score - a.score);
@@ -1193,7 +1192,7 @@ P.collection = async (m, tab = '') => {
   // Touche une carte manquante : qui l'a en double dans la Brigade (pour lui proposer un échange sur Discord).
     el.querySelectorAll('figure.mcard.miss').forEach(f => { f.style.cursor = 'pointer'; f.onclick = async () => { const u = X.U.find(x => x.s === f.dataset.u), cn = f.dataset.c; if (!u) return;
       if (!allReady) { f.classList.add('wait'); await Promise.all([allP, lrP]); f.classList.remove('wait'); }
-      const who = []; for (const p of S.members) { if (!p.share || p.id === S.user.id || HIDE.includes(nh(p.discord))) continue; const isLr = X.lr || (X.all && u.c.find(x => x[0] === cn)?.[1] === 'S'); const th = isLr ? lrOf(p.id) : (S.coll[p.id] || {}); const q = dup(th, u, cn); if (q) who.push({ p, n: q === true ? 2 : +q }); }
+      const who = []; for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const isLr = X.lr || (X.all && u.c.find(x => x[0] === cn)?.[1] === 'S'); const th = isLr ? lrOf(p.id) : (S.coll[p.id] || {}); const q = dup(th, u, cn); if (q) who.push({ p, n: q === true ? 2 : +q }); }
       who.sort((a, b) => b.n - a.n);
       const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
       d.innerHTML = `<div class="mbox"><span class="chip red">${X.label}</span><h2 style="margin-top:10px">${esc(cn)}</h2><p class="small mute" style="margin-top:0">${esc(u.s)} · ${who.length ? `${who.length} membre${who.length > 1 ? 's l\u2019ont' : ' l\u2019a'} en double : contacte-${who.length > 1 ? 'les' : 'le'} sur Discord pour proposer un échange.` : 'Personne ne l\u2019a en double pour l\u2019instant (parmi les membres qui partagent leur collection).'}</p>`
@@ -1203,7 +1202,7 @@ P.collection = async (m, tab = '') => {
   }
   function vTrades(el, X) {
     const out = [];
-    for (const p of S.members) { if (!p.share || p.id === S.user.id || HIDE.includes(nh(p.discord))) continue; const th = X.lr ? lrOf(p.id) : (S.coll[p.id] || {}); const give = [], get = [];
+    for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = X.lr ? lrOf(p.id) : (S.coll[p.id] || {}); const give = [], get = [];
       for (const u of X.U) for (const c of u.c) { if (dup(th, u, c[0]) && !has(coll, u, c[0])) get.push(c); if (dup(coll, u, c[0]) && !has(th, u, c[0])) give.push(c); }
       if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
     out.sort((a, b) => b.score - a.score);
@@ -1629,7 +1628,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=202'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=203'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
