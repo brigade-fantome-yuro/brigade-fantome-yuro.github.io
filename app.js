@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=187';
+import * as CFG from './config.js?v=188';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=187';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=187';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=188';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=188';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=187';
-import * as SCAN from './scan.js?v=187';
+import { duelRate } from './ranked.js?v=188';
+import * as SCAN from './scan.js?v=188';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '187';
+const APP_V = '188';
 fetch('version.txt?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : '').then(v => { v = v.trim(); if (v && v !== APP_V && !sessionStorage.getItem('bfv' + v)) { sessionStorage.setItem('bfv' + v, '1'); location.replace(location.pathname + '?v=' + v + location.hash); } }).catch(() => {});
 // Installation comme une app (Android, ordinateur) : le navigateur propose l'installation, on garde l'événement pour le bouton.
 let INSTALL = null;
@@ -110,6 +110,9 @@ function discordLogin() { try { if (location.search || (location.hash && !locati
 const isPreview = () => S.profile?.role === 'admin' && new URLSearchParams(location.search).has('apercu');
 // Didacticiel forcé : tant que la collection n'est pas importée (ou en aperçu admin), pas de menu, seulement les étapes d'import.
 const onbMode = () => !S.mylr?.teams?.done || isPreview();
+// Ré-import obligatoire (Nicolas 26/11) : les membres déjà accueillis doivent refaire l'import en 1 clic (PC ou téléphone) une fois après cette date.
+const REIMPORT_AT = Date.parse('2026-11-26T00:40:00Z');
+const reimpMode = () => !!S.mylr?.teams?.done && !(+S.mylr.teams.clic >= REIMPORT_AT) && !isPreview();
 const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'clic' || base === 'meslr' || base === 'basses' || (base === 'collection' && /^[LM]\/moi\/(import|all)$/.test(arg || '')) || (base === 'collection' && arg === 'L/moi/all');
 // Pendant l'accueil : aucun lien vers une autre page n'est affiché ni cliquable, seulement les étapes.
 const onbLinkOk = a => { const h = a.getAttribute('href') || ''; if (!h.startsWith('#')) return !/^https?:/.test(h) || a.target === '_blank'; const [b, ...r] = h.slice(1).split('/'); return !b || onbAllowed(b, r.join('/')); };
@@ -545,10 +548,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=187'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=188'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=187'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=188'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -681,7 +684,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=187'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=188'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1366,9 +1369,10 @@ const clicTuto = () => { const ios = isIOSdev(); setTimeout(() => document.query
 const clicHref = () => 'javascript:' + encodeURIComponent(CLIC_CODE);
 P.clic = async m => {
   const prev = isPreview(); let pay = null; try { pay = JSON.parse(localStorage.getItem('bf_clic') || 'null'); } catch (e) { pay = null; }
-  const back = onbMode() ? '#bienvenue' : '#collection';
+  const back = reimpMode() ? '#clic' : onbMode() ? '#bienvenue' : '#collection';
+  const reBan = reimpMode() ? '<div class="card section" style="border-color:#e3123a"><b>🔄 Mise à jour obligatoire de ta collection</b><p class="small mute" style="margin:6px 0 0">Certains imports faits avant la nouvelle méthode étaient incomplets (doublons et cartes manquants). Pour que ton profil, tes équipes et les échanges soient justes, refais une fois l\'import en 1 clic ci-dessous. Le site se débloque dès que c\'est enregistré.</p></div>' : '';
   if (!pay?.d && !isDesktop()) {
-    m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Téléphone · gratuit</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">On crée une fois ${isIOSdev() ? 'un signet' : 'un favori'} « Import Brigade ». Ensuite, depuis le jeu, un seul toucher dessus envoie toute ta collection ici (cartes, doublons, étoiles des LR).</p></section>
+    m.innerHTML = `${reBan}<section class="hero"><div class="moon"></div><span class="chip red">Téléphone · gratuit</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">On crée une fois ${isIOSdev() ? 'un signet' : 'un favori'} « Import Brigade ». Ensuite, depuis le jeu, un seul toucher dessus envoie toute ta collection ici (cartes, doublons, étoiles des LR).</p></section>
       ${clicTuto()}
       <div class="card section"><h3 style="margin-top:0">1. Copie le code ${isIOSdev() ? 'du signet' : 'du favori'}</h3><button class="btn primary" id="clicCopy">📋 Copier le code</button> <span id="clicOk" class="up small"></span></div>
       <div class="card section"><h3 style="margin-top:0">2. Crée ${isIOSdev() ? 'le signet' : 'le favori'} (une seule fois)</h3><p class="small mute">${isIOSdev() ? 'Sur cette page : menu <b>•••</b> (en bas) → <b>Ajouter à Signets</b> → Enregistrer. Puis menu <b>•••</b> → <b>Signets</b> → <b>Modifier</b> → touche ce signet → nom <b>Import Brigade</b>, adresse : efface tout et <b>colle</b> le code → <b>OK</b>.' : 'Sur cette page : menu <b>⋮</b> → étoile <b>☆</b> → <b>Modifier</b> → nom <b>Import Brigade</b>, URL : efface tout et <b>colle</b> le code, puis reviens en arrière.'}</p></div>
@@ -1378,7 +1382,7 @@ P.clic = async m => {
     return;
   }
   if (!pay?.d) {
-    m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">${isDesktop() ? 'Sur ordinateur · gratuit' : 'Gratuit · sans captures'}</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">Plus de captures : le site lit ta sauvegarde du jeu (toutes tes cartes, tes exemplaires et les étoiles de tes LR). Rien à installer, 3 gestes.</p></section>
+    m.innerHTML = `${reBan}<section class="hero"><div class="moon"></div><span class="chip red">${isDesktop() ? 'Sur ordinateur · gratuit' : 'Gratuit · sans captures'}</span><h1 style="margin-top:12px">Import en 1 clic</h1><p class="mute">Plus de captures : le site lit ta sauvegarde du jeu (toutes tes cartes, tes exemplaires et les étoiles de tes LR). Rien à installer, 3 gestes.</p></section>
       <div class="card section"><h3 style="margin-top:0">1. Ouvre ta sauvegarde du jeu</h3><p class="small mute">Tu dois être connecté au jeu dans ce navigateur. Une page pleine de texte s'ouvre : c'est normal.</p>
         <a class="btn primary" href="https://yurocollection.fr/api/save" target="_blank" rel="noopener" style="margin-top:6px">📂 Ouvrir ma sauvegarde YURO</a></div>
       <div class="card section"><h3 style="margin-top:0">2. ${isDesktop() ? 'Copie tout' : 'Enregistre la page en fichier'}</h3><p class="small mute">${isDesktop() ? 'Sur cette page : <b>Ctrl + A</b> puis <b>Ctrl + C</b> (Mac : <b>Cmd + A</b> puis <b>Cmd + C</b>).' : '<b>iPhone (Safari)</b> : bouton <b>Partager</b> (carré avec une flèche) → touche <b>En voir plus</b> si besoin → <b>Enregistrer dans Fichiers</b> → <b>Enregistrer</b>. (« Copier » ne copie que le lien : ça ne marche pas.)<br><b>Android (Chrome)</b> : menu <b>⋮</b> → icône <b>Télécharger</b> (flèche vers le bas).<br>Le texte est trop long pour être copié sur téléphone : on passe par un fichier.'}</p></div>
@@ -1477,7 +1481,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=187'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=188'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2072,11 +2076,13 @@ async function render() {
   const [base, ...rest] = h.split('/'); const arg = rest.join('/');
   const route = ['guide', 'equipe'].includes(base) ? h : base;
   await loadMyLR();
-  const onb = onbMode();
-  if (onb && (!onbAllowed(base, arg) || (base !== 'bienvenue' && !S.mylr?.teams?.video && !isPreview()))) { if (location.hash !== '#bienvenue') { location.hash = '#bienvenue'; return; } }
+  const reimp = reimpMode();
+  if (reimp && base !== 'clic') { location.hash = '#clic'; return; }
+  const onb = onbMode() || reimp;
+  if (onbMode() && (!onbAllowed(base, arg) || (base !== 'bienvenue' && !S.mylr?.teams?.video && !isPreview()))) { if (location.hash !== '#bienvenue') { location.hash = '#bienvenue'; return; } }
   let m = $('#main');
   if (onb) { if (!m || app.dataset.mode !== 'onb') m = shellOnb(); else m.innerHTML = '';
-    $('#onbback').innerHTML = (base !== 'bienvenue' ? '<a class="btn ghost" href="#bienvenue" style="min-height:38px;margin-bottom:12px">← Retour aux étapes</a>' : '') + (isPreview() ? ' <a class="btn ghost" id="qprev" href="#" style="min-height:38px;margin-bottom:12px">Quitter l\'aperçu</a>' : '');
+    $('#onbback').innerHTML = (base !== 'bienvenue' && !reimp ? '<a class="btn ghost" href="#bienvenue" style="min-height:38px;margin-bottom:12px">← Retour aux étapes</a>' : '') + (isPreview() ? ' <a class="btn ghost" id="qprev" href="#" style="min-height:38px;margin-bottom:12px">Quitter l\'aperçu</a>' : '');
     const q = $('#qprev'); if (q) q.onclick = e => { e.preventDefault(); location.href = location.pathname + '#accueil'; }; }
   else if (!m || !$('#side') || app.dataset.mode !== 'full') m = shell(route);
   else { $('#side').querySelectorAll('.nav a').forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + route)); m.innerHTML = ''; }
