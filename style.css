@@ -528,3 +528,7 @@ details.trd[open] .trc{transform:rotate(90deg)}
 details.trd:not([open]){padding-top:12px;padding-bottom:12px}
 
 .rtabs .rt-A{border-color:#e8433a}.rtabs .rt-A i{color:#e8433a}.rtabs .rt-A.on{background:#e8433a;color:#fff;border-color:#e8433a}.rtabs .rt-A.on i{color:#fff}
+
+#bfvbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;background:#16161c;border:1px solid #e8433a;border-radius:14px;padding:10px 14px;box-shadow:0 10px 30px #000a;font-weight:600;max-width:92vw}
+#bfvbar button{background:#e8433a;color:#fff;border:0;border-radius:10px;padding:7px 12px;font-weight:700;cursor:pointer}
+#bfvbar small{color:#9a9a9a;font-weight:500;width:100%;text-align:center}
