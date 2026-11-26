@@ -308,3 +308,9 @@ button.mx-mini:hover .mx-move{color:#fff}
 .mx-still,.mx-still *{animation:none!important}
 @media (max-width:600px){.mx-snipe{gap:6px}.mx-sbtn b{font-size:16px}.mx-env3d{height:130px}}
 .mx-timer b{display:inline-block;min-width:3.4ch;text-align:right;font-feature-settings:"tnum" 1}
+
+/* Match de tournoi regardé en spectateur : rien n'est cliquable, 5 s de différé. */
+.mx-spec::before{content:"👁 Mode spectateur · 5 s de différé";display:block;margin:0 0 10px;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.06);font-size:13px;font-weight:600}
+.mx-spec #mxAct button,.mx-spec #mxAct input,.mx-spec #mxMain button,.mx-spec #mxMain [data-k],.mx-spec #mxMain [draggable]{pointer-events:none}
+.mx-spec #mxAct button,.mx-spec #mxAct input{opacity:.55}
+.mx-spec #mxFF,.mx-spec #mxClaim{display:none!important}

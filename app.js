@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=227';
+import * as CFG from './config.js?v=228';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=227';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=227';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=228';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=228';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=227';
-import * as SCAN from './scan.js?v=227';
+import { duelRate } from './ranked.js?v=228';
+import * as SCAN from './scan.js?v=228';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '227';
+const APP_V = '228';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -680,10 +680,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=227'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=228'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=227'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=228'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -843,7 +843,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=227'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=228'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1696,7 +1696,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=227'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=228'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2304,6 +2304,8 @@ function arCreateForm() {
   return `<details class="card section" id="arNew"><summary><b>➕ Créer un tournoi</b></summary>
     <label>Nom</label><input id="arNm" placeholder="Tournoi de la Brigade">
     <label>Étoiles pour toutes les cartes</label><div class="row"><label class="chk"><input type="radio" name="arSt" value="5" checked> 5★</label><label class="chk"><input type="radio" name="arSt" value="0"> 0★</label></div>
+    <label>Mercato YURO (règle unique : remplace le ban, le choix d’équipe et toutes les autres règles)</label>
+    <select id="arMx" style="width:auto"><option value="">Non</option>${Object.entries(AR_MX).map(([k, v]) => `<option value="${k}">${v[0].toUpperCase() + v.slice(1)}</option>`).join('')}</select>
     <label>Règles du tournoi entier</label>
     <div class="ar-mini" id="arFx" style="flex-direction:column;max-height:none">${AR_RULES.map(r => `<label class="chk small"><input type="checkbox" class="arFr" value="${r[0]}"> <b>${r[1]}</b> · ${esc(r[2])}${r[0] === 'imposed' ? ` <select id="arImp" style="width:auto;min-height:30px;padding:2px 6px;font-size:13px">${arPool().map(c => `<option value="${c.id}">${esc(c.n)}</option>`).join('')}</select>` : ''}</label>`).join('')}</div>
     <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><select id="arFk" style="width:auto;min-height:36px">${[1, 2, 3].map(k => `<option value="${k}"${k === 2 ? ' selected' : ''}>${k} règle${k > 1 ? 's' : ''}</option>`).join('')}</select><button class="btn ghost" id="arFdraw" style="min-height:36px">🎲 Tirer au sort les règles du tournoi</button><span class="small mute" id="arFmsg"></span></div>
@@ -2338,12 +2340,17 @@ function arBindCreate(m) {
     if (pl.length < 2) { toast('Coche au moins 2 joueurs.'); return; }
     const fixed = v('.arFr').map(id => id === 'imposed' ? { id, card: +$('#arImp').value } : { id });
     const rules = { fixed, per_round: +$('#arPr').value, bancat: v('.arBc'), bancard: v('.arBk').map(Number), budget: $('#arBud').value.trim() };
+    if ($('#arMx').value) rules.mercato = $('#arMx').value;
+    if (rules.mercato === 'all') { rules.fixed = []; rules.per_round = 0; fixed.length = 0; }
     if (fixed.length) { const { data: ok } = await sb.rpc('arena_feasible', { r: fixed, bancat: rules.bancat, bancard: rules.bancard }); if (!ok) { toast('Aucune équipe possible avec ces règles : change-les.'); return; } }
     const { data, error } = await sb.rpc('arena_create', { nm, st: +m.querySelector('[name=arSt]:checked').value, rl: rules, refs: v('.arRf'), pls: pl });
     if (error) { toast(error.message); return; } location.hash = '#arene/' + data;
   };
 }
 
+const AR_MX = { all: 'tout le tournoi', r0: 'premier tour', qf: 'quarts de finale', sf: 'demi-finales', f: 'finale' };
+// Tour joué en Mercato ? (même calcul que arena_is_mercato côté serveur)
+const arIsMx = (t, k) => { const x = t.rules?.mercato, R = t.rounds || 0; return x === 'all' || (x === 'r0' && k === 0) || (x === 'qf' && k === R - 3) || (x === 'sf' && k === R - 2) || (x === 'f' && k === R - 1); };
 function arRules(t) {
   const r = t.rules || {}, out = [`Toutes les cartes à ${t.stars}★`, '1 carte par rôle', 'UR et LR (pas d’EX ni de TRS)', 'Ban d’1 carte chacun avant chaque manche', '3 min pour faire son équipe', '60 s sans jouer = forfait', 'BO3 à partir des demi-finales'];
   if (r.bancat?.length) out.push('Rôles interdits : ' + r.bancat.map(k => AR_ROLES[k] || k).join(', '));
@@ -2351,6 +2358,7 @@ function arRules(t) {
   (r.fixed || []).forEach(x => out.push('Tout le tournoi · ' + arRuleTxt(x)));
   if (r.per_round) out.push(`${r.per_round} règle${r.per_round > 1 ? 's' : ''} tirée${r.per_round > 1 ? 's' : ''} au sort à chaque tour (la même pour tous les matchs du tour)`);
   if (r.budget) out.push('Règle libre (arbitres) : ' + r.budget);
+  if (r.mercato) out.push(`🎮 Mercato YURO (${AR_MX[r.mercato] || r.mercato}) : règle unique, à la place du ban, du choix d’équipe et des règles tirées. Le Mercato se joue déjà en 2 combats de 3 contre 3 (mort subite à 1-1)`);
   return `<ul class="small ar-rules">${out.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
 }
 
@@ -2361,16 +2369,16 @@ async function arTourn(m, t) {
     const { data: t2 } = await sb.from('arena_tourn').select('*').eq('id', t.id).single(); if (t2) t = t2;
     if (!$('#arT')) return;
     const me = S.user.id, ref = arIsAdmin() || t.referees.includes(me), R = t.rounds || 0;
-    const lab = { wait: 'En attente', queue: 'Salle pleine, en attente', ban: 'Ban en cours', pick: 'Choix des équipes', live: 'En direct', dispute: 'Arbitre demandé', done: 'Terminé' };
-    const mine = (M || []).find(x => (x.p1 === me || x.p2 === me) && ['ban', 'pick', 'live', 'dispute'].includes(x.status));
+    const lab = { wait: 'En attente', queue: 'Salle pleine, en attente', ban: 'Ban en cours', pick: 'Choix des équipes', live: 'En direct', dispute: 'Arbitre demandé', done: 'Terminé', mercato: 'Mercato en cours' };
+    const mine = (M || []).find(x => (x.p1 === me || x.p2 === me) && ['ban', 'pick', 'live', 'dispute', 'mercato'].includes(x.status));
     $('#arT').innerHTML = `<div class="row" style="justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap"><div><a class="small mute" href="#arene">← Arène</a><h1 style="margin:4px 0 0">${esc(t.name)}</h1></div>
       ${t.status === 'done' ? `<span class="chip ok">🏆 ${esc(arName(t.winner))}</span>` : t.status === 'live' ? '<span class="chip red">En cours</span>' : '<span class="chip">À lancer</span>'}</div>
       ${mine ? `<a class="btn primary section" href="#arene/${t.id}/${mine.id}" style="width:100%">⚔️ Ton match est prêt : entrer dans la salle</a>` : ''}
       <div class="card section"><b>Règles</b>${arRules(t)}<p class="small mute">Arbitres : ${t.referees.map(arName).map(esc).join(', ') || 'aucun'} · ${t.players.length} joueurs</p></div>
       ${t.status === 'draft' ? `<div class="card section"><b>Joueurs inscrits</b><p class="small">${t.players.map(arName).map(esc).join(', ')}</p>${arIsAdmin() ? '<div class="row"><button class="btn primary" id="arLaunch">🎲 Tirer le tableau et lancer le tournoi</button><button class="btn ghost" id="arDel">Supprimer</button></div>' : '<p class="small mute">Le tournoi n’a pas encore commencé.</p>'}</div>` : ''}
-      ${R ? `<div class="ar-br">${Array.from({ length: R }, (_, k) => `<div class="ar-col"><h3>${arRoundName(k, R)}${k >= R - 2 ? ' <span class="small mute">BO3</span>' : ''}</h3>${t.rules?.per_round ? `<p class="small ar-rr">${(t.round_rules || {})[k] ? ((t.round_rules[k].length ? '🎲 ' + t.round_rules[k].map(arRuleTxt).map(esc).join(' · ') : 'Pas de règle ce tour')) : '🎲 Règle tirée au début du tour'}</p>` : ''}${(M || []).filter(x => x.round === k).map(x => {
+      ${R ? `<div class="ar-br">${Array.from({ length: R }, (_, k) => `<div class="ar-col"><h3>${arRoundName(k, R)}${arIsMx(t, k) ? ' <span class="small mute">Mercato</span>' : k >= R - 2 ? ' <span class="small mute">BO3</span>' : ''}</h3>${arIsMx(t, k) ? '<p class="small ar-rr">🎮 Mercato YURO (règle unique)</p>' : t.rules?.per_round ? `<p class="small ar-rr">${(t.round_rules || {})[k] ? ((t.round_rules[k].length ? '🎲 ' + t.round_rules[k].map(arRuleTxt).map(esc).join(' · ') : 'Pas de règle ce tour')) : '🎲 Règle tirée au début du tour'}</p>` : ''}${(M || []).filter(x => x.round === k).map(x => {
         const w1 = x.winner && x.winner === x.p1, w2 = x.winner && x.winner === x.p2, sc = x.bo === 3 ? ` <i>${x.wins[0]}</i>` : '', sc2 = x.bo === 3 ? ` <i>${x.wins[1]}</i>` : '';
-        const can = ['ban', 'pick', 'live', 'dispute'].includes(x.status);
+        const can = ['ban', 'pick', 'live', 'dispute', 'mercato'].includes(x.status);
         return `<div class="ar-m ${x.status}"><div class="${w1 ? 'w' : ''}">${esc(x.p1 ? arName(x.p1) : x.note === 'vide' ? '—' : '…')}${sc}</div><div class="${w2 ? 'w' : ''}">${esc(x.p2 ? arName(x.p2) : x.note ? '—' : '…')}${sc2}</div>
           <span class="small mute">${x.note === 'exempt' ? 'Exempt' : lab[x.status]}${x.status === 'pick' || x.status === 'ban' ? ` · manche ${x.game}` : ''}</span>${can ? `<a class="btn ghost" href="#arene/${t.id}/${x.id}" style="min-height:32px;margin-top:6px">${x.p1 === me || x.p2 === me ? 'Entrer' : x.status === 'live' ? '👁 Regarder' : ref ? 'Arbitrer' : 'Voir'}</a>` : ''}</div>`;
       }).join('')}</div>`).join('')}</div>` : ''}`;
@@ -2402,12 +2410,12 @@ async function arCall() {
   if (!S.user || Date.now() - AR_CALL_AT < 20000) return; AR_CALL_AT = Date.now();
   mxCall().catch(() => { });
   try {
-    const me = S.user.id, { data } = await sb.from('arena_match').select('id,tourn_id,status').in('status', ['ban', 'pick', 'live', 'dispute']).or(`p1.eq.${me},p2.eq.${me}`).limit(1);
+    const me = S.user.id, { data } = await sb.from('arena_match').select('id,tourn_id,status').in('status', ['ban', 'pick', 'live', 'dispute', 'mercato']).or(`p1.eq.${me},p2.eq.${me}`).limit(1);
     const x = data?.[0], here = x && location.hash.startsWith(`#arene/${x.tourn_id}`);
     let el = document.getElementById('arCall');
     if (!x || here) { el?.remove(); return; }
     if (!el) { el = document.createElement('a'); el.id = 'arCall'; document.body.appendChild(el); }
-    el.href = `#arene/${x.tourn_id}/${x.id}`; el.textContent = x.status === 'live' ? '⚔️ Ton combat de tournoi est en cours : y retourner' : '⚔️ Ton match de tournoi est prêt : entrer dans la salle';
+    el.href = `#arene/${x.tourn_id}/${x.id}`; el.textContent = x.status === 'mercato' ? '🎮 Ton match de tournoi (Mercato) est prêt : entrer dans la salle' : x.status === 'live' ? '⚔️ Ton combat de tournoi est en cours : y retourner' : '⚔️ Ton match de tournoi est prêt : entrer dans la salle';
   } catch (e) { /* rien */ }
 }
 setInterval(arCall, 20000);
@@ -2428,11 +2436,13 @@ async function arRoom(m, t, mid) {
     if (M.status === 'ban') tm = ` · ⏱ ${Math.max(0, Math.ceil((Date.parse(M.ban_until) - arNow()) / 1000))} s`;
     if (M.status === 'pick') tm = ` · ⏱ ${(s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`)(Math.max(0, Math.ceil((Date.parse(M.pick_until) - arNow()) / 1000)))}`;
     if (M.status === 'live' && M.last_at) { const s = Math.max(0, 60 - Math.floor((arNow() - Date.parse(M.last_at)) / 1000)); tm = ` · ${M.turn_side === side ? '<b class="red">À toi</b>' : 'Tour de ' + esc(names()[M.turn_side])} · ⏱ ${s} s`; }
-    h.innerHTML = `${esc(names()[0])} vs ${esc(names()[1])} · manche ${M.game}${sc}${tm}`;
+    h.innerHTML = M.status === 'mercato' ? `${esc(names()[0])} vs ${esc(names()[1])} · 🎮 Mercato` : `${esc(names()[0])} vs ${esc(names()[1])} · manche ${M.game}${sc}${tm}`;
   };
   // Horloge : fins de ban / de choix / forfait (le serveur vérifie toujours les délais).
   let lastPoke = 0;
-  const tick = () => { hud(); if (!M || side == null) return; const n = arNow();
+  let mxPoke = 0;
+  const tick = () => { hud(); if (M?.status === 'mercato' && Date.now() - mxPoke > 10000) { mxPoke = Date.now(); sb.rpc('arena_mercato_done', { mid }).then(() => { }, () => { }); }
+    if (!M || side == null) return; const n = arNow();
     const due = (M.status === 'ban' && n > Date.parse(M.ban_until) + 800) || (M.status === 'pick' && n > Date.parse(M.pick_until) + 800) || (M.status === 'live' && M.turn_side !== side && n > Date.parse(M.last_at) + 61500);
     if (due && n - lastPoke > 4000) { lastPoke = n; sb.rpc('arena_afk', { mid }); } };
 
@@ -2489,7 +2499,21 @@ async function arRoom(m, t, mid) {
     const r = $('#arRe'); if (r) r.onclick = () => arRpc('arena_ref_decide', { mid, win_side: 0, replay: true }).catch(() => { });
   }
 
+  // Tour en Mercato : la partie est créée par le serveur pour les deux joueurs ; les autres membres regardent (5 s de différé).
+  let mxMod = null;
+  async function drawMercato() {
+    if (view === 'mercato') return; view = 'mercato';
+    if (duel) { duel.stop(); duel = null; }
+    const { data: p } = await sb.from('mercato_parties').select('code').eq('arena_mid', mid).maybeSingle();
+    if (!p) { $('#arBody').innerHTML = '<div class="empty">Préparation de la partie de Mercato…</div>'; view = ''; return; }
+    $('#arBody').innerHTML = `${side == null ? '' : '<p class="small mute">Match de tournoi en Mercato YURO : le vainqueur du Mercato passe au tour suivant.</p>'}<div id="arMx"></div>`;
+    mxMod = await import('./jeux/mercato.js?v=' + APP_V);
+    mxMod.arenaGame($('#arMx'), p.code, { sb, S, ROLE, statsAt, lrImg, toast, APP_V, arena: { back: `#arene/${t.id}`, keep: `#arene/${t.id}/${mid}`, onOver: () => sb.rpc('arena_mercato_done', { mid }) } });
+  }
   function drawDone() {
+    if (view === 'mercato' && !drawDone.wait) { drawDone.wait = 1; setTimeout(() => { drawDone.wait = 2; drawDone(); }, 8000); return; }
+    if (drawDone.wait === 1) return;
+    try { mxMod?.arenaStop(); } catch (e) { /* rien */ }
     view = 'done'; if (duel) { duel.stop(); duel = null; }
     $('#arBody').innerHTML = `<div class="card section" style="text-align:center"><h2>🏆 ${esc(arName(M.winner))}</h2><p class="small mute">${M.bo === 3 ? `${M.wins[0]} – ${M.wins[1]} · ` : ''}${esc(M.note || 'Victoire')}</p><a class="btn" href="#arene/${t.id}">Voir le tableau</a></div>`;
   }
@@ -2513,6 +2537,7 @@ async function arRoom(m, t, mid) {
     if (M.status === 'ban') { if (view !== 'ban') await loadPick(); drawBan(); }
     else if (M.status === 'pick') { if (view !== 'pick') await loadPick(); drawPick(); }
     else if (M.status === 'live') await drawLive();
+    else if (M.status === 'mercato') await drawMercato();
     else if (M.status === 'dispute') drawDispute();
     else if (M.status === 'done') drawDone();
     else $('#arBody').innerHTML = '<div class="empty">Ce match attend ses joueurs.</div>';
@@ -2524,7 +2549,7 @@ async function arRoom(m, t, mid) {
   const ch = sb.channel('arM' + mid).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'arena_match', filter: 'id=eq.' + mid }, p => { M = { ...M, ...p.new }; show(); }).subscribe();
   const poll = setInterval(async () => { const x = await load(); if (x && (x.updated_at !== M.updated_at)) { M = x; show(); } }, 4000);
   const iv = setInterval(tick, 1000);
-  S.arenaOff = () => { sb.removeChannel(ch); clearInterval(poll); clearInterval(iv); if (duel) duel.stop(); };
+  S.arenaOff = () => { sb.removeChannel(ch); clearInterval(poll); clearInterval(iv); if (duel) duel.stop(); try { mxMod?.arenaStop(); } catch (e) { /* rien */ } };
 }
 
 /* Pilote du combat dans l'écran du jeu : coups de l'adversaire reçus du serveur, les miens envoyés, hasard du moteur tiré avec la graine de la manche. */
@@ -2586,7 +2611,7 @@ function arDuel(W, M0, side, t, nm, mid) {
   else {
     // Début de manche : écran « Match classé » du jeu (les deux camps, VS), puis volets d'entrée en combat.
     const nmL = spec ? [nm[0], nm[1]] : [nm[me], nm[1 - me]], wl = M0.wins || [0, 0];
-    const intro = W.yuroMatchIntro ? W.yuroMatchIntro({ names: nmL, teams: [A, B], kanji: '位', eyebrow: (t.name || 'Arène') + ' · manche ' + M0.game, meLabel: spec ? 'JOUEUR 1' : 'TOI', tags: M0.bo === 3 ? [`${wl[spec ? 0 : me]} manche(s) gagnée(s)`, `${wl[spec ? 1 : 1 - me]} manche(s) gagnée(s)`] : null }) : Promise.resolve();
+    const intro = W.yuroMatchIntro ? W.yuroMatchIntro({ names: nmL, teams: [A, B], kanji: '位', eyebrow: 'Match de tournoi · ' + arRoundName(M0.round, t.rounds || 1) + (M0.bo === 3 ? ' · manche ' + M0.game : ''), meLabel: spec ? 'JOUEUR 1' : 'TOI', tags: M0.bo === 3 ? [`${wl[spec ? 0 : me]} manche(s) gagnée(s)`, `${wl[spec ? 1 : 1 - me]} manche(s) gagnée(s)`] : null }) : Promise.resolve();
     intro.then(() => { if (!stopped) W.BFDuel.start(starterL); });
   }
   lastLen = 1;

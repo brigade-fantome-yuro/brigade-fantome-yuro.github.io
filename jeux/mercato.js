@@ -254,12 +254,12 @@ function supaDB(sb, uid) {
     del: code => T().delete().eq('code', code)
   };
 }
-function supaNet(sb, code, uid) {
+function supaNet(sb, code, uid, quiet) {
   const ch = sb.channel('mercato-' + code, { config: { broadcast: { self: false }, presence: { key: uid } } });
   const api = {
     on: (ev, fn) => ch.on('broadcast', { event: ev }, ({ payload }) => fn(payload)),
     onPresence: fn => ch.on('presence', { event: 'sync' }, () => fn(Object.keys(ch.presenceState()))),
-    start: () => new Promise(ok => { let done = false; ch.subscribe(s => { if (s === 'SUBSCRIBED' && !done) { done = true; ch.track({ uid, t: Date.now() }); ok(); } }); setTimeout(() => { if (!done) { done = true; ok(); } }, 8000); }),
+    start: () => new Promise(ok => { let done = false; ch.subscribe(s => { if (s === 'SUBSCRIBED' && !done) { done = true; if (!quiet) ch.track({ uid, t: Date.now() }); ok(); } }); setTimeout(() => { if (!done) { done = true; ok(); } }, 8000); }),
     send: (ev, payload) => ch.send({ type: 'broadcast', event: ev, payload }),
     close: () => { try { sb.removeChannel(ch); } catch (e) { /* rien */ } }
   };
@@ -276,6 +276,11 @@ export async function page(m, arg, ctx) {
   if (!/^[A-Z]{4}$/.test(code)) return lobby(m, ctx);
   return game(m, ctx, code);
 }
+/* Match de tournoi (arène de la Brigade) : la partie est créée par le serveur pour les deux joueurs du match.
+   ctx.arena = { back: lien de retour, keep: début du lien de la salle, onOver: fonction appelée à la fin }.
+   Les autres membres regardent en spectateur, avec 5 s de différé. À garder dans les prochaines versions du jeu. */
+export async function arenaGame(m, code, ctx) { cleanup(); ensureCss(ctx); return game(m, ctx, code); }
+export function arenaStop() { cleanup(); }
 function ensureCss(ctx) { if (document.getElementById('mxCss')) return; const l = document.createElement('link'); l.id = 'mxCss'; l.rel = 'stylesheet'; l.href = 'jeux/mercato.css?v=' + (ctx.APP_V || ''); document.head.appendChild(l); }
 function cleanup() {
   if (!X) return;
@@ -332,8 +337,8 @@ async function game(m, ctx, code) {
   const { sb, S } = ctx, uid = S.user.id, name = S.profile?.discord || 'Membre';
   const db = ctx.db || supaDB(sb, uid);
   X = { ctx, db, code, uid, myName: name, me: null, host: false, G: null, hid: { bids: [null, null], comp: [null, null] }, timers: [], online: new Set(), away: [0, 0], seen: [Date.now(), Date.now()],
-    draft: null, sel: null, myBid: {}, compSel: null, F: null, W: null, frame: null, saveT: 0, off: null };
-  X.onHash = () => { if (!location.hash.startsWith('#jeux/mercato/' + code)) cleanup(); };
+    draft: null, sel: null, myBid: {}, compSel: null, F: null, W: null, frame: null, saveT: 0, off: null, spec: false, arena: ctx.arena || null, back: ctx.arena?.back || '#jeux/mercato' };
+  X.onHash = () => { if (!location.hash.startsWith(ctx.arena?.keep || ('#jeux/mercato/' + code))) cleanup(); };
   window.addEventListener('hashchange', X.onHash);
   m.addEventListener('pointerdown', () => { if (SFX.on) audio(); }, { once: true });
   X.awayFor = i => X.online.has(X.G?.players[i]?.uid) ? 0 : Date.now() - (X.seen[i] || Date.now());
@@ -343,23 +348,25 @@ async function game(m, ctx, code) {
   let { data: row, error } = await db.get(code);
   if (error) { m.querySelector('#mxAct').innerHTML = `<p class="red">Erreur : ${esc(error.message)}</p>`; return; }
   if (!row) { m.querySelector('#mxAct').innerHTML = `<p>Aucune partie avec le code <b>${esc(code)}</b>.</p><a class="btn" href="#jeux/mercato">Retour</a>`; return; }
-  if (row.host !== uid && row.guest !== uid) {
+  if (row.host !== uid && row.guest !== uid && X.arena) X.spec = true;
+  else if (row.host !== uid && row.guest !== uid) {
     if (row.guest || row.status !== 'lobby') { m.querySelector('#mxAct').innerHTML = `<p>Cette partie est déjà complète.</p><a class="btn" href="#jeux/mercato">Retour</a>`; return; }
     const r = await db.join(code, name); if (r.error || !r.data) { m.querySelector('#mxAct').innerHTML = `<p class="red">Impossible de rejoindre : ${esc(r.error?.message || 'partie déjà prise')}</p>`; return; }
     row = r.data;
   }
   if (!X) return;
-  X.host = row.host === uid; X.me = X.host ? 0 : 1; X.row = row; X.hs = Math.random().toString(36).slice(2, 8);
+  X.host = !X.spec && row.host === uid; X.me = X.host || X.spec ? 0 : 1; X.row = row; X.hs = Math.random().toString(36).slice(2, 8);
   X.pool = buildPool(ctx); X.roles = Object.keys(ctx.ROLE);
-  const net = X.net = (ctx.net || supaNet)(sb, code, uid);
+  const net = X.net = (ctx.net || supaNet)(sb, code, uid, X.spec);
+  const later = fn => X.spec ? (p => setTimeout(() => { if (X) fn(p); }, 5000)) : fn;   // spectateurs : 5 s de différé
   net.onPresence(ids => { const now = Date.now(), before = [...X.online].sort().join(); X.online = new Set(ids); const same = before === [...X.online].sort().join(); if (X.G) X.G.players.forEach((p, i) => { if (X.online.has(p.uid)) X.seen[i] = now; }); else if (X.host && ids.length > 1) hostStart(); if (!same) render(); });
   if (X.host) {
     net.on('act', a => { if (!X.G || a.uid !== X.G.players[1].uid) return; if (apply(X.G, 1, a)) commit(); });
     net.on('hello', () => { if (X.G) sendState(); else hostStart(); });
   } else {
-    net.on('state', s => { if (!s || (X.G && s.hs === X.G.hs && s.seq < X.G.seq)) return; { const d = Date.now() - (s.now || Date.now()); X.off = X.off == null || X.offAt < Date.now() - 60000 ? d : Math.min(X.off, d); X.offAt = X.offAt && X.offAt > Date.now() - 60000 ? X.offAt : Date.now(); } X.G = s; resendMoves(); render(); });
+    net.on('state', later(s => { if (!s || (X.G && s.hs === X.G.hs && s.seq < X.G.seq)) return; { const d = Date.now() - (s.now || Date.now()); X.off = X.off == null || X.offAt < Date.now() - 60000 ? d : Math.min(X.off, d); X.offAt = X.offAt && X.offAt > Date.now() - 60000 ? X.offAt : Date.now(); } X.G = s; if (!X.spec) resendMoves(); render(); }));
   }
-  net.on('mv', p => onRemoteMove(p));
+  net.on('mv', later(p => onRemoteMove(p)));
   await net.start(); if (!X) return;
   if (row.state && row.state.v) {
     X.G = row.state;
@@ -372,7 +379,7 @@ async function game(m, ctx, code) {
   }
   if (row.status === 'over' && row.state?.over) X.G = row.state;
   if (X.host && !X.G && row.guest) hostStart();
-  if (!X.host) net.send('hello', { uid });
+  if (!X.host && !X.spec) net.send('hello', { uid });
   X.timers.push(setInterval(tick, 500));
   // le chrono a son propre rafraîchissement, plus fin, pour que les secondes tombent régulièrement
   X.timers.push(setInterval(() => { if (!X) return; X.root.querySelectorAll('[data-dl]').forEach(el => { const t = timerState(+el.dataset.dl, +el.dataset.tot || 30), b = el.querySelector('b'), u = el.querySelector('u'); if (b && b.textContent !== t.s + ' s') b.textContent = t.s + ' s'; if (u) u.style.transform = `scaleX(${t.k.toFixed(3)})`; el.classList.toggle('hot', t.s <= 5); }); }, 100));
@@ -387,7 +394,7 @@ async function hostStart() {
   nextTurn(X.G); commit();
 }
 function commit() {
-  const G = X.G; G.seq++; G.now = Date.now(); G.hs = X.hs;
+  const G = X.G; G.seq++; if (G.over && X.arena?.onOver) setTimeout(() => { try { X?.arena?.onOver(G); } catch (e) { /* rien */ } }, 1500); G.now = Date.now(); G.hs = X.hs;
   if (X.host) sendState();
   render();
   clearTimeout(X.saveT); X.saveT = setTimeout(save, G.over ? 0 : 600);
@@ -395,7 +402,7 @@ function commit() {
 function sendState() { if (!X?.G) return; X.G.now = Date.now(); X.net.send('state', X.G); }
 function save() { if (!X?.G) return; const G = X.G; X.db.save(X.code, { state: G, status: G.over ? 'over' : 'playing', ...(G.over ? { winner: G.players[G.over.w].uid } : {}) }).then(r => { if (r?.error) console.warn('[mercato] enregistrement', r.error.message); }); }
 function act(t, v, extra = {}) {
-  const G = X.G; if (!G) return;
+  const G = X.G; if (!G || X.spec) return;
   const a = { t, v, pid: G.pid, c: G.ph?.c, uid: X.uid, ...extra };
   if (t === 'seal') X.myBid[G.pid] = v;
   if (X.host) { if (apply(G, 0, a)) commit(); } else X.net.send('act', a);
@@ -412,7 +419,7 @@ function tick() {
   if (G && (X.snd?.myTurn || X.snd?.behind) && G.dl) { const s5 = Math.ceil((G.dl - (now - (X.host ? 0 : X.off || 0))) / 1000); if (s5 <= 5 && s5 > 0 && s5 !== X.lastTick) { X.lastTick = s5; sfx('tick'); } }
 
   if (X.F) fightTick();
-  const o = other(X.me ?? 0); const aw = G && !G.over && G.players[o]?.uid && X.awayFor(o) >= TIME.away * 1000;
+  const o = other(X.me ?? 0); const aw = !X.spec && G && !G.over && G.players[o]?.uid && X.awayFor(o) >= TIME.away * 1000;
   const cb = X.root.querySelector('#mxClaim'); if (cb) cb.hidden = !aw; else if (aw) render();
 }
 
@@ -458,7 +465,8 @@ function render() {
   const stageLbl = { main: 'Mercato', compose: 'Composition des trios', fight: 'Combats', sd: 'Mort subite', over: 'Fin de partie' }[G.stage];
   $('#mxTop').innerHTML = `<div class="mx-title"><b>Mercato</b><span class="mx-stage-lbl">${stageLbl}</span><span class="small mute">Partie ${esc(G.code)}</span></div>
     <div class="mx-score" aria-label="Score"><span>${esc(P[0].name)}</span><b>${G.score[0]}<i></i>${G.score[1]}</b><span>${esc(P[1].name)}</span></div>
-    <div class="row mx-topb">${G.over ? '<a class="btn ghost" href="#jeux/mercato">Retour</a>' : `<button class="btn ghost" id="mxClaim" hidden>Réclamer la victoire (adversaire absent)</button><button class="btn ghost" id="mxFF">Abandonner</button>`}<button class="btn ghost mx-snd" id="mxSnd" aria-pressed="${SFX.on}" title="${SFX.on ? 'Couper le son' : 'Remettre le son'}"><svg class="mx-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z${SFX.on ? 'M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11' : 'M16 9l5 6M21 9l-5 6'}"/></svg>${SFX.on ? 'Son' : 'Muet'}</button></div>`;
+    <div class="row mx-topb">${G.over ? `<a class="btn ghost" href="${X.back}">Retour</a>` : `<button class="btn ghost" id="mxClaim" hidden>Réclamer la victoire (adversaire absent)</button><button class="btn ghost" id="mxFF">Abandonner</button>`}<button class="btn ghost mx-snd" id="mxSnd" aria-pressed="${SFX.on}" title="${SFX.on ? 'Couper le son' : 'Remettre le son'}"><svg class="mx-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z${SFX.on ? 'M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11' : 'M16 9l5 6M21 9l-5 6'}"/></svg>${SFX.on ? 'Son' : 'Muet'}</button></div>`;
+  $('#mx').classList.toggle('mx-spec', !!X.spec);
   $('#mxHud').innerHTML = [me, o].map(i => hudHTML(G, i)).join('');
   // zone d'action
   $('#mxAct').innerHTML = actHTML(G);
@@ -672,7 +680,7 @@ function overHTML(G) {
     ${(G.comp ? G.comp[i] : [P[i].own]).map((t, j) => `<div class="small"><b>${G.comp ? 'Trio ' + (j + 1) : 'Équipe'}</b> : ${t.map(k => esc(G.cards[k].n)).join(', ')}</div>`).join('')}
     ${P[i].sd.length ? `<div class="small"><b>Mort subite</b> : ${P[i].sd.map(k => esc(G.cards[k].n)).join(', ')}</div>` : ''}</div>`).join('')}</div>
     <div class="card section"><h3>Combats</h3>${G.fights.map(f => `<div class="small">${f.n === 3 ? 'Mort subite' : 'Combat ' + f.n} : ${f.w == null ? '—' : f.w === 'draw' ? 'égalité' : esc(P[f.w].name)}</div>`).join('') || '<p class="small mute">Aucun combat joué.</p>'}</div>
-    <div class="row"><a class="btn primary" href="#jeux/mercato">Nouvelle partie</a></div>`;
+    <div class="row">${X.arena ? `<a class="btn primary" href="${X.back}">Retour au match</a>` : '<a class="btn primary" href="#jeux/mercato">Nouvelle partie</a>'}</div>`;
 }
 // Échange de deux cartes entre les trios : toucher l'une puis l'autre, ou glisser à la souris.
 function swapCards(a, b) { const S2 = X.compSel; if (!a || !b || a === b || S2.t[a] === S2.t[b]) return false; [S2.t[a], S2.t[b]] = [S2.t[b], S2.t[a]]; S2.pick = null; sfx('swap'); S2.flash = [a, b]; render(); return true; }
@@ -788,7 +796,7 @@ async function mountFight() {
     const k = W.BFDuel.info().hist.length - 1;
     if (F.moves[k]) { if (k < F.replay) W.reducedMotion = () => true; return res(F.moves[k]); }
     if (X.rmOrig) W.reducedMotion = X.rmOrig;
-    if (D.s === me) { F.ai[me] = false; setTimeout(() => { try { W.renderInfinity(); } catch (e) { /* rien */ } }, 0); return; }
+    if (D.s === me && !X.spec) { F.ai[me] = false; setTimeout(() => { try { W.renderInfinity(); } catch (e) { /* rien */ } }, 0); return; }
     F.wait[k] = res;
   });
   SEED = f.seed; W.reducedMotion = F.replay ? () => true : (X.rmOrig || W.reducedMotion);
@@ -801,7 +809,7 @@ function onDuel(info, F) {
   for (let j = 1; j < H.length; j++) {
     const k = j - 1, h = H[j]; if (F.seen[k]) continue; F.seen[k] = 1;
     const s = sig(h.D);
-    if (h.side === me && !F.moves[k]) {
+    if (h.side === me && !F.moves[k] && !X.spec) {
       F.moves[k] = h.mv; F.dl = 0; if (!F.auto) F.miss = 0; F.auto = false;
       X.net.send('mv', { f: F.id, k, mv: h.mv, sig: s });
       storeMove(F.id, k, h.mv);
@@ -809,10 +817,10 @@ function onDuel(info, F) {
   }
   if (D.winner != null) {
     if (!F.done) { F.done = true; F.dl = 0; if (X.host) setTimeout(() => { if (X?.G && X.F === F) { fightEnd(X.G, D.winner === 'draw' ? 'draw' : D.winner); commit(); } }, 2800); }
-  } else if (D.s === me && !F.ai[me] && H.length - 1 === info.idx) {
+  } else if (D.s === me && !F.ai[me] && !X.spec && H.length - 1 === info.idx) {
     if (F.tk !== H.length) { F.tk = H.length; F.dl = Date.now() + TIME.move * 1000; }
   }
-  if (me === 1) patchLabels();
+  if (me === 1 || X.spec) patchLabels();
 }
 function storeMove(fid, k, mv) { if (!X.host) return; const f = X.G.fights[fid - 1]; if (!f) return; f.moves[k] = mv; clearTimeout(X.saveT); X.saveT = setTimeout(save, 800); }
 function onRemoteMove(p) {
@@ -835,7 +843,7 @@ function resendMoves() {
 function fightTick() {
   const F = X.F, W = X.W, el = X.root.querySelector('#mxMoveT');
   if (!F || !W) return;
-  const D = W.BFDuel.info().D, mine = D && D.winner == null && D.s === X.me && !F.ai[X.me];
+  const D = W.BFDuel.info().D, mine = !X.spec && D && D.winner == null && D.s === X.me && !F.ai[X.me];
   if (el) { if (mine && F.dl) { const s = Math.max(0, Math.ceil((F.dl - Date.now()) / 1000)); el.innerHTML = `À toi de jouer : <b class="${s <= 10 ? 'hot' : ''}">${s} s</b>${F.miss ? ` · coups manqués : ${F.miss}/3` : ''}`; } else el.textContent = D && D.winner == null && D.s !== X.me ? `Au tour de ${X.G.players[other(X.me)].name}…` : ''; }
   if (mine && F.dl && Date.now() > F.dl && !W.infinityPlayback.animating) {
     F.miss++; F.dl = 0;
@@ -853,7 +861,8 @@ function fightTick() {
 function patchLabels() {
   const W = X.W, G = X.G; if (!W || !G) return;
   const a = G.players[0].name, b = G.players[1].name, A = a.toUpperCase(), B = b.toUpperCase();
-  const map = [['À TOI DE JOUER', 'AU TOUR DE ' + A], ['AU TOUR DE ' + B, 'À TOI DE JOUER'], ['TON ACTION', 'ACTION DE ' + A], ['ACTION DE ' + B, 'TON ACTION'], ['Tu passes à l’action', a + ' passe à l’action'], [b + ' passe à l’action', 'Tu passes à l’action']];
+  const map = X.spec ? [['À TOI DE JOUER', 'AU TOUR DE ' + A], ['TON ACTION', 'ACTION DE ' + A], ['Tu passes à l’action', a + ' passe à l’action']]
+    : [['À TOI DE JOUER', 'AU TOUR DE ' + A], ['AU TOUR DE ' + B, 'À TOI DE JOUER'], ['TON ACTION', 'ACTION DE ' + A], ['ACTION DE ' + B, 'TON ACTION'], ['Tu passes à l’action', a + ' passe à l’action'], [b + ' passe à l’action', 'Tu passes à l’action']];
   const root = W.document.getElementById('bfStage'); if (!root) return;
   const tw = W.document.createTreeWalker(root, 4); let n;
   while ((n = tw.nextNode())) { const t = n.nodeValue.trim(); if (!t || n.parentElement?.closest('.story-fighter')) continue; const hit = map.find(([x]) => x === t); if (hit) n.nodeValue = n.nodeValue.replace(hit[0], hit[1]); }
