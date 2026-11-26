@@ -87,7 +87,7 @@ end $$;
 
 -- Tirage des règles d'un tour (une seule fois, au début du tour). Familles différentes, jamais une règle déjà fixée, toujours jouable.
 create or replace function arena_draw_round(tid bigint, rnd int) returns void language plpgsql security definer set search_path = public as $$
-declare t arena_tourn; k int; fixed jsonb; pool text[][] := array[['univers','Univers'],['nohealer','Rôles'],['nostunner','Rôles'],['healer1','Rôles'],['noS','Rang'],['budget','Draft'],['imposed','Draft'],['nosame','Format'],['villains','Fun']];
+declare t arena_tourn; k int; fixed jsonb; pool text[][] := array[['nohealer','Rôles'],['nostunner','Rôles'],['healer1','Rôles'],['noS','Rang'],['budget','Draft'],['imposed','Draft'],['nosame','Format'],['villains','Fun']];
   fams text[]; draw jsonb; used text[]; tries int := 0; j int; ord int[]; card int;
 begin
   select * into t from arena_tourn where id = tid for update;
