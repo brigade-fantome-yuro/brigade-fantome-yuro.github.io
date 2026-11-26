@@ -73,6 +73,12 @@ Deno.serve(async (req) => {
       return json({ ok: true, sent: n });
     }
     if (!input.token || input.token !== S.publisher) return json({ ok: false, reason: 'token' }, 403);
+    // Alerte privée pour le Chef (veilles du bot dans l'onglet du jeu : marché muet, ticket, nouveau membre) : notification sur ses appareils, sans passer par la conversation.
+    if (input.notify) {
+      const { data: ad } = await admin.from('profiles').select('id').eq('role', 'admin');
+      const n = await deliver((ad || []).map((x: { id: string }) => x.id), { title: String(input.notify.title || 'Brigade Fantôme').slice(0, 80), body: String(input.notify.body || '').slice(0, 240), tag: String(input.notify.tag || 'bf-chef').slice(0, 60), url: String(input.notify.url || '') });
+      return json({ ok: true, sent: n });
+    }
     const listings: { id: string; card: string; price: number; created_at: string | number }[] = (input.listings || []).filter((l: { id: unknown; card: unknown; price: unknown }) => l && l.id && l.card && Number(l.price) > 0).slice(0, 200);
     if (!listings.length) return json({ ok: true, sent: 0 });
     const { data: alerts } = await admin.from('alerts').select('user_id,card,max_price').not('max_price', 'is', null);
