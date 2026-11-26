@@ -631,3 +631,4 @@ body.nav2 .th-spider{display:none}
 /* 1+5 : pas d'effet 3D au survol des cartes (elles sortaient du cadre). */
 body.nav2 a.card:hover,body.nav2.th-c a.card:hover,body.nav2.th-c .grid>.card:hover,body.nav2.th-c .mcard:hover{transform:none!important;box-shadow:none!important}
 body.nav2 a.card:hover{border-color:#5a4650}
+.ar-rr{margin:0;color:var(--warn)}

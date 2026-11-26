@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=208';
+import * as CFG from './config.js?v=209';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=208';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=208';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=209';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=209';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=208';
-import * as SCAN from './scan.js?v=208';
+import { duelRate } from './ranked.js?v=209';
+import * as SCAN from './scan.js?v=209';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -52,7 +52,7 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '208';
+const APP_V = '209';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -674,10 +674,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=208'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=209'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=208'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=209'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -810,7 +810,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=208'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=209'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1638,7 +1638,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=208'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=209'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2192,6 +2192,21 @@ async function betSection(el, t, admin, save) {
    Chaque écran (les deux joueurs et les spectateurs) fait tourner le moteur : le serveur range les coups dans l'ordre et contrôle le tour,
    l'adversaire recalcule chaque coup. 60 s sans jouer = forfait. Spectateurs : 5 s de différé. */
 const AR_ROLES = { tank: 'Tank', stunner: 'Stunner', healer: 'Healer', degats: 'Dégâts', polyvalence: 'Polyvalence' };
+// Règles automatiques de l'arène (contrôlées par le serveur, cartes grisées sur le site). « Personnages féminins » retirée : seulement 2 cartes (Makima, Frieren).
+const AR_RULES = [
+  ['univers', 'Univers', 'Même univers : les 3 cartes viennent du même anime.'],
+  ['nohealer', 'Rôles', 'Interdit : healer.'],
+  ['nostunner', 'Rôles', 'Interdit : stunner.'],
+  ['healer1', 'Rôles', '1 healer obligatoire.'],
+  ['noS', 'Rang', 'Interdit : les cartes du rang S de la tier list.'],
+  ['budget', 'Draft', 'Budget : 10 points maximum (rang S 5, A 4, B 3, C, D et non classées 2).'],
+  ['imposed', 'Draft', 'Carte imposée dans les deux équipes.'],
+  ['nosame', 'Format', 'Interdit de reprendre sa compo du tour précédent.'],
+  ['villains', 'Fun', 'Équipe de méchants uniquement.']];
+const arRuleTxt = r => r.id === 'imposed' ? `Carte imposée : ${arCard(r.card)?.n || '?'} dans les deux équipes.` : (AR_RULES.find(x => x[0] === r.id)?.[2] || r.id);
+const arActive = (t, rnd) => [...(t.rules?.fixed || []), ...((t.round_rules || {})[rnd] || [])];
+const arPts = c => ({ S: 5, A: 4, B: 3 }[S.arTier?.[c.id]] || 2);
+const arVil = c => !!S.arVil?.has(c.id);
 const arPool = () => (S.kb.cards || []).filter(c => c.r !== 'Transcendant');
 const arCard = id => (S.kb.cards || []).find(c => c.id === +id);
 const arName = id => S.members?.find(p => p.id === id)?.discord || (id ? 'Joueur' : '—');
@@ -2207,6 +2222,8 @@ const arIsAdmin = () => S.profile?.role === 'admin';
 P.arene = async (m, arg) => {
   if (S.arenaOff) { try { S.arenaOff(); } catch (e) { /* rien */ } S.arenaOff = null; }
   await arMembers(); arClock();
+  if (!S.arTier) { try { const [{ data: tg }, { data: rm }] = await Promise.all([sb.from('content').select('data').eq('key', 'arena_tags').maybeSingle(), sb.from('content').select('tiers:data->tiers').eq('key', 'ranked_meta').maybeSingle()]);
+    S.arVil = new Set(tg?.data?.villain || []); S.arTier = {}; (rm?.tiers || []).forEach(x => S.arTier[x[0]] = x[2]); } catch (e) { S.arTier = {}; S.arVil = new Set(); } }
   const [tid, mid] = (arg || '').split('/').map(x => x ? +x : null);
   const { data: T } = await sb.from('arena_tourn').select('*').order('created_at', { ascending: false });
   const me = S.user.id, mine = (T || []).some(t => t.players.includes(me) || t.referees.includes(me));
@@ -2230,9 +2247,16 @@ function arCreateForm() {
   return `<details class="card section" id="arNew"><summary><b>➕ Créer un tournoi</b></summary>
     <label>Nom</label><input id="arNm" placeholder="Tournoi de la Brigade">
     <label>Étoiles pour toutes les cartes</label><div class="row"><label class="chk"><input type="radio" name="arSt" value="5" checked> 5★</label><label class="chk"><input type="radio" name="arSt" value="0"> 0★</label></div>
-    <label>Rôles interdits</label><div class="row" style="flex-wrap:wrap">${Object.entries(AR_ROLES).map(([k, v]) => `<label class="chk"><input type="checkbox" class="arBc" value="${k}"> ${v}</label>`).join('')}</div>
-    <details style="margin-top:10px"><summary class="small">Cartes interdites (facultatif)</summary><div class="ar-mini">${arPool().map(c => `<label class="chk small"><input type="checkbox" class="arBk" value="${c.id}"> ${esc(c.n)}</label>`).join('')}</div></details>
-    <label>Règle de budget (facultatif, vérifiée par les arbitres)</label><textarea id="arBud" rows="2" placeholder="Ex. : 10 points par équipe, LR à 4 points, UR à 3 points…"></textarea>
+    <label>Règles du tournoi entier</label>
+    <div class="ar-mini" id="arFx" style="flex-direction:column;max-height:none">${AR_RULES.map(r => `<label class="chk small"><input type="checkbox" class="arFr" value="${r[0]}"> <b>${r[1]}</b> · ${esc(r[2])}${r[0] === 'imposed' ? ` <select id="arImp" style="width:auto;min-height:30px;padding:2px 6px;font-size:13px">${arPool().map(c => `<option value="${c.id}">${esc(c.n)}</option>`).join('')}</select>` : ''}</label>`).join('')}</div>
+    <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><select id="arFk" style="width:auto;min-height:36px">${[1, 2, 3].map(k => `<option value="${k}"${k === 2 ? ' selected' : ''}>${k} règle${k > 1 ? 's' : ''}</option>`).join('')}</select><button class="btn ghost" id="arFdraw" style="min-height:36px">🎲 Tirer au sort les règles du tournoi</button><span class="small mute" id="arFmsg"></span></div>
+    <label>Règle tirée au sort à chaque tour (la même pour tous les matchs du tour)</label>
+    <select id="arPr" style="width:auto"><option value="0">Aucune</option><option value="1" selected>1 règle par tour</option><option value="2">2 règles par tour</option></select>
+    <p class="small mute">Jamais deux règles de la même famille, jamais une règle déjà fixée pour tout le tournoi, et toujours au moins une équipe possible.</p>
+    <details style="margin-top:10px"><summary class="small">Interdictions sur mesure (facultatif)</summary>
+      <label>Rôles interdits</label><div class="row" style="flex-wrap:wrap">${Object.entries(AR_ROLES).map(([k, v]) => `<label class="chk"><input type="checkbox" class="arBc" value="${k}"> ${v}</label>`).join('')}</div>
+      <label>Cartes interdites</label><div class="ar-mini">${arPool().map(c => `<label class="chk small"><input type="checkbox" class="arBk" value="${c.id}"> ${esc(c.n)}</label>`).join('')}</div>
+      <label>Règle libre vérifiée par les arbitres</label><textarea id="arBud" rows="2" placeholder="Laisse vide si tout est automatique."></textarea></details>
     <label>Arbitres</label><div class="ar-mini">${mem.map(p => `<label class="chk small"><input type="checkbox" class="arRf" value="${p.id}"> ${esc(p.discord)}</label>`).join('')}</div>
     <label>Joueurs</label><div class="row" style="margin:4px 0"><button class="btn ghost" id="arAll" style="min-height:34px">Tout cocher</button></div><div class="ar-mini">${mem.map(p => `<label class="chk small"><input type="checkbox" class="arPl" value="${p.id}"> ${esc(p.discord)}</label>`).join('')}</div>
     <div class="row section"><button class="btn primary" id="arGo">Créer le tournoi</button></div></details>`;
@@ -2240,10 +2264,24 @@ function arCreateForm() {
 function arBindCreate(m) {
   const v = sel => [...m.querySelectorAll(sel + ':checked')].map(x => x.value);
   $('#arAll').onclick = e => { e.preventDefault(); m.querySelectorAll('.arPl').forEach(x => x.checked = true); };
+  $('#arFdraw').onclick = async e => {
+    e.preventDefault(); const k = +$('#arFk').value;
+    for (let n = 0; n < 40; n++) {
+      const used = new Set(), pick = [];
+      for (const r of AR_RULES.slice().sort(() => Math.random() - .5)) { if (pick.length >= k) break; if (used.has(r[1]) || r[0] === 'nosame') continue; used.add(r[1]); pick.push(r[0]); }
+      const imp = arPool()[Math.floor(Math.random() * arPool().length)].id;
+      const fixed = pick.map(id => id === 'imposed' ? { id, card: imp } : { id });
+      const { data: ok } = await sb.rpc('arena_feasible', { r: fixed, bancat: v('.arBc'), bancard: v('.arBk').map(Number) });
+      if (ok) { m.querySelectorAll('.arFr').forEach(x => x.checked = pick.includes(x.value)); if (pick.includes('imposed')) $('#arImp').value = imp; $('#arFmsg').textContent = 'Tiré au sort : ' + fixed.map(arRuleTxt).join(' · '); return; }
+    }
+    $('#arFmsg').textContent = 'Pas de combinaison jouable trouvée, réessaie.';
+  };
   $('#arGo').onclick = async () => {
     const nm = $('#arNm').value.trim() || 'Tournoi de la Brigade', pl = v('.arPl');
     if (pl.length < 2) { toast('Coche au moins 2 joueurs.'); return; }
-    const rules = { bancat: v('.arBc'), bancard: v('.arBk').map(Number), budget: $('#arBud').value.trim() };
+    const fixed = v('.arFr').map(id => id === 'imposed' ? { id, card: +$('#arImp').value } : { id });
+    const rules = { fixed, per_round: +$('#arPr').value, bancat: v('.arBc'), bancard: v('.arBk').map(Number), budget: $('#arBud').value.trim() };
+    if (fixed.length) { const { data: ok } = await sb.rpc('arena_feasible', { r: fixed, bancat: rules.bancat, bancard: rules.bancard }); if (!ok) { toast('Aucune équipe possible avec ces règles : change-les.'); return; } }
     const { data, error } = await sb.rpc('arena_create', { nm, st: +m.querySelector('[name=arSt]:checked').value, rl: rules, refs: v('.arRf'), pls: pl });
     if (error) { toast(error.message); return; } location.hash = '#arene/' + data;
   };
@@ -2253,7 +2291,9 @@ function arRules(t) {
   const r = t.rules || {}, out = [`Toutes les cartes à ${t.stars}★`, '1 carte par rôle', 'UR et LR (pas d’EX ni de TRS)', 'Ban d’1 carte chacun avant chaque manche', '3 min pour faire son équipe', '60 s sans jouer = forfait', 'BO3 à partir des demi-finales'];
   if (r.bancat?.length) out.push('Rôles interdits : ' + r.bancat.map(k => AR_ROLES[k] || k).join(', '));
   if (r.bancard?.length) out.push('Cartes interdites : ' + r.bancard.map(id => arCard(id)?.n || id).join(', '));
-  if (r.budget) out.push('Budget (arbitres) : ' + r.budget);
+  (r.fixed || []).forEach(x => out.push('Tout le tournoi · ' + arRuleTxt(x)));
+  if (r.per_round) out.push(`${r.per_round} règle${r.per_round > 1 ? 's' : ''} tirée${r.per_round > 1 ? 's' : ''} au sort à chaque tour (la même pour tous les matchs du tour)`);
+  if (r.budget) out.push('Règle libre (arbitres) : ' + r.budget);
   return `<ul class="small ar-rules">${out.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
 }
 
@@ -2271,7 +2311,7 @@ async function arTourn(m, t) {
       ${mine ? `<a class="btn primary section" href="#arene/${t.id}/${mine.id}" style="width:100%">⚔️ Ton match est prêt : entrer dans la salle</a>` : ''}
       <div class="card section"><b>Règles</b>${arRules(t)}<p class="small mute">Arbitres : ${t.referees.map(arName).map(esc).join(', ') || 'aucun'} · ${t.players.length} joueurs</p></div>
       ${t.status === 'draft' ? `<div class="card section"><b>Joueurs inscrits</b><p class="small">${t.players.map(arName).map(esc).join(', ')}</p>${arIsAdmin() ? '<div class="row"><button class="btn primary" id="arLaunch">🎲 Tirer le tableau et lancer le tournoi</button><button class="btn ghost" id="arDel">Supprimer</button></div>' : '<p class="small mute">Le tournoi n’a pas encore commencé.</p>'}</div>` : ''}
-      ${R ? `<div class="ar-br">${Array.from({ length: R }, (_, k) => `<div class="ar-col"><h3>${arRoundName(k, R)}${k >= R - 2 ? ' <span class="small mute">BO3</span>' : ''}</h3>${(M || []).filter(x => x.round === k).map(x => {
+      ${R ? `<div class="ar-br">${Array.from({ length: R }, (_, k) => `<div class="ar-col"><h3>${arRoundName(k, R)}${k >= R - 2 ? ' <span class="small mute">BO3</span>' : ''}</h3>${t.rules?.per_round ? `<p class="small ar-rr">${(t.round_rules || {})[k] ? ((t.round_rules[k].length ? '🎲 ' + t.round_rules[k].map(arRuleTxt).map(esc).join(' · ') : 'Pas de règle ce tour')) : '🎲 Règle tirée au début du tour'}</p>` : ''}${(M || []).filter(x => x.round === k).map(x => {
         const w1 = x.winner && x.winner === x.p1, w2 = x.winner && x.winner === x.p2, sc = x.bo === 3 ? ` <i>${x.wins[0]}</i>` : '', sc2 = x.bo === 3 ? ` <i>${x.wins[1]}</i>` : '';
         const can = ['ban', 'pick', 'live', 'dispute'].includes(x.status);
         return `<div class="ar-m ${x.status}"><div class="${w1 ? 'w' : ''}">${esc(x.p1 ? arName(x.p1) : x.note === 'vide' ? '—' : '…')}${sc}</div><div class="${w2 ? 'w' : ''}">${esc(x.p2 ? arName(x.p2) : x.note ? '—' : '…')}${sc2}</div>
@@ -2326,7 +2366,7 @@ async function arRoom(m, t, mid) {
     const due = (M.status === 'ban' && n > Date.parse(M.ban_until) + 800) || (M.status === 'pick' && n > Date.parse(M.pick_until) + 800) || (M.status === 'live' && M.turn_side !== side && n > Date.parse(M.last_at) + 61500);
     if (due && n - lastPoke > 4000) { lastPoke = n; sb.rpc('arena_afk', { mid }); } };
 
-  const cardTile = (c, st, cls, extra = '') => { const s = statsAt(c, st); return `<button class="ar-c ${cls}" data-c="${c.id}" ${cls.includes('off') ? 'disabled' : ''}><img src="${esc(lrImg(c))}" alt="" loading="lazy"><b>${esc(c.n)}</b><span class="small">${c.c ? AR_ROLES[c.c] || c.c : 'Sans rôle'}${c.p ? ' · UR' : ' · LR'}</span><span class="small mute">${s.hp} PV · ${s.atk} ATQ</span>${extra}</button>`; };
+  const cardTile = (c, st, cls, extra = '') => { const s = statsAt(c, st); return `<button class="ar-c ${cls}" data-c="${c.id}" ${cls.includes('off') ? 'disabled' : ''}><img src="${esc(lrImg(c))}" alt="" loading="lazy"><b>${esc(c.n)}</b><span class="small">${c.c ? AR_ROLES[c.c] || c.c : 'Sans rôle'}${c.p ? ' · UR' : ' · LR'}</span><span class="small mute">${s.hp} PV · ${s.atk} ATQ${arActive(t, M?.round || 0).some(x => x.id === 'budget') ? ` · ${arPts(c)} pts` : ''}</span>${extra}</button>`; };
   const banOk = c => !(t.rules?.bancard || []).map(Number).includes(c.id);
 
   function drawBan() {
@@ -2345,13 +2385,20 @@ async function arRoom(m, t, mid) {
       B.innerHTML = `<div class="card section"><b>Choix des équipes</b><p class="small">${bnTxt}</p><p class="small">${M.ready.map((r, i) => `${esc(names()[i])} : ${r ? '✅ prêt' : '…'}`).join(' · ')}</p><div id="arRef"></div></div>`;
       if (ref) arRefPanel(); return;
     }
-    const cats = new Set(myPick.map(id => arCard(id)?.c).filter(Boolean)), full = myPick.length >= 3;
-    const cls = c => { const pick = myPick.includes(c.id); if (pick) return 'on'; const bad = banned.includes(c.id) || !banOk(c) || (t.rules?.bancat || []).includes(c.c) || (c.c && cats.has(c.c)) || full; return bad ? 'off' : ''; };
-    const why = c => banned.includes(c.id) ? '<i class="ar-tag">Bannie</i>' : !banOk(c) || (t.rules?.bancat || []).includes(c.c) ? '<i class="ar-tag">Interdite</i>' : '';
+    const R = arActive(t, M.round), has = id => R.some(x => x.id === id), imp = R.find(x => x.id === 'imposed')?.card;
+    const cards = myPick.map(arCard).filter(Boolean), cats = new Set(cards.map(c => c.c).filter(Boolean)), full = myPick.length >= 3;
+    const used = cards.reduce((a, c) => a + arPts(c), 0), anime = cards[0]?.a;
+    const rule = c => (banned.includes(c.id) && 'Bannie') || ((!banOk(c) || (t.rules?.bancat || []).includes(c.c)) && 'Interdite')
+      || (has('nohealer') && c.c === 'healer' && 'Interdite') || (has('nostunner') && c.c === 'stunner' && 'Interdite') || (has('noS') && S.arTier?.[c.id] === 'S' && 'Rang S')
+      || (has('villains') && !arVil(c) && 'Pas méchant') || '';
+    const cls = c => { if (myPick.includes(c.id)) return 'on'; const bad = rule(c) || (c.c && cats.has(c.c)) || full || (has('univers') && anime && c.a !== anime) || (has('budget') && used + arPts(c) > 10)
+      || (imp && !myPick.includes(imp) && myPick.length === 2 && c.id !== imp) || (has('healer1') && myPick.length === 2 && !cards.some(x => x.c === 'healer') && c.c !== 'healer'); return bad ? 'off' : ''; };
+    const why = c => { const r = rule(c); return r ? `<i class="ar-tag">${r}</i>` : c.id === imp ? '<i class="ar-tag" style="background:var(--warn);color:#000">Imposée</i>' : ''; };
+    const rTxt = R.length ? `<p class="small">Règles : <b>${R.map(arRuleTxt).map(esc).join(' · ')}</b>${has('budget') ? ` · Points : <b>${used}/10</b>` : ''}</p>` : '';
     B.innerHTML = `<div class="card section"><div class="row" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><b>Ton équipe</b><span class="small">${bnTxt}</span></div>
       <div class="ar-team">${[0, 1, 2].map(i => { const c = arCard(myPick[i]); return c ? cardTile(c, t.stars, 'on', '') : '<div class="ar-c empty">Carte ' + (i + 1) + '</div>'; }).join('')}</div>
       <div class="row section"><button class="btn primary" id="arRdy" ${myPick.length === 3 ? '' : 'disabled'}>${M.ready[side] ? '✅ Prêt (annuler)' : 'Je suis prêt'}</button><span class="small">${M.ready[1 - side] ? '✅ Ton adversaire est prêt.' : 'Ton adversaire prépare son équipe…'}</span></div>
-      ${t.rules?.budget ? `<p class="small mute">Budget : ${esc(t.rules.budget)} (vérifié par l’arbitre)</p>` : ''}${M.note ? `<p class="small warn">${esc(M.note)}</p>` : ''}</div>
+      ${rTxt}${t.rules?.budget ? `<p class="small mute">Règle libre : ${esc(t.rules.budget)} (vérifiée par l’arbitre)</p>` : ''}${M.note ? `<p class="small warn">${esc(M.note)}</p>` : ''}</div>
       <div class="ar-grid">${arPool().map(c => cardTile(c, t.stars, cls(c), why(c))).join('')}</div>`;
     B.querySelectorAll('.ar-grid .ar-c, .ar-team .ar-c[data-c]').forEach(b => b.onclick = () => { const id = +b.dataset.c; myPick = myPick.includes(id) ? myPick.filter(x => x !== id) : [...myPick, id].slice(0, 3); drawPick(); clearTimeout(saveT); saveT = setTimeout(() => arRpc('arena_set_pick', { mid, team: myPick }).catch(() => { }), 250); });
     $('#arRdy').onclick = async () => { clearTimeout(saveT); try { await arRpc('arena_set_pick', { mid, team: myPick }); await arRpc('arena_ready', { mid, on_: !M.ready[side] }); } catch (e) { /* toast */ } };
@@ -2387,9 +2434,10 @@ async function arRoom(m, t, mid) {
     duel = arDuel(W, M, side, t, names(), mid);
   }
 
-  let endWait = false;
+  let endWait = false, tAt = 0;
   const show = async () => {
     if (!M) return;
+    if (Date.now() - tAt > 5000 && M.status !== 'live') { tAt = Date.now(); const { data: t2 } = await sb.from('arena_tourn').select('*').eq('id', t.id).single(); if (t2) t = t2; }
     // Fin de manche : on laisse l'écran de fin quelques secondes (plus le différé pour les spectateurs) avant la suite.
     if (view === 'live' && M.status !== 'live') { if (endWait) return; endWait = true; setTimeout(() => { endWait = false; if (duel) { duel.stop(); duel = null; } view = ''; show(); }, side == null ? 9000 : 4000); return; }
     if (M.status === 'ban') { if (view !== 'ban') await loadPick(); drawBan(); }
