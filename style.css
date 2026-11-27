@@ -498,7 +498,7 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 .vc-d{font-size:13px;font-weight:700}.vc-d i{font-style:normal;font-weight:500;color:#9a9a9a}
 .vc-d.up,.vc-tip .up{color:#3ddc84}.vc-d.dn,.vc-tip .dn{color:#ff5a6a}
 .vc-rk{min-height:38px;min-width:38px;padding:0 10px;align-self:start}
-.vc-chart{position:relative;margin-top:10px;touch-action:pan-y;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.vc-chart{position:relative;margin-top:10px;touch-action:pan-y;-webkit-tap-highlight-color:transparent;cursor:crosshair;user-select:none;-webkit-user-select:none}
 .vc-chart svg{width:100%;height:auto;display:block;overflow:visible}
 .vc-grid{stroke:#ffffff10;stroke-dasharray:2 5;vector-effect:non-scaling-stroke}
 .vc-cur{opacity:0;transition:opacity .12s;stroke:#ffffff55;stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
@@ -508,7 +508,8 @@ input[type=checkbox],input[type=radio]{width:20px;height:20px;min-height:0;paddi
 @keyframes spFade{to{opacity:1}}
 .vc-ax{position:absolute;font:600 10px/1 "JetBrains Mono",ui-monospace,monospace;color:#8a8a8a;pointer-events:none;z-index:2;background:rgba(10,10,12,.78);padding:2px 4px;border-radius:4px}
 .vc-ax.l{left:2px;top:0}.vc-ax.lb{left:2px;bottom:24px}.vc-ax.d0{left:2px;bottom:2px}.vc-ax.d1{right:2px;bottom:2px}
-.vc-dot{position:absolute;display:block;padding:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px #ff3b54,0 0 14px #ff3b54;pointer-events:none;opacity:0;animation:spFade .3s ease 1.3s forwards;transition:left .08s linear,top .08s linear}
+.vc-dot{position:absolute;display:block;padding:0;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#fff;box-shadow:0 0 0 3px #ff3b54,0 0 14px #ff3b54;pointer-events:none;opacity:0;animation:spFade .3s ease 1.3s forwards;will-change:left,top}
+.vc-chart.hov .vc-tip,.vc-chart.hov .vc-cur{transition:none}
 .vc-dot.live::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid #ff3b54;animation:vcPing 1.6s ease-out infinite}
 @keyframes vcPing{from{transform:scale(.6);opacity:1}to{transform:scale(1.8);opacity:0}}
 .vc-chart.hov .vc-dot{opacity:1;animation:none}.vc-chart.hov .vc-cur{opacity:1}
