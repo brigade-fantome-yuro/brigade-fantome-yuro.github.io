@@ -18,6 +18,7 @@ const app = $('#app');
 const S = { user: null, profile: null, kb: null, prices: [], sales: [], timers: [] };
 
 const ICON = {
+  search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM21 21l-4.3-4.3',
   home: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
   book: 'M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-5a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h6z',
   users: 'M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0zM4 21a8 8 0 0 1 16 0',
@@ -151,8 +152,8 @@ const BELL = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke
 let NEWS = null;
 const newsSeen = () => { try { return +localStorage.getItem('bfNewsSeen') || 0; } catch (e) { return 0; } };
 async function loadNews() { if (NEWS) return NEWS; try { NEWS = await (await fetch(`news.json?v=${APP_V}`)).json(); } catch (e) { NEWS = []; } return NEWS; }
-function bellDots() { const seen = newsSeen(); const n = (NEWS || []).filter(x => x.id > seen).length; const k = seen ? n : Math.min(n, 3);
-  document.querySelectorAll('[data-bell] .bfdot').forEach(d => { d.hidden = !k; d.textContent = k > 9 ? '9+' : k; }); }
+function bellDots() { const seen = newsSeen(); const n = (NEWS || []).filter(x => x.id > seen).length; const k = seen ? n : Math.min(n, 3); const k2 = !npOn('news') ? 0 : k;
+  document.querySelectorAll('[data-bell] .bfdot').forEach(d => { d.hidden = !k2; d.textContent = k2 > 9 ? '9+' : k2; }); }
 async function initBell() {
   document.querySelectorAll('[data-bell]').forEach(b => b.onclick = e => { e.preventDefault(); e.stopPropagation(); openBell(); });
   await loadNews(); bellDots();
@@ -161,7 +162,7 @@ async function openBell() {
   await loadNews(); const seen = newsSeen(); const top = NEWS.reduce((a, x) => Math.max(a, x.id), 0);
   const d = document.createElement('div'); d.className = 'modal';
   const fd = s => new Date(s + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-  d.innerHTML = `<div class="modal-card bfnews"><div class="row" style="align-items:center;flex-wrap:nowrap"><h2 style="margin:0;flex:1">Quoi de neuf sur le site</h2><button class="btn ghost" data-x aria-label="Fermer" style="min-height:36px">✕</button></div>
+  d.innerHTML = `<div class="modal-card bfnews"><div class="row" style="align-items:center;flex-wrap:nowrap"><h2 style="margin:0;flex:1">Quoi de neuf sur le site</h2>${NAV2() ? `<a class="btn ghost" href="#notifs" data-x style="min-height:36px">⚙️ Réglages</a>` : ''}<button class="btn ghost" data-x aria-label="Fermer" style="min-height:36px">✕</button></div>
     <p class="small mute" style="margin:6px 0 12px">Les améliorations du site, au fil des mises à jour. Une idée ? Pose-la dans la boîte à questions.</p>
     ${NEWS.map(n => `<div class="bfn${seen && n.id > seen ? ' new' : ''}"><div class="small mute">${fd(n.d)}${seen && n.id > seen ? ' · <b class="bfnew">Nouveau</b>' : ''}</div><b>${esc(n.t)}</b><div class="small" style="margin-top:3px;opacity:.85">${esc(n.x)}</div>${n.h ? `<a class="small bfgo" href="${n.h}" data-x>Voir →</a>` : ''}</div>`).join('') || '<div class="empty">Rien pour l\'instant.</div>'}</div>`;
   document.body.appendChild(d);
@@ -246,17 +247,64 @@ function nav2Where(h) {
   return best.s ? best : { s: 0, ti: hs[0] === 'accueil' || !hs[0] ? 0 : -1, gi: -1, ii: -1 };
 }
 (() => { const rs = history.replaceState.bind(history); history.replaceState = function (st, t, u) { const r = rs(st, t, u); try { if (app?.dataset.mode === 'full2' && $('#n2pills')) nav2Update(location.hash.slice(1) || 'accueil'); } catch (e) { /* rien */ } return r; }; })();
+// Recherche globale 1+5 (maquette B validée le 26/11) : cartes, membres, pages du site et échanges possibles. Pas de tirages (le site ne les suit pas).
+const nrm = t => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+function goQ(hash, q) { try { sessionStorage.bf_q = q; } catch (e) { /* rien */ } if (location.hash === hash) { window.dispatchEvent(new HashChangeEvent('hashchange')); } else location.hash = hash; }
+window.addEventListener('hashchange', () => { let q = null; try { q = sessionStorage.bf_q; } catch (e) { /* rien */ } if (!q) return; let n = 0;
+  const t = setInterval(() => { const i = document.querySelector('#main #q'); if (i) { i.value = q; i.dispatchEvent(new Event('input', { bubbles: true })); try { sessionStorage.removeItem('bf_q'); } catch (e) { /* rien */ } clearInterval(t); } if (++n > 40) clearInterval(t); }, 100); });
+function initSearch2() {
+  const box = $('#n2q'), inp = $('#n2qi'), out = $('#n2qr'); if (!box) return;
+  const RN2 = { C: 'Commune', R: 'Rare', E: 'SR', L: 'SSR', M: 'UR', S: 'LR', T: 'Transcendante', X: 'Exclusive' };
+  let IDX = null;
+  const build = () => { if (IDX) return IDX;
+    const pages = []; NAV2_TREE().forEach(t => t.g.forEach(g => g.i.forEach(([lab, r]) => pages.push({ t: g.i.length > 1 ? `${g.n} · ${lab}` : lab, sub: t.t, h: '#' + r, k: nrm(`${lab} ${g.n} ${t.t}`) }))));
+    const seen = new Set(), cards = [];
+    for (const c of S.kb?.card_catalog?.cards || []) { const n = c[1]; if (!n) continue; const key = nrm(n) + '|' + c[2]; if (seen.has(key)) continue; seen.add(key); cards.push({ n, u: c[2] || '', r: c[3], k: nrm(n) + ' ' + nrm(c[2]) }); }
+    return (IDX = { pages, cards }); };
+  const ensureMembers = async () => { if (S.members?.length) return; try { const { data } = await sb.from('profiles').select('id,discord,share,status').eq('status', 'approved'); S.members = data || []; } catch (e) { /* rien */ } };
+  const dupesOf = c => { if (!S.coll) return null; let n = 0; for (const p of S.members || []) { if (!p.share || p.id === S.user.id) continue; if (S.coll[p.id]?.[c.u]?.dupes?.has(c.n)) n++; } return n; };
+  let sel = -1, items = [];
+  const draw = () => {
+    const q = nrm(inp.value); if (q.length < 2) { out.hidden = true; out.innerHTML = ''; return; }
+    const { pages, cards } = build(); const has = k => q.split(' ').every(w => k.includes(w));
+    const C = cards.filter(c => has(c.k)).sort((a, b) => (nrm(a.n).startsWith(q) ? 0 : 1) - (nrm(b.n).startsWith(q) ? 0 : 1) || 'STMLERC'.indexOf(a.r) - 'STMLERC'.indexOf(b.r)).slice(0, 6);
+    const M = (S.members || []).filter(p => nrm(p.discord).includes(q)).slice(0, 5);
+    const Pg = pages.filter(p => has(p.k)).slice(0, 5);
+    const E = C.map(c => [c, dupesOf(c)]).filter(([, n]) => n > 0).slice(0, 4);
+    items = [];
+    const row = (h, html, act) => { items.push(act || (() => { location.hash = h; })); return `<a class="n2qi" href="${h}" data-i="${items.length - 1}">${html}</a>`; };
+    const grp = (t, list) => list.length ? `<div class="n2qg"><span class="n2k">${t}</span>${list.join('')}</div>` : '';
+    out.innerHTML = grp('Cartes', C.map(c => row('#persos', `<b>${esc(c.n)}</b><span class="small mute">${esc(RN2[c.r] || c.r || '')}${c.u ? ' · ' + esc(c.u) : ''}</span>`, () => goQ(c.r === 'S' || c.r === 'T' ? '#persos' : '#collection/A/moi', c.n))))
+      + grp('Échanges possibles', E.map(([c, n]) => row('#collection/A/echanges', `<b>${esc(c.n)}</b><span class="small mute">${n} membre${n > 1 ? 's l’ont' : ' l’a'} en double</span>`, () => goQ('#collection/A/echanges', c.n))))
+      + grp('Membres', M.map(p => row('#guilde/' + p.id, `<b>${esc(p.discord)}</b><span class="small mute">Profil</span>`)))
+      + grp('Pages du site', Pg.map(p => row(p.h, `<b>${esc(p.t)}</b><span class="small mute">${esc(p.sub)}</span>`)))
+      || '<p class="small mute" style="padding:10px 12px;margin:0">Aucun résultat. Le site ne suit pas les tirages.</p>';
+    out.hidden = false; sel = -1;
+    out.querySelectorAll('[data-i]').forEach(a => a.onclick = e => { e.preventDefault(); close(); items[+a.dataset.i](); });
+  };
+  const close = () => { out.hidden = true; box.classList.remove('open'); inp.blur(); };
+  let tm = null;
+  inp.addEventListener('focus', () => { ensureMembers(); if (!S.coll) loadCollections().then(() => { S.collAt = Date.now(); if (!out.hidden) draw(); }).catch(() => {}); });
+  inp.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(draw, 120); });
+  inp.addEventListener('keydown', e => { const L = out.querySelectorAll('[data-i]'); if (e.key === 'Escape') return close();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, Math.min(L.length - 1, sel + (e.key === 'ArrowDown' ? 1 : -1))); L.forEach((a, i) => a.classList.toggle('on', i === sel)); }
+    if (e.key === 'Enter') { e.preventDefault(); const a = L[sel >= 0 ? sel : 0]; if (a) { close(); items[+a.dataset.i](); } } });
+  $('#n2qb').onclick = () => { box.classList.add('open'); setTimeout(() => inp.focus(), 30); };
+  document.addEventListener('click', e => { if (!box.contains(e.target)) { out.hidden = true; box.classList.remove('open'); } });
+  window.addEventListener('keydown', e => { if (e.key === '/' && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')) { e.preventDefault(); inp.focus(); } });
+}
 function shell2() {
   const T = NAV2_TREE();
   app.innerHTML = `<header class="n2top"><div class="n2bar"><a href="#accueil" class="brand n2brand">${SPIDER}<b>Brigade Fantôme</b></a>
     <nav class="n2tabs" id="n2tabs">${T.map((t, i) => `<a href="#${i ? t.g[0].i[0][1] : 'accueil'}" data-t="${i}">${t.t}</a>`).join('')}</nav><span class="sp"></span>
-    <a class="btn primary n2clic" href="#clic">Mise à jour en 1 clic</a>${onlinePill()}<button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button>
-    <a class="n2me" href="#reglages" title="Réglages">${esc((S.profile.discord || '?').replace(/^@/, '').slice(0, 1).toUpperCase())}</a></div>
+    <div class="n2q" id="n2q"><button class="n2qb" id="n2qb" aria-label="Rechercher">${ico('search')}</button><input id="n2qi" type="search" placeholder="Rechercher une carte, un membre…" autocomplete="off"><div class="n2qr" id="n2qr" hidden></div></div><a class="btn primary n2clic" href="#clic">Mise à jour en 1 clic</a>${onlinePill()}<button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button>
+    <a class="n2me" id="n2me" href="#reglages" title="Réglages">${esc((S.profile.discord || '?').replace(/^@/, '').slice(0, 1).toUpperCase())}</a></div>
     <nav class="n2subs" id="n2subs"></nav></header>
     <div class="n2wrap"><main id="mainw" class="n2main"><div id="alertbar"></div><div class="n2pills" id="n2pills"></div><div id="main"></div></main></div>
     <nav class="n2bot" id="n2bot">${T.map((t, i) => `<a href="#${i ? t.g[0].i[0][1] : 'accueil'}" data-t="${i}">${ico(t.ic)}<span>${t.t}</span></a>`).join('')}</nav>`;
   app.dataset.mode = 'full2'; try { ONB_OBS?.disconnect(); } catch (e) { /* rien */ }
-  initBell(); document.body.classList.add('nav2');
+  initBell(); document.body.classList.add('nav2'); initSearch2();
+  cxLoad().then(() => { const a = $('#n2me'), p = cxP(S.user.id); if (a && p >= 90) a.classList.add(p >= 100 ? 'cx-leg' : 'cx-aura'); });
   return $('#main');
 }
 function nav2Update(h) {
@@ -271,11 +319,35 @@ function nav2Update(h) {
   pills.hidden = !(g && g.i.length > 1);
 }
 // Accueil « fil de la guilde » : ce qui bouge dans la Brigade + ta collection et tes raccourcis.
+// Accueil 1+5 (maquette A validée le 26/11) : le Mercato en bloc (PC) ou en bandeau d'une ligne (téléphone), et rappel si la collection est ancienne.
+async function home2Mercato() {
+  const box = $('#n2mxc'), strip = $('#n2mxs'); if (!box) return;
+  const [{ data: rows }, rec] = await Promise.all([
+    sb.from('mercato_parties').select('code,mode,max_players,names,status,updated_at').neq('mode', 'duel').eq('status', 'lobby').order('updated_at', { ascending: false }).limit(8).then(r => r, () => ({ data: [] })),
+    import('./jeux/mercato.js?v=' + APP_V).then(g => g.record(sb, S.user.id)).catch(() => null)]);
+  const SL = (rows || []).filter(r => Date.now() - new Date(r.updated_at) < 3 * 3600e3);
+  const nb = r => Object.keys(r.names || {}).length, lab = r => r.mode === 'royale' ? 'Royale' : 'Rouge vs Bleu', desc = r => `${r.mode === 'royale' ? 'Royale' : 'Équipes ' + (r.max_players / 2) + ' contre ' + (r.max_players / 2)} · ${nb(r)} / ${r.max_players} joueurs`;
+  if (!$('#n2mxc')) return;
+  box.innerHTML = `<div class="n2sh"><span class="n2k">Mercato YURO</span>${SL.length ? `<span class="small n2live">● ${SL.length} salon${SL.length > 1 ? 's' : ''} ouvert${SL.length > 1 ? 's' : ''}</span>` : ''}</div>
+    <b class="n2mxt">Enchères, enveloppes, combats 3 contre 3</b>
+    ${SL.slice(0, 3).map(r => `<a class="n2salon" href="#jeux/mercato/salon/${esc(r.code)}"><span><b>Salon ${esc(r.code)}</b><span class="small mute">${desc(r)}</span></span><span class="chip ${r.mode === 'royale' ? 'warn' : 'n2rb'}">${lab(r)}</span><span class="btn" style="min-height:34px">Rejoindre</span></a>`).join('') || '<p class="small mute" style="margin:6px 0">Aucun salon ouvert pour l’instant : lance le tien.</p>'}
+    <div class="row" style="gap:8px;margin-top:8px"><a class="btn primary" href="#jeux/mercato" style="flex:1">Créer un salon</a><a class="btn" href="#jeux/mercato">Duel</a></div>
+    ${rec && rec.n ? `<span class="small mute">Ton ratio en salon : ${rec.w} V · ${rec.l} D</span>` : ''}`;
+  if (strip) { strip.hidden = false;
+    strip.innerHTML = `<span class="n2k">Mercato</span><span class="small">${SL.length ? `<span class="n2live">●</span> ${SL.length} salon${SL.length > 1 ? 's' : ''} ouvert${SL.length > 1 ? 's' : ''}${SL.slice(0, 2).map(r => ` · ${lab(r) === 'Royale' ? 'Royale' : 'Équipes'} ${nb(r)}/${r.max_players}`).join('')}` : 'Enchères et combats 3 contre 3'}</span><span class="btn primary" style="min-height:32px;padding:0 14px">Jouer</span>`; }
+}
+function home2Age(lrr) {
+  const el = $('#n2age'); if (!el) return; const r = (lrr || []).find(x => x.user_id === S.user.id);
+  const days = r?.updated_at ? Math.floor((Date.now() - Date.parse(r.updated_at)) / 864e5) : null;
+  if (days == null || days < 3) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="card n2agec"><span class="n2dot"></span><span><b>Ta collection date de ${days} jours.</b> <span class="mute">Les échanges et les doublons se basent dessus.</span></span><a class="btn primary" href="#clic" style="min-height:36px">Mise à jour en 1 clic</a></div>`;
+}
 async function accueil2(m) {
   const ago = t => { const s = Math.max(0, (Date.now() - new Date(t).getTime()) / 1000); return s < 3600 ? `il y a ${Math.max(1, Math.round(s / 60))} min` : s < 86400 ? `il y a ${Math.round(s / 3600)} h` : new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); };
   m.innerHTML = `<div class="n2head"><div><span class="mute small">Bonsoir ${esc(S.profile.discord)}</span><h1 style="margin:4px 0 0">Ça bouge dans la Brigade</h1></div></div>
+    <div id="n2age"></div><a class="n2mxs" id="n2mxs" href="#jeux/mercato" hidden></a>
     <div class="n2home"><div class="n2feed" id="n2feed"><div class="skel"><i></i><i></i><i></i></div></div>
-    <aside class="n2side"><div class="card n2val" id="n2val"><span class="small mute">Valeur de ta collection</span><div class="cd">…</div></div>
+    <aside class="n2side"><div class="card n2mxc" id="n2mxc"><span class="n2k">Mercato YURO</span><p class="small mute" style="margin:6px 0 0">Chargement…</p></div><div class="card n2val" id="n2val"><span class="small mute">Valeur de ta collection</span><div class="cd">…</div></div>
       <div class="card"><b>Raccourcis</b><div class="n2links">${[['#clic', 'Mise à jour en 1 clic'], ['#equipe/ranked', 'Meilleure équipe ranked'], ['#chateausim', 'Simulateur du château'], ['#prix', 'Prix du marché'], ['#collection/A/manquantes', 'Mes cartes manquantes']].map(x => `<a href="${x[0]}">${x[1]}</a>`).join('')}</div></div>
       <div class="card"><b>Kakashi</b><p class="small mute" style="margin:4px 0 10px">Une question sur YURO ou sur le site ? Le bot de la Brigade te répond.</p><a class="btn" href="#kakashi">Demander à Kakashi</a></div>
       ${standalone() ? '' : `<div class="card small"><b>📲 Installer le site comme une app</b><div class="mute" style="margin-top:4px">${isIOS() ? 'Sur iPhone : Partager → Sur l\'écran d\'accueil.' : 'Menu du navigateur (⋮) → Installer l\'application.'}</div></div>`}</aside></div>`;
@@ -285,6 +357,7 @@ async function accueil2(m) {
     sb.rpc('collection_ranking').then(r => r.data || [], () => []),
     sb.from('coll_snap').select('day,lr_value,pct').eq('user_id', S.user.id).order('day', { ascending: false }).limit(60).then(r => r.data || [], () => [])]);
   if (!$('#n2feed')) return;
+  home2Mercato(); home2Age(lrr);
   if (!S.members?.length) { try { const { data } = await sb.from('profiles').select('id,discord,share,status').eq('status', 'approved'); S.members = data || []; } catch (e) { /* rien */ } }
   const who = id => S.members?.find(p => p.id === id)?.discord || 'Un membre';
   // Fil public : seulement les membres qui partagent leur collection.
@@ -1037,9 +1110,10 @@ async function viewRanking(el) {
   el.innerHTML = '<div class="empty">Chargement…</div>';
   const { data, error } = await sb.rpc('collection_ranking'); if (error) { el.innerHTML = `<div class="empty">Classement indisponible : ${esc(error.message)}</div>`; return; }
   const L = data || [], me = L.findIndex(r => r.user_id === S.user.id);
+  if (NAV2()) { S.cxPct = new Map(L.map(r => [r.user_id, +r.pct || 0])); cxUnlock(); }
   el.innerHTML = `<p class="mute">Le pourcentage de toutes les cartes du jeu que chaque membre possède (hors Exclusives et Transcendantes), d'après la collection remplie sur le site : Communes, Rares, SR, SSR, UR et LR. Plus ta collection est à jour, plus ton rang est juste.</p>
     ${me >= 0 ? `<div class="card section"><div class="row"><b>Ton rang : ${me + 1}${me === 0 ? 'er' : 'e'} sur ${L.length}</b><span class="sp"></span><b class="bone">${String(L[me].pct).replace('.', ',')} %</b></div><div class="bar" style="margin-top:10px"><i style="width:${L[me].pct}%"></i></div><div class="small mute" style="margin-top:6px">${fmt(L[me].owned)} / ${fmt(L[me].total)} cartes</div></div>` : '<div class="msg">Tu n\'apparais pas encore : remplis ta collection pour entrer dans le classement.</div>'}
-    <div class="tablewrap"><table class="webrank"><thead><tr><th class="n">#</th><th>Membre</th><th class="hide-sm">Rôle Nen</th><th>Collection</th><th class="n">%</th></tr></thead><tbody>${L.map((r, i) => `<tr ${r.user_id === S.user.id ? 'style="background:#1a1013"' : ''}><td class="n">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</td><td><b>${esc(r.discord)}</b></td><td class="hide-sm">${r.nen ? `<span class="chip">${esc(r.nen)}</span>${r.level != null ? ` <span class="small mute">niv. ${r.level}</span>` : ''}` : '<span class="mute small">—</span>'}</td><td style="min-width:110px"><div class="bar"><i style="width:${r.pct}%"></i></div><div class="small mute">${fmt(r.owned)} / ${fmt(r.total)}</div></td><td class="n"><b>${String(r.pct).replace('.', ',')}</b></td></tr>`).join('') || '<tr><td colspan="5" class="mute">Personne n\'a encore rempli sa collection.</td></tr>'}</tbody></table></div>`;
+    <div class="tablewrap"><table class="webrank"><thead><tr><th class="n">#</th><th>Membre</th><th class="hide-sm">Rôle Nen</th><th>Collection</th><th class="n">%</th></tr></thead><tbody>${L.map((r, i) => `<tr ${r.user_id === S.user.id ? 'style="background:#1a1013"' : ''}><td class="n">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</td><td><b>${cxName(r.user_id, esc(r.discord))}</b>${cxBadges(r.user_id)}</td><td class="hide-sm">${r.nen ? `<span class="chip">${esc(r.nen)}</span>${r.level != null ? ` <span class="small mute">niv. ${r.level}</span>` : ''}` : '<span class="mute small">—</span>'}</td><td style="min-width:110px"><div class="bar"><i style="width:${r.pct}%"></i></div><div class="small mute">${fmt(r.owned)} / ${fmt(r.total)}</div></td><td class="n"><b>${String(r.pct).replace('.', ',')}</b></td></tr>`).join('') || '<tr><td colspan="5" class="mute">Personne n\'a encore rempli sa collection.</td></tr>'}</tbody></table></div>`;
 }
 // Mosaïque des cartes manquantes, comme dans la collection du jeu.
 function viewMissing(el, U) {
@@ -1443,7 +1517,7 @@ P.alertes = async m => {
 async function alertLoop() {
   try { await Promise.all([loadWatch(), loadAlerts()]); } catch { return; }
   const fired = firedAlerts();
-  const el = $('#alertbar'); if (el) el.innerHTML = fired.length ? `<a class="alertbar" href="#alertes">🔔 ${fired.map(a => `<b>${esc(a.card)}</b> ${fmt(a.now)} KI`).join(' · ')}</a>` : '';
+  const el = $('#alertbar'); if (el) el.innerHTML = fired.length && npOn('alertes') ? `<a class="alertbar" href="#alertes">🔔 ${fired.map(a => `<b>${esc(a.card)}</b> ${fmt(a.now)} KI`).join(' · ')}</a>` : '';
   if (pushOk() && Notification.permission === 'granted') pushSub(false).catch(() => {});
 }
 
@@ -2040,6 +2114,7 @@ P.kakashi = m => {
 
 
 P.guilde = async (m, id) => {
+  await cxLoad();
   const PS = S.kb.prestige_series; const U = PS?.series || [];
   await loadCollections(); const { data: lrs } = await sb.from('my_lr').select('user_id,cards,teams'); const LRm = {}; for (const r of lrs || []) LRm[r.user_id] = r;
   const byId = x => LRS().find(c => c.id === +x);
@@ -2054,7 +2129,7 @@ P.guilde = async (m, id) => {
     const inc = U.map(u => ({ u, miss: u.c.filter(c => !coll[u.s]?.owned.has(c[0])) })).filter(x => x.miss.length && x.miss.length < x.u.c.length).sort((a, b) => a.miss.length - b.miss.length);
     const lrOwned = LRS().filter(c => own[c.id] != null).sort((a, b) => (own[b.id] || 0) - (own[a.id] || 0));
     m.innerHTML = `<a href="#guilde" class="btn ghost" style="min-height:36px">← Guilde</a>
-      <section class="hero" style="margin-top:12px"><div class="moon"></div><span class="chip red">Profil</span>${p.nen ? ` <span class="chip">🕷 ${esc(p.nen)}${p.level != null ? ' · niv. ' + p.level : ''}</span>` : ''}<div class="row" style="margin-top:12px;align-items:center;gap:12px;flex-wrap:nowrap">${brAv({ name: p.discord, avatar: p.avatar }).replace('class="bav', 'class="bav bav-l')}<h1 style="margin:0">${esc(p.discord)}</h1></div><p class="mute">${lrOwned.length} LR · ${dupes.length} doublons</p></section>
+      <section class="hero" style="margin-top:12px"><div class="moon"></div><span class="chip red">Profil</span>${p.nen ? ` <span class="chip">🕷 ${esc(p.nen)}${p.level != null ? ' · niv. ' + p.level : ''}</span>` : ''}<div class="row" style="margin-top:12px;align-items:center;gap:12px;flex-wrap:nowrap">${cxFr(p.id, brAv({ name: p.discord, avatar: p.avatar }).replace('class="bav', 'class="bav bav-l'))}<div><h1 style="margin:0">${cxName(p.id, esc(p.discord))}</h1>${cxBadges(p.id)}</div></div><p class="mute">${lrOwned.length} LR · ${dupes.length} doublons</p></section>
       <div class="grid">${tblock('chateau', 'Équipe château')}${tblock('ranked', 'Équipe ranked')}</div>
       <div class="section"><h2>Ses LR</h2><div class="tiles">${lrOwned.map(c => `<div class="tile on rS">${lrImg(c) ? `<img loading="lazy" src="${lrImg(c)}" alt="">` : '<div class="noimg"></div>'}<b class="dup">${own[c.id] || 0}★</b><span>${esc(c.n)}</span></div>`).join('') || '<div class="mute">Pas encore renseignées.</div>'}</div></div>
       <div class="section"><h2>Ses doublons</h2><p class="small mute">En vert : ceux qui te manquent.</p><div class="tiles">${dupes.map(([u, c]) => tile(c, !mine[u.s]?.owned.has(c[0]), false)).join('') || '<div class="mute">Aucun doublon déclaré.</div>'}</div></div>
@@ -2064,7 +2139,7 @@ P.guilde = async (m, id) => {
   }
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Guilde</span><h1 style="margin-top:12px">Profils de la guilde</h1><p class="mute">Les membres qui partagent leur profil : leurs équipes château et ranked, leurs LR, leurs doublons et les cartes qui leur manquent.</p>${S.profile.share ? '' : '<a class="btn primary" href="#reglages">Partager mon profil</a>'}</section>
     <div class="grid">${sharing.map(p => { const lr = LRm[p.id] || {}; const own = lr.cards || {}; const ct = (lr.teams?.chateau || []).map(byId).filter(Boolean); const rt = (lr.teams?.ranked || []).map(byId).filter(Boolean); const s = memberStats(p.id, U);
-      return `<a class="card gcard" href="#guilde/${p.id}"><div class="row" style="flex-wrap:nowrap;align-items:center;gap:10px">${brAv({ name: p.discord, avatar: p.avatar })}<h3 style="margin:0">${esc(p.discord)}</h3></div><div class="small mute">${Object.keys(own).length} LR · ${s.done} univers complets · ${s.du} doublons</div>${ct.length ? `<div class="small" style="margin-top:8px"><span class="mute">Château :</span> ${ct.map(c => esc(c.n)).join(', ')}</div>` : ''}${rt.length ? `<div class="small"><span class="mute">Ranked :</span> ${rt.map(c => esc(c.n)).join(', ')}</div>` : ''}</a>`; }).join('') || '<div class="empty">Personne ne partage encore son profil.</div>'}</div>`;
+      return `<a class="card gcard" href="#guilde/${p.id}"><div class="row" style="flex-wrap:nowrap;align-items:center;gap:10px">${cxFr(p.id, brAv({ name: p.discord, avatar: p.avatar }))}<h3 style="margin:0">${cxName(p.id, esc(p.discord))}</h3>${cxBadges(p.id)}</div><div class="small mute">${Object.keys(own).length} LR · ${s.done} univers complets · ${s.du} doublons</div>${ct.length ? `<div class="small" style="margin-top:8px"><span class="mute">Château :</span> ${ct.map(c => esc(c.n)).join(', ')}</div>` : ''}${rt.length ? `<div class="small"><span class="mute">Ranked :</span> ${rt.map(c => esc(c.n)).join(', ')}</div>` : ''}</a>`; }).join('') || '<div class="empty">Personne ne partage encore son profil.</div>'}</div>`;
 };
 
 P.discord = async m => {
@@ -2091,9 +2166,86 @@ P.discord = async m => {
   loadQ(); loadR(); loadT();
 };
 
+/* ---------- Cosmétiques animés de collection (version 1+5) ----------
+   Paliers du classement de collection : 85 % badge Collectionneur, 90 % cadre Aura de Nen,
+   95 % pseudo Prisme, 100 % titre « Légende de la collection » + badge Complétiste. Rien ne s'achète. */
+const CX_TIERS = [[85, 'Badge Collectionneur'], [90, 'Cadre Aura de Nen'], [95, 'Pseudo Prisme'], [100, 'Titre « Légende de la collection » et badge Complétiste']];
+S.cxPct = null; let CX_LOAD = null;
+function cxLoad() { if (!NAV2()) return Promise.resolve(null); if (S.cxPct) return Promise.resolve(S.cxPct);
+  return CX_LOAD || (CX_LOAD = sb.rpc('collection_ranking').then(({ data }) => { S.cxPct = new Map((data || []).map(r => [r.user_id, +r.pct || 0])); CX_LOAD = null; cxUnlock(); return S.cxPct; }, () => { CX_LOAD = null; return null; })); }
+const cxP = id => (NAV2() && S.cxPct?.get(id)) || 0;
+// Pseudo : dégradé animé à 95 %.
+const cxName = (id, txt) => cxP(id) >= 95 ? `<span class="cx-prism">${txt}</span>` : txt;
+// Initiale dans un cadre ; Aura de Nen à 90 %, cadre Légende à 100 %.
+function cxAvatar(id, name, size = 44) { const p = cxP(id), ini = esc((name || '?').replace(/^@+/, '').slice(0, 1).toUpperCase());
+  return `<span class="cx-av${p >= 100 ? ' cx-leg' : p >= 90 ? ' cx-aura' : ''}" style="--s:${size}px"><i class="cx-ring"></i><b>${ini}</b></span>`; }
+const cxFr = (id, html) => { const p = cxP(id); return p >= 90 ? `<span class="cx-fr${p >= 100 ? ' cx-leg' : ' cx-aura'}"><i class="cx-ring"></i>${html}</span>` : html; };
+// Badges et titre.
+function cxBadges(id) { const p = cxP(id); if (p < 85) return '';
+  return `<span class="cx-badges">${p >= 85 ? '<span class="cx-coin" title="Collectionneur : 85 % de la collection">🕷</span>' : ''}${p >= 100 ? '<span class="cx-coin cx-gold" title="Complétiste : 100 % de la collection">★</span>' : ''}</span>${p >= 100 ? '<span class="cx-title">Légende de la collection</span>' : ''}`; }
+// Animation de déblocage, une fois par palier atteint (sur l'appareil).
+function cxUnlock() { const p = cxP(S.user?.id); if (!p) return; let seen = 0; try { seen = +localStorage.bf_cxTier || 0; } catch (e) { /* rien */ }
+  const t = CX_TIERS.filter(x => p >= x[0]).pop(); if (!t || t[0] <= seen) return;
+  try { localStorage.bf_cxTier = String(t[0]); } catch (e) { /* rien */ }
+  if (!seen && p >= 85 && t[0] > 85) { /* premier passage : on montre seulement le palier le plus haut */ }
+  const d = document.createElement('div'); d.className = 'modal cx-unl';
+  d.innerHTML = `<div class="modal-card" style="text-align:center"><div class="cx-burst">${cxAvatar(S.user.id, S.profile?.discord, 96)}</div><h2 style="margin:14px 0 4px">Palier ${t[0]} % atteint</h2><p class="small mute">${t[1]} débloqué. Visible sur ton profil, dans la guilde et le classement.</p><div class="cx-steps">${CX_TIERS.map(x => `<span class="${p >= x[0] ? 'on' : ''}">${x[0]}</span>`).join('')}</div><button class="btn primary" data-x style="margin-top:14px">Super !</button></div>`;
+  document.body.appendChild(d); d.onclick = e => { if (e.target === d || e.target.closest('[data-x]')) d.remove(); }; }
+
+/* ---------- Réglages des notifications (version 1+5) ----------
+   Choix par type, sur le site et en push. Les choix « sur le site » sont gardés sur l'appareil (bf_np).
+   Push : seules les alertes marché envoient des notifications push aujourd'hui ; les autres types arriveront plus tard. */
+const NP_TYPES = [
+  { k: 'echanges', t: 'Échanges possibles', d: 'Un membre a en double une carte qui te manque', site: false, push: false },
+  { k: 'tournoi', t: 'Tournoi', d: 'Ton match commence, résultat, tour suivant', site: false, push: false },
+  { k: 'mercato', t: 'Mercato', d: 'Invitation dans un salon', site: true, push: false },
+  { k: 'alertes', t: 'Alertes marché', d: 'Une carte passe sous ton prix', site: true, push: true },
+  { k: 'collection', t: 'Collection', d: 'Rappel toutes les 48 h sans mise à jour', site: false, push: false },
+  { k: 'news', t: 'Nouveautés du site', d: 'Nouvelle fonction, refonte', site: true, push: false }];
+function npGet() { try { return JSON.parse(localStorage.bf_np || '{}'); } catch (e) { return {}; } }
+function npOn(k) { return npGet()[k] !== false; }
+function npSet(k, v) { const o = npGet(); o[k] = v; try { localStorage.bf_np = JSON.stringify(o); } catch (e) { /* rien */ } }
+P.notifs = async m => {
+  m.innerHTML = `<div class="n2crumb small mute"><a href="#reglages">← Réglages</a></div><h1>Notifications</h1><p class="mute">Choisis ce que tu reçois sur le site et sur ce téléphone ou cet ordinateur.</p>
+    <div class="notifcard" id="ncard"><div class="nc-ico">${SPIDER}</div><div class="nc-t"><b>Notifications push</b><span id="ans">Vérification…</span></div><div class="nc-act"><button class="btn primary" id="an">${ico('bell')} Activer</button><button class="btn ghost" id="at" style="display:none">Tester</button></div><ol class="nc-ios" id="nios" style="display:none"><li><i>⬆️</i>Touche <b>Partager</b> en bas de Safari</li><li><i>➕</i>Choisis <b>Sur l'écran d'accueil</b></li><li><i>🕷</i>Ouvre le site depuis l'icône, puis reviens ici</li></ol></div>
+    <div class="card section npt"><div class="npr nph"><span>Type</span><span>Site</span><span>Push</span></div>${NP_TYPES.map(x => `<div class="npr"><span><b>${x.t}</b><span class="small mute">${x.d}</span></span>
+      <span>${x.site ? `<label class="switch"><input type="checkbox" data-np="${x.k}" ${npOn(x.k) ? 'checked' : ''}><span></span></label>` : '<span class="chip npsoon">Bientôt</span>'}</span>
+      <span>${x.push ? `<label class="switch"><input type="checkbox" data-npp="${x.k}"><span></span></label>` : x.k === 'news' ? '<span class="small mute">—</span>' : '<span class="chip npsoon">Bientôt</span>'}</span></div>`).join('')}</div>
+    <p class="small mute">Aussi accessible depuis la cloche : bouton « Réglages ». Pour choisir quelles cartes surveiller, va dans <a href="#alertes">Alertes marché</a>.</p>`;
+  m.querySelectorAll('[data-np]').forEach(i => i.onchange = () => { npSet(i.dataset.np, i.checked); bellDots(); alertLoop(); mxCall(); toast(i.checked ? 'Activé sur le site' : 'Coupé sur le site'); });
+  const pp = m.querySelector('[data-npp="alertes"]');
+  const ns = async () => { if (!$('#ans')) return; const t = $('#ans'), on = $('#an'), test = $('#at'), nc = $('#ncard'); nc.classList.remove('ok', 'warn');
+    if (isIOS() && !standalone()) { t.textContent = 'Sur iPhone, ajoute d\'abord le site à ton écran d\'accueil (exigé par Apple, iOS 16.4+) :'; on.style.display = 'none'; $('#nios').style.display = ''; nc.classList.add('warn'); pp.disabled = true; return; }
+    if (!pushOk()) { t.textContent = 'Ce navigateur ne sait pas recevoir de notifications. Essaie Chrome, Edge, Firefox ou Safari récent.'; on.disabled = true; pp.disabled = true; return; }
+    if (Notification.permission === 'denied') { t.textContent = 'Les notifications sont bloquées pour ce site dans les réglages du navigateur : autorise-les puis recharge la page.'; pp.disabled = true; return; }
+    let sub = null; if (Notification.permission === 'granted') { try { sub = await pushSub(false); } catch (e) { /* rien */ } }
+    if (!$('#ans')) return;
+    on.style.display = sub ? 'none' : ''; test.style.display = sub ? '' : 'none'; pp.checked = !!sub;
+    nc.classList.toggle('ok', !!sub); t.textContent = sub ? 'Activées sur cet appareil. Fais pareil sur chaque appareil où tu veux être prévenu.' : 'Pas encore activées sur cet appareil.'; };
+  const enable = async () => { try { if (await Notification.requestPermission() !== 'granted') return ns(); await pushSub(true); try { localStorage.bf_npBan = '1'; } catch (e) { /* rien */ } toast('Notifications activées'); } catch (e) { toast('Impossible d\'activer : ' + e.message); } ns(); };
+  $('#an').onclick = enable;
+  pp.onchange = async () => { if (pp.checked) return enable();
+    // Seules les alertes marché passent en push : couper le push = désabonner cet appareil.
+    try { const reg = await navigator.serviceWorker.getRegistration('sw.js'); const sub = await reg?.pushManager.getSubscription(); if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); } toast('Push coupé sur cet appareil'); } catch (e) { toast('Impossible : ' + e.message); } ns(); };
+  $('#at').onclick = async () => { const { data, error } = await sb.functions.invoke('market-alert', { body: { test: true } }); toast(error ? 'Échec du test : ' + error.message : data?.sent ? 'Notification envoyée' : 'Aucun appareil abonné : réactive les notifications'); };
+  ns();
+};
+// Première visite sur téléphone (version 1+5) : bandeau « Active les notifications » qui ouvre les réglages.
+function npBanner() {
+  const old = document.getElementById('npBan'); if (old) old.remove();
+  if (!NAV2() || innerWidth > 720 || !pushOk() || location.hash.startsWith('#notifs')) return;
+  try { if (localStorage.bf_npBan === '1' || Notification.permission !== 'default') return; } catch (e) { return; }
+  const el = document.createElement('div'); el.id = 'npBan'; el.className = 'npban';
+  el.innerHTML = `<span>${ico('bell')}</span><div><b>Active les notifications</b><span class="small">pour être prévenu des alertes marché et des invitations.</span></div><a class="btn primary" href="#notifs">Activer</a><button aria-label="Plus tard">✕</button>`;
+  const close = () => { el.remove(); try { localStorage.bf_npBan = '1'; } catch (e) { /* rien */ } };
+  el.querySelector('button').onclick = close; el.querySelector('a').onclick = close;
+  const main = document.getElementById('main'); if (main) main.before(el);
+}
+
 P.reglages = async m => {
   m.innerHTML = `<h1>Réglages</h1><p class="mute">Ton profil sur le site de la Brigade.</p>
     <div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><div style="flex:1;min-width:0"><b>Partager ma collection avec la Brigade</b><div class="small mute">${SHARE_TXT}</div></div><label class="switch"><input type="checkbox" id="rsh" ${S.profile.share ? 'checked' : ''}><span></span></label></div></div>
+    <a class="card section rgl-np" href="#notifs" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit">${ico('bell')}<div style="flex:1"><b>Notifications</b><div class="small mute">Alertes marché, invitations Mercato, nouveautés : sur le site et en push.</div></div><span class="mute">›</span></a>
     <div class="card section"><b>Compte</b><p class="small mute" style="margin:4px 0 10px">Connecté avec Discord : ${esc(S.profile.discord)}</p><button class="btn ghost" id="rlo">Se déconnecter</button></div>`;
   $('#rsh').onchange = async e => { const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; toast(e.target.checked ? 'Collection partagée avec la Brigade' : 'Collection privée'); };
   $('#rlo').onclick = async () => { if (confirmBox('Te déconnecter ?')) { await sb.auth.signOut(); authView(); } };
@@ -2102,10 +2254,12 @@ P.reglages = async m => {
 // Tableau de bord admin (maquette E validée le 26/11) : suivi des collections, membres en ligne, Discord sans compte.
 async function adminDash() {
   const el = $('#adBody'); if (!el) return;
-  const [{ data: pr }, { data: lr }, { data: dm }] = await Promise.all([
+  const [{ data: pr }, { data: lr }, { data: dm }, { data: rk }] = await Promise.all([
     sb.from('profiles').select('id,discord,status,role,created_at,revoked').order('created_at', { ascending: true }),
     sb.rpc('admin_collection_status'),
-    sb.from('content').select('data').eq('key', 'discord_members').maybeSingle()]);
+    sb.from('content').select('data').eq('key', 'discord_members').maybeSingle(),
+    sb.rpc('collection_ranking').then(r => r, () => ({ data: [] }))]);
+  const PCT = new Map((rk || []).map(r => [r.user_id, +r.pct || 0]));
   // Fonction réservée aux admins : voit aussi les membres qui ne partagent pas leur collection.
   const L = {}; for (const r of lr || []) L[r.user_id] = r;
   const norm = d => String(d || '').replace(/^@+/, '').toLowerCase();
@@ -2135,7 +2289,7 @@ async function adminDash() {
       <div><span class="small mute">Discord sans compte</span><b>${disc.length ? noAcc.length : '—'}</b></div></div>
       <div class="adtools">${[['all', 'Tous'], ['on', 'En ligne'], ['none', 'Pas de collection'], ['late', 'En retard'], ['ok', 'À jour']].map(([k, t]) => `<button class="btn ghost${filt === k ? ' on' : ''}" data-af="${k}" style="min-height:34px">${t}</button>`).join('')}
         <span class="sp"></span><button class="btn" data-acp style="min-height:34px">📋 Copier les @ de la liste</button></div>
-      <div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Collection</th><th>Dernière mise à jour</th><th>En ligne</th><th></th></tr></thead><tbody>${list.map(r => { const o = onl.get(r.id); return `<tr><td><b>${esc(r.discord)}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td>${lab(r)}</td><td class="small">${when(r)}</td><td class="small">${o ? `<span class="adon"></span>${esc(o.p || 'accueil')}` : '<span class="mute">—</span>'}</td><td class="n">${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px">Copier un rappel</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Personne.</td></tr>'}</tbody></table></div>
+      <div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Collection</th><th class="n">%</th><th>Dernière mise à jour</th><th>En ligne</th><th></th></tr></thead><tbody>${list.map(r => { const o = onl.get(r.id); return `<tr><td><b>${esc(r.discord)}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td>${lab(r)}</td><td class="n small">${PCT.has(r.id) ? String(PCT.get(r.id)).replace('.', ',') + ' %' : '—'}</td><td class="small">${when(r)}</td><td class="small">${o ? `<span class="adon"></span>${esc(o.p || 'accueil')}` : '<span class="mute">—</span>'}</td><td class="n">${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px">Copier un rappel</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Personne.</td></tr>'}</tbody></table></div>
       <h3 style="margin-top:16px">Sur le Discord, pas encore inscrits sur le site ${disc.length ? `(${noAcc.length})` : ''}</h3>
       ${disc.length ? `<p class="small mute">Liste des membres du serveur relevée le ${new Date(discAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} (bots exclus).</p><div class="adlist">${noAcc.map(u => `<span>@${esc(u)}</span>`).join('') || '<span class="mute">Tout le monde est inscrit 🎉</span>'}</div>${noAcc.length ? '<button class="btn" data-acd style="min-height:34px;margin-top:10px">📋 Copier ces @</button>' : ''}` : '<p class="small mute">Liste du serveur pas encore relevée.</p>'}`;
     el.querySelectorAll('[data-af]').forEach(b => b.onclick = () => { filt = b.dataset.af; draw(); });
@@ -2163,7 +2317,8 @@ P.admin = async m => {
   </div>`;
   adminDash();
   (async () => { const { data: f, error } = await sb.rpc('onboarding_funnel'); const el = $('#fun'); if (!el) return; if (error || !f) { el.innerHTML = '<p class="small mute">Indisponible.</p>'; return; }
-    const st = [['inscrits', 'Inscrits sur le site'], ['video', 'Vidéo de bienvenue vue'], ['c', 'Communes remplies'], ['r', 'Rares remplies'], ['sr', 'SR remplies'], ['ssr', 'SSR importées'], ['ur', 'UR importées'], ['lr', 'LR importées'], ['done', 'Accueil terminé']];
+    // Import en 1 clic (PC et téléphone) : plus d'étapes par rareté, seulement inscription → vidéo → collection importée.
+    const st = [['inscrits', 'Inscrits sur le site'], ['video', 'Vidéo de bienvenue vue'], ['done', 'Collection importée']];
     const top = Math.max(1, f.inscrits || 0); let prev = null;
     el.innerHTML = st.map(([k, l]) => { const n = f[k] || 0, drop = prev != null && prev > 0 ? Math.round((prev - n) / prev * 100) : null; prev = n; return `<div class="funrow"><span class="small">${l}</span><div class="bar"><i style="width:${n / top * 100}%"></i></div><b class="small">${n}</b><span class="small ${drop >= 30 ? 'red' : 'mute'}">${drop ? '−' + drop + ' %' : ''}</span></div>`; }).join(''); })();
   const loadP = async () => { const { data } = await sb.from('profiles').select('*').order('created_at', { ascending: false }); $('#pd').innerHTML = `<div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Statut</th><th>Demande</th><th></th></tr></thead><tbody>${(data || []).map(p => `<tr><td><b>${esc(p.discord)}</b>${p.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td><span class="chip ${p.status === 'approved' ? 'ok' : p.status === 'refused' ? 'red' : 'warn'}">${p.status === 'refused' && p.revoked ? 'révoqué' : { approved: 'validé', refused: 'refusé', pending: 'en attente' }[p.status]}</span></td><td class="small mute">${new Date(p.created_at).toLocaleString('fr-FR')}</td><td class="n">${p.role === 'admin' || p.id === S.user.id ? '' : p.status === 'approved' ? `<button class="btn ghost" data-a="${p.id}" data-s="revoke" style="min-height:36px">🚫 Révoquer l'accès</button>` : p.status === 'refused' ? `<button class="btn" data-a="${p.id}" data-s="approved" style="min-height:36px">Rétablir l'accès</button>` : `<button class="btn" data-a="${p.id}" data-s="approved" style="min-height:36px">Valider</button> <button class="btn ghost" data-a="${p.id}" data-s="refused" style="min-height:36px">Refuser</button>`}</td></tr>`).join('')}</tbody></table></div>`; $('#pd').querySelectorAll('[data-a]').forEach(b => b.onclick = async () => { const p = (data || []).find(x => x.id === b.dataset.a); let patch;
@@ -2483,7 +2638,7 @@ async function arTourn(m, t) {
 // Invitation Mercato reçue : bandeau « Rejoindre » sur tout le site (30 min, tant que le salon attend).
 async function mxCall() {
   const { data } = await sb.from('mercato_invites').select('id,code,from_name,created_at').eq('to_id', S.user.id).gte('created_at', new Date(Date.now() - 30 * 60000).toISOString()).order('created_at', { ascending: false }).limit(1);
-  let el = document.getElementById('mxCall'); const x = data?.[0];
+  let el = document.getElementById('mxCall'); const x = npOn('mercato') ? data?.[0] : null;
   if (!x || location.hash.startsWith('#jeux/mercato/' + x.code)) { el?.remove(); if (x) sb.from('mercato_invites').delete().eq('id', x.id).then(() => { }); return; }
   const { data: p } = await sb.from('mercato_parties').select('guest,status').eq('code', x.code).maybeSingle();
   if (!p || p.guest || p.status !== 'lobby') { el?.remove(); sb.from('mercato_invites').delete().eq('id', x.id).then(() => { }); return; }
@@ -2775,6 +2930,7 @@ async function render() {
   else { m.classList.remove('th-in'); $('#mainw')?.querySelector('.th-spider')?.remove(); }
   window.scrollTo(0, 0);
   wireInstall();
+  if (!onb) npBanner();
   try { if (Date.now() - (+localStorage.bf_lurkr || 0) > 3600000) { localStorage.bf_lurkr = String(Date.now()); sb.functions.invoke('lurkr-sync', { body: {} }).catch(() => {}); } } catch (e) { /* rien */ }
   alertLoop();
 }
