@@ -801,3 +801,7 @@ details.adsec>summary{cursor:pointer;font-weight:700;list-style-position:inside}
 /* Bandeau « Nouvelle version » : bouton × pour le masquer, et caché pendant une fenêtre (import, etc.) pour ne rien recouvrir (27/11) */
 #bfvbar .bfv-x{background:none;border:0;color:var(--mute);font-size:22px;line-height:1;padding:4px 6px;cursor:pointer;flex-shrink:0}
 body:has(.modal) #bfvbar{display:none}
+
+/* Recherche admin */
+.admq{margin:4px 0 12px}.admq input{width:100%;max-width:520px;min-height:44px}
+.admcards.lim .admx{display:none!important}
