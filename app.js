@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=246';
+import * as CFG from './config.js?v=247';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=246';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=246';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=247';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=247';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=246';
-import * as SCAN from './scan.js?v=246';
+import { duelRate } from './ranked.js?v=247';
+import * as SCAN from './scan.js?v=247';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -828,10 +828,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=246'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=247'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=246'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=247'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -991,7 +991,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=246'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=247'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1428,8 +1428,7 @@ P.collection = async (m, tab = '') => {
       if (show === 'own') L = L.filter(x => x[3]); else if (show === 'miss') L = L.filter(x => !x[3]);
       L.sort((a, b) => (S.serial?.get(a[1][3]) || 9e9) - (S.serial?.get(b[1][3]) || 9e9));
       el.querySelector('#cinfo').textContent = `${L.length} carte${L.length > 1 ? 's' : ''} affichée${L.length > 1 ? 's' : ''}${uni ? ' · ' + uni : ''}`;
-      el.querySelector('#cl').innerHTML = mosaic(L, 'Aucune carte.', true);
-      bindEdit(el.querySelector('#cl'), X, list); bindWho(el.querySelector('#cl'), X);
+      putMosaic(el.querySelector('#cl'), L, 'Aucune carte.', true, box => bindWho(box, X));
     };
     const pickUni = v => { uni = v; el.querySelector('#cuf').value = full.some(u => u.s === v) ? v : ''; el.querySelector('#cup').value = part.some(u => u.s === v) ? v : ''; el.querySelector('#cux').style.display = v ? '' : 'none'; list(); };
     el.querySelector('#cuf').onchange = e => pickUni(e.target.value); el.querySelector('#cup').onchange = e => pickUni(e.target.value); el.querySelector('#cux').onclick = () => pickUni('');
@@ -1443,8 +1442,13 @@ P.collection = async (m, tab = '') => {
     const ctl = '';
     return `<div class="mcell"><figure class="mcard r${c[1]} ${color ? (own ? 'own' : 'miss') : ''}" data-u="${esc(u.s)}" data-c="${esc(c[0])}">${c[2] ? `<img loading="lazy" src="${img(c[2])}" alt="">` : ''}<span class="mtag">${({ M: 'UR', L: 'SSR', S: 'LR', E: 'SR', R: 'R', C: 'C', X: 'EX', T: 'TRS' })[c[1]] || RN[c[1]] || ''}${lr && own ? ` · <span class="st">${st}★</span>${n > 1 ? ` · ×${n}` : ''}` : o && n > 1 ? ` · ×${n}` : ''}</span>${sn ? `<span class="mnum">#${String(sn).padStart(3, '0')}</span>` : ''}<figcaption><b>${esc(c[0])}</b><small>${esc(u.s)}</small></figcaption></figure>${ctl}</div>`; }).join('') || `<div class="empty">${empty}</div>`}</div>`;
   // Recherche (carte ou univers) dans Doublons et Manquantes, comme dans « Ma collection ».
+  // Grille de cartes affichée par morceaux (27/11, fluidité sur téléphone) : les 160 premières tout de suite, le reste juste après, sans bloquer l'écran.
+  let putTok = 0;
+  const putMosaic = (box, M, empty, color, after) => { const tok = ++putTok, N = 160; box.innerHTML = mosaic(M.slice(0, N), empty, color); after && after(box);
+    const grid = box.querySelector('.mosaic'); let i = N; const step = () => { if (tok !== putTok || !box.isConnected || i >= M.length) return; const t = document.createElement('div'); t.innerHTML = mosaic(M.slice(i, i + 400), '', color); const g = t.querySelector('.mosaic'); if (g && grid) grid.append(...g.children); i += 400; after && after(box); (window.requestIdleCallback || setTimeout)(step); };
+    if (M.length > N) (window.requestIdleCallback || setTimeout)(step); };
   const searchList = (el, head, L, empty, after) => { let q = ''; el.innerHTML = `${head}<div class="cfilters"><input id="cq2" placeholder="Rechercher une carte ou un univers"></div><p class="small mute" id="cinfo2" style="margin:8px 0 0"></p><div id="cl2"></div>`;
-    const draw = () => { const M = q ? L.filter(x => x[1][0].toLowerCase().includes(q) || x[0].s.toLowerCase().includes(q)) : L; M.sort((a, b) => (S.serial?.get(a[1][3]) || 9e9) - (S.serial?.get(b[1][3]) || 9e9)); el.querySelector('#cinfo2').textContent = q ? `${M.length} carte${M.length > 1 ? 's' : ''} trouvée${M.length > 1 ? 's' : ''}` : ''; el.querySelector('#cl2').innerHTML = mosaic(M, q ? 'Aucune carte ne correspond.' : empty, true); after && after(el.querySelector('#cl2')); };
+    const draw = () => { const M = q ? L.filter(x => x[1][0].toLowerCase().includes(q) || x[0].s.toLowerCase().includes(q)) : L; M.sort((a, b) => (S.serial?.get(a[1][3]) || 9e9) - (S.serial?.get(b[1][3]) || 9e9)); el.querySelector('#cinfo2').textContent = q ? `${M.length} carte${M.length > 1 ? 's' : ''} trouvée${M.length > 1 ? 's' : ''}` : ''; putMosaic(el.querySelector('#cl2'), M, q ? 'Aucune carte ne correspond.' : empty, true, after); };
     el.querySelector('#cq2').oninput = e => { q = e.target.value.toLowerCase().trim(); draw(); }; draw(); };
   function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2, true])); const extra = L.reduce((a, x) => a + x[2] - 1, 0);
     searchList(el, `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque). Touche une carte pour voir qui la cherche.</p>`, L, 'Aucun doublon. Lance la mise à jour en 1 clic : tes cartes à ×2 et plus y sont ajoutées avec leur nombre.', box => bindWho(box, X)); }
@@ -1924,7 +1928,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=246'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=247'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
