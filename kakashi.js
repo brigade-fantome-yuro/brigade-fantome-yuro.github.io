@@ -35,9 +35,14 @@ export function twoShotRoom(_t, card, stars, heal) {
 const q = (a, f) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); const i = (s.length - 1) * f, lo = Math.floor(i), hi = Math.ceil(i); return Math.round(s[lo] + (s[hi] - s[lo]) * (i - lo)); };
 const r1 = v => v == null ? null : Math.round(v / 1000) * 1000;
 // Même calcul que le guide des prix : médiane, bon prix (25 %), max conseillé (75 %)
+// Prix aberrants (Nicolas 27/11) : une vente sous 40 % ou au-dessus de 300 % de la médiane de la période
+// (0 oublié ou en trop, vente « cadeau ») ne compte ni dans la moyenne ni dans les stats. Pas de filtre sous 3 ventes.
+export const PX_LO = 0.4, PX_HI = 3;
+export function priceOk(ps) { const v = ps.filter(p => +p > 0).map(Number); if (v.length < 3) return () => true; const m = q(v, .5); return p => +p >= m * PX_LO && +p <= m * PX_HI; }
+export function cleanPrices(ps) { const ok = priceOk(ps); return ps.filter(p => +p > 0 && ok(p)); }
 export function priceStats(sales, card, days, offsetDays = 0) {
   const now = Date.now(), from = now - (days + offsetDays) * 864e5, to = now - offsetDays * 864e5;
-  const ps = sales.filter(x => x.card === card && x.ts >= from && x.ts < to).map(x => x.price);
+  const ps = cleanPrices(sales.filter(x => x.card === card && x.ts >= from && x.ts < to).map(x => x.price));
   return { n: ps.length, med: q(ps, .5), good: r1(q(ps, .25)), max: r1(q(ps, .75)), lo: ps.length ? Math.min(...ps) : null, hi: ps.length ? Math.max(...ps) : null };
 }
 
