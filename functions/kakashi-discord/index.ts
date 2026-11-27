@@ -189,10 +189,11 @@ async function tournoiInteraction(i: any) {
 
 // ---------- Tickets « comme YURO » (Nicolas 27/11) ----------
 // Bouton « 🎫 Ouvrir un ticket » posté dans #ticket-site : le bot crée un salon privé ticket-<pseudo>
-// visible seulement par le membre, le staff (Fondateur, Chef, Modérateur) et le bot, avec un bouton « 🔒 Fermer le ticket ».
+// visible seulement par le membre, Nicolas (OnlyWIZZOX) et le bot, avec un bouton « 🔒 Fermer le ticket ».
+// Pas de staff (Nicolas 27/11) : c'est l'assistant qui lit et répond aux tickets via ticket-bot.
 const TK_GUILD = '1572049244339183616', TK_PANEL = '1575274736265601204';
 const P = { VIEW: 1n << 10n, SEND: 1n << 11n, EMBED: 1n << 14n, ATTACH: 1n << 15n, HISTORY: 1n << 16n, MANAGE_CH: 1n << 4n, ADMIN: 1n << 3n, MANAGE_MSG: 1n << 13n };
-const STAFF_RE = /fondateur|chef|mod[ée]rat/i;
+const TK_CHEF = '1117857830955917454'; // OnlyWIZZOX
 async function botToken() { const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!); const { data } = await admin.from('secrets').select('value').eq('key', 'discord_bot_token').maybeSingle(); return data?.value as string; }
 async function DB(tok: string, path: string, init: RequestInit = {}) { const r = await fetch('https://discord.com/api/v10' + path, { ...init, headers: { Authorization: 'Bot ' + tok, 'Content-Type': 'application/json', ...(init.headers || {}) } }); const t = await r.text(); let j: unknown = t; try { j = JSON.parse(t); } catch (_) { /* texte */ } return { ok: r.ok, status: r.status, j }; }
 const followUp = (tok: string, content: string) => fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${tok}/messages/@original`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }) });
@@ -205,21 +206,18 @@ async function ticketOpen(i: any) {
   const L = chs.j as any[]; const mine = L.find((c) => c.topic === `ticket:${uid}`);
   if (mine) return followUp(i.token, `Tu as déjà un ticket ouvert : <#${mine.id}>`);
   const panel = L.find((c) => c.id === TK_PANEL);
-  const roles = await DB(tok, `/guilds/${TK_GUILD}/roles`);
-  // deno-lint-ignore no-explicit-any
-  const staff = ((roles.j as any[]) || []).filter((r) => STAFF_RE.test(r.name) && !r.managed).map((r) => r.id as string);
   const see = (P.VIEW | P.SEND | P.HISTORY | P.ATTACH | P.EMBED).toString();
   const slug = String(user.username || 'membre').toLowerCase().replace(/[^a-z0-9_-]+/g, '').slice(0, 80) || 'membre';
-  const ow = [{ id: TK_GUILD, type: 0, deny: P.VIEW.toString() }, { id: uid, type: 1, allow: see }, { id: APP_ID, type: 1, allow: (BigInt(see) | P.MANAGE_CH | P.MANAGE_MSG).toString() }, ...staff.map((id: string) => ({ id, type: 0, allow: see }))];
+  const ow = [{ id: TK_GUILD, type: 0, deny: P.VIEW.toString() }, { id: uid, type: 1, allow: see }, { id: APP_ID, type: 1, allow: (BigInt(see) | P.MANAGE_CH | P.MANAGE_MSG).toString() }, ...(uid === TK_CHEF ? [] : [{ id: TK_CHEF, type: 1, allow: see }])];
   const c = await DB(tok, `/guilds/${TK_GUILD}/channels`, { method: 'POST', body: JSON.stringify({ name: `ticket-${slug}`, type: 0, parent_id: panel?.parent_id || null, topic: `ticket:${uid}`, permission_overwrites: ow }) });
   if (!c.ok) return followUp(i.token, `❌ Le bot n'a pas pu créer ton salon (erreur ${c.status}). Préviens le Chef.`);
   // deno-lint-ignore no-explicit-any
   const ch = (c.j as any).id;
   await DB(tok, `/channels/${ch}/messages`, { method: 'POST', body: JSON.stringify({
-    content: `<@${uid}> ${staff.map((r: string) => `<@&${r}>`).join(' ')}`,
-    embeds: [{ color: 0xe3123a, title: '🎫 Ticket ouvert', description: `Bonjour <@${uid}>, explique ton problème avec le site de la Brigade (téléphone ou PC, ce que tu faisais, une capture d'écran si possible). Le staff te répondra dès que possible.`, footer: { text: 'Brigade Fantôme · ticket site' } }],
+    content: `<@${uid}>`,
+    embeds: [{ color: 0xe3123a, title: '🎫 Ticket ouvert', description: `Bonjour <@${uid}>, explique ton problème avec le site de la Brigade (téléphone ou PC, ce que tu faisais, une capture d'écran si possible). On te répond ici dès que possible.`, footer: { text: 'Brigade Fantôme · ticket site' } }],
     components: [{ type: 1, components: [{ type: 2, style: 4, custom_id: 'tkc', label: 'Fermer le ticket', emoji: { name: '🔒' } }] }],
-    allowed_mentions: { users: [uid], roles: staff } }) });
+    allowed_mentions: { users: [uid] } }) });
   return followUp(i.token, `✅ Ton ticket est ouvert : <#${ch}>`);
 }
 // deno-lint-ignore no-explicit-any
@@ -227,10 +225,10 @@ async function ticketClose(i: any) {
   const tok = await botToken(); const user = i.member?.user || {}; const uid = String(user.id);
   const chs = await DB(tok, `/channels/${i.channel_id}`); // deno-lint-ignore no-explicit-any
   const ch = chs.j as any; const owner = String(ch?.topic || '').replace(/^ticket:/, '');
-  const perms = BigInt(i.member?.permissions || '0'); const isStaff = (perms & (P.ADMIN | P.MANAGE_CH)) !== 0n;
+  const isStaff = uid === TK_CHEF;
   if (!String(ch?.topic || '').startsWith('ticket:')) return followUp(i.token, 'Ce ticket est déjà fermé.');
-  if (uid !== owner && !isStaff) return followUp(i.token, 'Seul l\'auteur du ticket ou le staff peut le fermer.');
-  // Fermé = gardé pour l'historique : le membre ne voit plus le salon, le staff garde la conversation.
+  if (uid !== owner && !isStaff) return followUp(i.token, 'Seul l\'auteur du ticket ou le Chef peut le fermer.');
+  // Fermé = gardé pour l'historique : le membre ne voit plus le salon, Nicolas garde la conversation.
   await DB(tok, `/channels/${i.channel_id}/permissions/${owner}`, { method: 'PUT', body: JSON.stringify({ type: 1, deny: P.VIEW.toString() }) });
   await DB(tok, `/channels/${i.channel_id}`, { method: 'PATCH', body: JSON.stringify({ name: ('ferme-' + String(ch.name || '').replace(/^ticket-/, '')).slice(0, 90), topic: `ticket-ferme:${owner}` }) });
   await DB(tok, `/channels/${i.channel_id}/messages`, { method: 'POST', body: JSON.stringify({ content: `🔒 Ticket fermé par <@${uid}>.`, allowed_mentions: { parse: [] } }) });
