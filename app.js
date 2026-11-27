@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=270';
+import * as CFG from './config.js?v=271';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=270';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=270';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=271';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=271';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=270';
-import * as SCAN from './scan.js?v=270';
+import { duelRate } from './ranked.js?v=271';
+import * as SCAN from './scan.js?v=271';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -120,7 +120,9 @@ function pricesFrom(sales) {
   S.prices = [...by.keys()].map(card => { const L = by.get(card), w = priceStats(L, card, 7), p = priceStats(L, card, 7, 7); let last = 0; for (const x of L) if (x.ts > last) last = x.ts;
     // Pas assez de ventes la semaine d'avant (relevé des ventes commencé le 20/11) : on compare les 3,5 derniers jours aux 3,5 jours d'avant.
     let prev = p.n >= 2 ? p.med : null, cur = w.med, half = false;
-    if (prev == null) { const a = priceStats(L, card, 3.5, 3.5), b = priceStats(L, card, 3.5); if (a.n && b.n) { prev = a.med; cur = b.med; half = true; } }
+    if (prev == null) { const a = priceStats(L, card, 3.5, 3.5), b = priceStats(L, card, 3.5); if (a.n && b.n) { prev = a.med; cur = b.med; half = true; }
+      else { const W = L.filter(x => x.ts >= Date.now() - 7 * 864e5).sort((x, y) => x.ts - y.ts), k = Math.floor(W.length / 2), md = A => { const v = A.map(x => x.price).sort((x, y) => x - y); return v[Math.floor((v.length - 1) / 2)]; };
+        if (W.length >= 2) { prev = md(W.slice(0, k)); cur = md(W.slice(W.length - k)); half = true; } } }
     return { card, sales: w.n, median: w.med, good: w.good, max: w.max, prev_median: prev, trend_cur: cur, half, updated_at: new Date(last).toISOString() }; })
     .filter(p => p.sales > 0).sort((a, b) => b.sales - a.sales);
   if (S.kb) S.kb.prices = S.prices;
@@ -475,9 +477,9 @@ P.accueil = m => {
 };
 
 function trend(p) {
-  if (!p.prev_median) return '<span class="chip" title="Pas encore assez de ventes pour une tendance">Nouveau</span>';
+  if (!p.prev_median) return '<span class="chip" title="Une seule vente enregistrée sur 7 jours : pas encore de tendance">1 vente</span>';
   const c = p.base?.trend_cur ?? p.trend_cur ?? p.median, d = c - p.prev_median, pc = d / p.prev_median * 100;
-  return `<span class="${d >= 0 ? 'up' : 'down'} small" title="${(p.base?.half ?? p.half) ? 'Comparé aux 3,5 jours d’avant (pas assez de ventes la semaine précédente)' : 'Comparé à la semaine d’avant'}">${d >= 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} KI (${pc >= 0 ? '+' : ''}${pc.toFixed(1)} %)</span>`;
+  return `<span class="${d >= 0 ? 'up' : 'down'} small" title="${(p.base?.half ?? p.half) ? 'Ventes récentes comparées aux premières ventes de la semaine (pas assez de ventes la semaine précédente)' : 'Comparé à la semaine d’avant'}">${d >= 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} KI (${pc >= 0 ? '+' : ''}${pc.toFixed(1)} %)</span>`;
 }
 
 // Seuils d'Aya (calculés pour chaque niveau d'étoiles) + % de victoires par fourchette (mesurés 23/11, relatifs aux seuils).
@@ -871,10 +873,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=270'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=271'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=270'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=271'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -1034,7 +1036,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=270'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=271'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1995,7 +1997,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=270'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=271'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };

@@ -826,3 +826,10 @@ html,body{overflow-x:clip}
   .webrank td.wrn img,.webrank td.wrn .cxb{display:none}
   .webrank td:last-child{white-space:nowrap}
 }
+@media (max-width:600px){.webrank td.wrn{white-space:nowrap}.webrank td.wrn b{display:inline-block;max-width:calc(100% - 28px);vertical-align:middle}.webrank td.wrn .cx-badges{display:inline-flex;vertical-align:middle;margin-left:4px}.webrank td.wrn .cx-title{display:none}}
+@media (max-width:720px){
+  .tabs{max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}.tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:1 0 auto;white-space:nowrap;padding:0 12px}
+  .card table.tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .adtools{max-width:100%}.adtools>*{max-width:100%}
+}
