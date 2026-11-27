@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=241';
+import * as CFG from './config.js?v=242';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=241';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=241';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=242';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=242';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=241';
-import * as SCAN from './scan.js?v=241';
+import { duelRate } from './ranked.js?v=242';
+import * as SCAN from './scan.js?v=242';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -828,10 +828,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=241'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=242'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=241'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=242'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -991,7 +991,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=241'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=242'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1086,10 +1086,21 @@ const lrUnis = () => S._lrU || (S._lrU = rarUniverses('S'));
 const lrCollFrom = (cards, dupes) => { const o = {}; for (const u of lrUnis()) for (const c of u.c) if (cards?.[c[3]] != null) { const r = uget(o, u.s); r.owned.add(c[0]); const x = +(dupes?.[c[3]] || 0); if (x > 0) { r.dupes.add(c[0]); r.qty[c[0]] = x + 1; } } return o; };
 const lrLoad = () => S.lrP || (S.lrP = sb.from('my_lr').select('user_id,cards,dupes').then(({ data }) => { S.lrRows = data || []; }, () => { S.lrRows = []; }));
 const lrMemColl = id => { if (id === S.user?.id && S.mylr) return lrCollFrom(S.mylr.cards, S.mylr.dupes); const r = (S.lrRows || []).find(x => x.user_id === id); return r ? lrCollFrom(r.cards, r.dupes) : {}; };
+// Doublons d'un membre sur son profil : par défaut, seulement ceux qui TE manquent (les seuls utiles pour un échange), triés par rareté (LR d'abord) ; bouton pour tout voir (27/11).
+const RAR_ORD = { S: 0, M: 1, L: 2, E: 3, R: 4, C: 5, X: 6, T: 7 };
+function dupesBlock(list, useful, title, word, qtyOf) {
+  const L = [...list].sort((a, b) => (RAR_ORD[a[1][1]] ?? 9) - (RAR_ORD[b[1][1]] ?? 9) || a[1][0].localeCompare(b[1][0])), U = L.filter(([u, c]) => useful(u, c));
+  const t = ([u, c], on) => tile(c, on, qtyOf ? qtyOf(u, c) : false);
+  return `<div class="section dpb"><div class="row" style="align-items:center;gap:8px;flex-wrap:wrap"><h2 style="margin:0">${title}</h2><span class="sp"></span>${L.length ? `<div class="tabs" style="margin:0"><button class="on" data-dpb="u">Qui te manquent (${U.length})</button><button data-dpb="a">Tous (${L.length})</button></div>` : ''}</div>
+    <div class="tiles" data-dpv="u" style="margin-top:10px">${U.map(x => t(x, true)).join('') || `<div class="mute">${L.length ? 'Tu as déjà tous ses ' + word + 's.' : 'Aucun ' + word + ' déclaré.'}</div>`}</div>
+    <div class="tiles" data-dpv="a" style="margin-top:10px;display:none">${L.map(x => t(x, useful(x[0], x[1]))).join('')}</div>
+    <p class="small mute" data-dpv="a" style="display:none">En couleur : ceux qui te manquent.</p></div>`;
+}
+document.addEventListener('click', e => { const b = e.target.closest?.('[data-dpb]'); if (!b) return; const box = b.closest('.dpb'); box.querySelectorAll('[data-dpb]').forEach(x => x.classList.toggle('on', x === b)); box.querySelectorAll('[data-dpv]').forEach(x => { x.style.display = x.dataset.dpv === b.dataset.dpb ? '' : 'none'; }); });
 // Section « LR » d'un profil : ses LR en double (en vert : celles qui te manquent) et les LR qui lui manquent (en vert : celles que tu as en double).
 function lrProfileFill(box, id) { if (!box) return; lrLoad().then(() => { if (!box.isConnected) return; const th = lrMemColl(id), me = lrMemColl(S.user.id), U = lrUnis();
   const d = U.flatMap(u => u.c.filter(c => th[u.s]?.dupes.has(c[0])).map(c => [u, c])), mi = U.flatMap(u => u.c.filter(c => !th[u.s]?.owned.has(c[0])).map(c => [u, c]));
-  box.innerHTML = `<div class="section"><h2>Ses LR en double</h2><p class="small mute">En vert : celles qui te manquent.</p><div class="tiles">${d.map(([u, c]) => tile(c, !me[u.s]?.owned.has(c[0]), th[u.s].qty[c[0]] || 2)).join('') || '<div class="mute">Aucune LR en double déclarée.</div>'}</div></div>
+  box.innerHTML = `${dupesBlock(d, (u, c) => !me[u.s]?.owned.has(c[0]), 'Ses LR en double', 'LR en double', (u, c) => th[u.s].qty[c[0]] || 2).replace('Tu as déjà tous ses LR en doubles.', 'Tu as déjà toutes ses LR en double.').replace('Aucun LR en double déclaré.', 'Aucune LR en double déclarée.')}
     <div class="section"><h2>Les LR qui lui manquent</h2><p class="small mute">En vert : celles que tu as en double.</p><div class="tiles">${mi.map(([u, c]) => tile(c, !!me[u.s]?.dupes.has(c[0]), false)).join('') || '<div class="mute">Il a toutes les LR.</div>'}</div></div>`; }); }
 const ownN = (coll, u) => { const r = coll[u.s]; return r ? u.c.filter(c => r.owned.has(c[0])).length : 0; };
 
@@ -1229,7 +1240,7 @@ function viewProfile(el, U, id) {
   const dupes = U.flatMap(u => u.c.filter(c => coll[u.s]?.dupes.has(c[0])).map(c => [u, c]));
   el.innerHTML = `<a href="${FUS() ? '#collection/L/membres' : '#checklist/membres'}" class="btn ghost" style="min-height:36px">← Membres</a>
     <section class="hero" style="margin-top:12px"><div class="moon"></div><span class="chip red">Profil</span><h1 style="margin-top:12px">${esc(p.discord)}</h1><p class="mute">${s.done} univers complets · ${fmt(s.got)} cartes · ${s.du} doublons</p></section>
-    <div class="section"><h2>Ses doublons</h2><p class="small mute">En vert : ceux qui te manquent.</p><div class="tiles">${dupes.map(([u, c]) => tile(c, !mine[u.s]?.owned.has(c[0]), false)).join('') || '<div class="mute">Aucun doublon déclaré.</div>'}</div></div>
+    ${dupesBlock(dupes, (u, c) => !mine[u.s]?.owned.has(c[0]), 'Ses doublons', 'doublon')}
     <div data-lrsec></div>
     <div class="section"><h2>Ses cartes manquantes</h2><p class="small mute">Univers commencés, du plus proche de la fin au plus lointain. En vert : celles que tu as en double.</p>
     ${inc.map(x => `<div class="card" style="margin:10px 0"><div class="row"><b>${esc(x.u.s)}</b><span class="sp"></span><span class="small mute">${x.miss.length} manquante${x.miss.length > 1 ? 's' : ''}</span></div><div class="tiles" style="margin-top:10px">${x.miss.map(c => tile(c, !!mine[x.u.s]?.dupes.has(c[0]), false)).join('')}</div></div>`).join('') || '<div class="mute">Rien à afficher.</div>'}</div>`;
@@ -1429,6 +1440,9 @@ P.collection = async (m, tab = '') => {
     for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = X.lr ? lrOf(p.id) : X.all ? mergeColl(S.coll[p.id] || {}, lrOf(p.id)) : (S.coll[p.id] || {}); const give = [], get = [], thR = rarsOf(th);
       for (const u of X.U) for (const c of u.c) { if (myR.has(c[1]) && dup(th, u, c[0]) && !has(coll, u, c[0])) get.push(c); if (thR.has(c[1]) && dup(coll, u, c[0]) && !has(th, u, c[0])) give.push(c); }
       if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
+    // Filtre par rareté (onglet « Toutes ») : ne garder que les échanges de LR, UR, SSR… (27/11, choix gardé sur l'appareil).
+    let rf = ''; try { rf = X.all ? (localStorage.bf_trR || '') : ''; } catch (e) { /* rien */ }
+    if (rf) { for (const o of out) { o.give = o.give.filter(c => c[1] === rf); o.get = o.get.filter(c => c[1] === rf); o.score = Math.min(o.give.length, o.get.length) * 10 + o.give.length + o.get.length; } const keep = out.filter(o => o.give.length || o.get.length); out.length = 0; out.push(...keep); }
     out.sort((a, b) => b.score - a.score);
     // Lien direct vers un membre (depuis l'accueil) : seulement ses échanges, déjà ouverts.
     const fo = /^[0-9a-f-]{36}$/.test(autoImp || '') && view === 'echanges' ? out.find(o => o.p.id === autoImp) : null;
@@ -1437,7 +1451,8 @@ P.collection = async (m, tab = '') => {
     let win = false; try { win = localStorage.bf_trwin === '1'; } catch (e) { /* rien */ }
     const nWin = out.filter(o => o.give.length && o.get.length).length, nAll = out.length;
     if (!fo && win) { const keep = out.filter(o => o.give.length && o.get.length); out.length = 0; out.push(...keep); }
-    const trFilt = fo ? '' : `<div class="row" style="margin:8px 0;gap:8px;flex-wrap:wrap"><button class="btn ${win ? 'ghost' : 'primary'}" data-trw="0" style="min-height:34px">Tous (${nAll})</button><button class="btn ${win ? 'primary' : 'ghost'}" data-trw="1" style="min-height:34px">🤝 Gagnant-gagnant (${nWin})</button></div>`;
+    const trRar = fo || !X.all ? '' : `<div class="row" style="margin:8px 0;gap:6px;flex-wrap:wrap"><span class="small mute" style="align-self:center">Rareté :</span>${[['', 'Toutes'], ['S', 'LR'], ['M', 'UR'], ['L', 'SSR'], ['E', 'SR'], ['R', 'R'], ['C', 'C']].map(([k, l]) => `<button class="btn ${rf === k ? 'primary' : 'ghost'}" data-trr="${k}" style="min-height:32px;padding:0 12px">${l}</button>`).join('')}</div>`;
+    const trFilt = fo ? '' : trRar + `<div class="row" style="margin:8px 0;gap:8px;flex-wrap:wrap"><button class="btn ${win ? 'ghost' : 'primary'}" data-trw="0" style="min-height:34px">Tous (${nAll})</button><button class="btn ${win ? 'primary' : 'ghost'}" data-trw="1" style="min-height:34px">🤝 Gagnant-gagnant (${nWin})</button></div>`;
     el.innerHTML = (fo ? `<div class="row" style="margin-bottom:8px"><button class="btn ghost" id="trBack" style="min-height:34px">← Tous les échanges</button></div>` : '') + (fo ? '' : `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + trFilt + (out.length ? '<div class="row" style="margin:8px 0"><button class="btn ghost" id="trAll" style="min-height:34px">Tout déplier</button></div>' : '')) + (out.map(o => `<details class="card section trd"><summary class="row" style="cursor:pointer;list-style:none"><span class="trc">▸</span><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="small mute">te donne ${o.get.length} · reçoit ${o.give.length}</span><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px" onclick="event.stopPropagation()">Profil</a></summary>
       <div class="small mute" style="margin-top:10px">Il peut te donner (${o.get.length})</div><div class="tiles">${o.get.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div>
       <div class="small mute" style="margin-top:10px">Tu peux lui donner (${o.give.length})</div><div class="tiles">${o.give.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div></details>`).join('') || '<div class="empty">Pas encore d\'échange possible sur les ' + X.label + '. Plus il y a de membres qui importent leur collection et la partagent, plus il y en aura.</div>');
@@ -1445,6 +1460,7 @@ P.collection = async (m, tab = '') => {
       // Arrivée directe sur le membre (sous les menus fixés en haut).
       requestAnimationFrame(() => { const top = el.getBoundingClientRect().top + scrollY - (document.querySelector('.n2top')?.offsetHeight || document.querySelector('.top')?.offsetHeight || 0) - 12; scrollTo({ top: Math.max(0, top), behavior: 'instant' }); });
       const bk = el.querySelector('#trBack'); if (bk) bk.onclick = () => { autoImp = null; history.replaceState(null, '', `#collection/${rk}/echanges`); vTrades(el, X); }; }
+    el.querySelectorAll('[data-trr]').forEach(b => b.onclick = () => { try { localStorage.bf_trR = b.dataset.trr; } catch (e) { /* rien */ } vTrades(el, X); });
     el.querySelectorAll('[data-trw]').forEach(b => b.onclick = () => { try { localStorage.bf_trwin = b.dataset.trw; } catch (e) { /* rien */ } vTrades(el, X); });
     { const ta = el.querySelector('#trAll'); if (ta) ta.onclick = () => { const ds = [...el.querySelectorAll('details.trd')], open = !ds.every(d => d.open); ds.forEach(d => d.open = open); ta.textContent = open ? 'Tout replier' : 'Tout déplier'; }; }
   }
@@ -1865,7 +1881,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=241'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=242'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2192,7 +2208,7 @@ P.guilde = async (m, id) => {
       <section class="hero" style="margin-top:12px"><div class="moon"></div><span class="chip red">Profil</span>${p.nen ? ` <span class="chip">🕷 ${esc(p.nen)}${p.level != null ? ' · niv. ' + p.level : ''}</span>` : ''}<div class="row" style="margin-top:12px;align-items:center;gap:12px;flex-wrap:nowrap">${cxFr(p.id, brAv({ name: p.discord, avatar: p.avatar }).replace('class="bav', 'class="bav bav-l'))}<div><h1 style="margin:0">${cxName(p.id, esc(p.discord))}</h1>${cxBadges(p.id)}</div></div><p class="mute">${lrOwned.length} LR · ${dupes.length} doublons</p></section>
       <div class="grid">${tblock('chateau', 'Équipe château')}${tblock('ranked', 'Équipe ranked')}</div>
       <div class="section"><h2>Ses LR</h2><div class="tiles">${lrOwned.map(c => `<div class="tile on rS">${lrImg(c) ? `<img loading="lazy" src="${lrImg(c)}" alt="">` : '<div class="noimg"></div>'}<b class="dup">${own[c.id] || 0}★</b><span>${esc(c.n)}</span></div>`).join('') || '<div class="mute">Pas encore renseignées.</div>'}</div></div>
-      <div class="section"><h2>Ses doublons</h2><p class="small mute">En vert : ceux qui te manquent.</p><div class="tiles">${dupes.map(([u, c]) => tile(c, !mine[u.s]?.owned.has(c[0]), false)).join('') || '<div class="mute">Aucun doublon déclaré.</div>'}</div></div>
+      ${dupesBlock(dupes, (u, c) => !mine[u.s]?.owned.has(c[0]), 'Ses doublons', 'doublon')}
       <div data-lrsec></div>
       <div class="section"><h2>Ses cartes manquantes</h2><p class="small mute">Par univers, du plus proche de la fin au plus lointain. En vert : celles que tu as en double.</p>
       ${inc.map(x => `<div class="card" style="margin:10px 0"><div class="row"><b>${esc(x.u.s)}</b><span class="sp"></span><span class="small mute">${x.miss.length} manquante${x.miss.length > 1 ? 's' : ''}</span></div><div class="tiles" style="margin-top:10px">${x.miss.map(c => tile(c, !!mine[x.u.s]?.dupes.has(c[0]), false)).join('')}</div></div>`).join('') || '<div class="mute">Rien à afficher.</div>'}</div>`;
