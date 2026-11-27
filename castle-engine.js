@@ -2316,6 +2316,20 @@ try{infinityAnimate=(function(f){return function(action,previous){var r=f.apply(
  if(I.hakiBlocks&&I.hakiBlocks.length){var L=(next.log||[]).slice((previous.log||[]).length);L.forEach(function(t){var m=/^HAKI ! L’attaque de (.+) sur (.+) est annulée\.$/.exec(t);if(!m)return;var e=next.enemies.findIndex(function(u){return u.name===m[1];}),p=next.players.findIndex(function(u){return u.name===m[2];});if(e>=0&&p>=0)I.counters.push({enemy:-e-1,player:p+1,damage:0,oldHp:next.players[p].hp,blocked:true});});}
  if(I.counters.length){var own=I.counters.find(function(h){return h.player===I.player&&!h.blocked;})||I.counters[0];I.counterEnemy=own.enemy;}
 }}catch(_){}return r;};})(infinityAnimate);}catch(_){}
+/*__bfCounterSeq 27/11 (Nicolas : « dans le jeu les cartes attaquent l'une après l'autre, pas en même temps ») :
+  quand plusieurs ennemis frappent dans le même coup (fin de tour), chaque frappe part après la précédente (0,75 s d'écart à vitesse ×1),
+  la carte touchée encaisse au moment de SA frappe, et le coup suivant attend la fin de la dernière frappe. */
+var __bfSeqGap=.75;
+try{infinityAnimate=(function(f){return function(action,previous){var nb=infinityUI.data.me.battle,n=((nb&&nb.lastCounters)||[]).length+((nb&&nb.lastHakiBlocks)||[]).length,extra=n>1?(n-1)*__bfSeqGap*1000/(storySpeed||1):0;
+ if(!extra)return f.apply(this,arguments);var st=window.setTimeout;window.setTimeout=function(fn,ms){if(fn===infinityFinishAnimation)ms=(+ms||0)+extra;return st.apply(window,arguments.length>2?[fn,ms].concat([].slice.call(arguments,2)):[fn,ms]);};
+ try{return f.apply(this,arguments);}finally{window.setTimeout=st;}};})(infinityAnimate);}catch(_){}
+try{positionStoryEffects=(function(f){return function(){var r=f.apply(this,arguments);try{var I=storyImpact,root=(typeof __R!=='undefined'&&__R)||document,arena=root.querySelector('.story-battle');if(!I||!arena||!I.counters||I.counters.length<2)return r;
+ var base=getComputedStyle(arena).getPropertyValue('--counter-moment').trim()||'1.02s',bt=1/(storySpeed||1),seenE={},seenP={};
+ I.counters.forEach(function(h,k){if(!k)return;var off='calc('+base+' + '+(k*__bfSeqGap*bt).toFixed(3)+'s)';
+  var e=root.querySelector('[data-fighter-side="enemy"][data-fighter-id="'+h.enemy+'"]'),pl=root.querySelector('[data-fighter-side="player"][data-fighter-id="'+h.player+'"]');
+  if(e&&!seenE[h.enemy]){seenE[h.enemy]=1;e.style.setProperty('--counter-moment',off);}
+  if(pl&&!seenP[h.player]&&!I.counters.slice(0,k).some(function(x){return x.player===h.player;})){seenP[h.player]=1;pl.style.setProperty('--counter-moment',off);pl.style.setProperty('--player-fall','calc('+off+' + '+(.43*bt).toFixed(3)+'s)');}
+ });}catch(_){}return r;};})(positionStoryEffects);}catch(_){}
 /*__bfAudioUnlock 27/11 : sur iPhone/iPad, le son ne part que si le contexte audio est créé ou relancé PENDANT un geste (toucher, clic),
   et la session audio doit être en « playback » pour ne pas être coupée par le bouton silencieux. Avant, le contexte était créé au premier son
   (hors geste) et restait muet. */

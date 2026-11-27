@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=233';
+import * as CFG from './config.js?v=234';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=233';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=233';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=234';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=234';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=233';
-import * as SCAN from './scan.js?v=233';
+import { duelRate } from './ranked.js?v=234';
+import * as SCAN from './scan.js?v=234';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -211,13 +211,24 @@ function startPresence() {
   if (S.presCh) return;
   // p = les deux premiers segments du lien (ex. jeux/mercato, guide/chateau) pour savoir ce que fait chacun ; s = depuis quand il est sur cette page.
   let lastP = '', since = Date.now();
-  const me = () => { const p = (location.hash.slice(1) || 'accueil').split('?')[0].split('/').slice(0, 2).join('/'); if (p !== lastP) { lastP = p; since = Date.now(); } return { d: S.profile?.discord || '', p, s: since, t: Date.now() }; };
+  // v233 : « en ligne » = onglet visible ET utilisé dans les 10 dernières minutes. Un onglet oublié ouvert depuis la veille
+  // (cas Wingz le 27/11) ne compte plus : on quitte la présence quand l'onglet est caché ou sans activité, on revient au premier geste.
+  const IDLE = 10 * 60000; let act = Date.now(), on = false;
+  const me = () => { const p = (location.hash.slice(1) || 'accueil').split('?')[0].split('/').slice(0, 2).join('/'); if (p !== lastP) { lastP = p; since = Date.now(); } return { d: S.profile?.discord || '', p, s: since, t: Date.now(), a: act, v: 2 }; };
   const ch = sb.channel('bf-online', { config: { presence: { key: S.user.id } } });
-  ch.on('presence', { event: 'sync' }, () => { const st = ch.presenceState(); S.online = Object.entries(st).map(([id, a]) => ({ id, ...(a[a.length - 1] || {}) })); onlinePaint(); });
-  ch.subscribe(st => { if (st === 'SUBSCRIBED') ch.track(me()).catch(() => {}); });
+  const fresh = o => o && o.v >= 2 && Date.now() - (+o.a || 0) < IDLE + 5 * 60000;
+  ch.on('presence', { event: 'sync' }, () => { const st = ch.presenceState(); S.online = Object.entries(st).map(([id, a]) => ({ id, ...(a[a.length - 1] || {}) })).filter(fresh); onlinePaint(); });
+  const active = () => document.visibilityState === 'visible' && Date.now() - act < IDLE;
+  let ready = false;
+  const sync = () => { if (!ready) return; if (active()) { on = true; ch.track(me()).catch(() => {}); } else if (on) { on = false; ch.untrack().catch(() => {}); } };
+  ch.subscribe(st => { if (st === 'SUBSCRIBED') { ready = true; sync(); } });
   S.presCh = ch; let last = 0;
-  let tq = null; const push = () => { last = Date.now(); tq = null; ch.track(me()).catch(() => {}); };
-  window.addEventListener('hashchange', () => { if (Date.now() - last >= 3000) push(); else if (!tq) tq = setTimeout(push, 3000 - (Date.now() - last)); });
+  let tq = null; const push = () => { last = Date.now(); tq = null; sync(); };
+  window.addEventListener('hashchange', () => { act = Date.now(); if (Date.now() - last >= 3000) push(); else if (!tq) tq = setTimeout(push, 3000 - (Date.now() - last)); });
+  ['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(ev => window.addEventListener(ev, () => { const was = active(); act = Date.now(); if (!was || !on) push(); }, { passive: true, capture: true }));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') act = Date.now(); push(); });
+  // Toutes les 4 min : rafraîchit l'heure d'activité si l'onglet sert, sinon quitte la présence.
+  setInterval(() => { if (!active() || Date.now() - last > 4 * 60000) push(); }, 60000);
 }
 function shell(route) {
   const isAdmin = S.profile.role === 'admin';
@@ -816,10 +827,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=233'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=234'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=233'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=234'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -979,7 +990,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=233'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=234'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1833,7 +1844,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=233'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=234'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
