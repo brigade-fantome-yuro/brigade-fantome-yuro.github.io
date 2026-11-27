@@ -101,8 +101,6 @@ tr:hover td{background:#100d11}
   .show-sm{display:block}
   .admtabs.show-sm{display:flex}
   .adm[data-tab="m"] .adt-a,.adm[data-tab="m"] .adt-o,.adm[data-tab="a"] .adt-m,.adm[data-tab="a"] .adt-o,.adm[data-tab="o"] .adt-m,.adm[data-tab="o"] .adt-a{display:none}
-  .adk{grid-template-columns:repeat(3,1fr);gap:8px}.adk>div{padding:9px 10px}.adk b{font-size:21px}
-  .adtools{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}.adtools .btn{white-space:nowrap}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .btn svg,.chip svg{width:18px;height:18px;flex:none}
@@ -794,4 +792,4 @@ details.adsec{border:1px solid var(--line);border-radius:12px;padding:10px 12px;
 details.adsec>summary{cursor:pointer;font-weight:700;list-style-position:inside}
 .chip.inc{color:#ff9a3c;border-color:#4d2f12;background:#1b1108}
 .inc-t{color:#ff9a3c;margin-top:3px}
-@media(max-width:900px){.show-sm{display:block}.admtabs.show-sm{display:flex}}
+@media(max-width:900px){.show-sm{display:block}.admtabs.show-sm{display:flex}.adk{grid-template-columns:repeat(3,1fr);gap:8px}.adk>div{padding:9px 10px}.adk b{font-size:21px}.adk .small{font-size:11px}.adtools{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}.adtools .btn{white-space:nowrap}}
