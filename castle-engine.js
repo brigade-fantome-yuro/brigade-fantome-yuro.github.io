@@ -2338,7 +2338,7 @@ try{positionStoryEffects=(function(f){return function(){var r=f.apply(this,argum
   var sec=function(v){var pr=document.createElement('i');pr.style.animationDelay=v;pl.appendChild(pr);var t=parseFloat(getComputedStyle(pr).animationDelay)||0;pr.remove();return t;};
   var btn=pl.querySelector(':scope>button');if(btn){var cs=getComputedStyle(btn),N=cs.animationName.split(', ');if(N[0]&&N[0]!=='none'){var Du=cs.animationDuration.split(', '),De=cs.animationDelay.split(', '),Ti=cs.animationTimingFunction.split(', '),Fi=cs.animationFillMode.split(', '),g=function(A,i){return A[i]||A[A.length-1];},parts=[];
    hits.forEach(function(x){parts.push(N[0]+' '+g(Du,0)+' '+sec(mom(x.k)).toFixed(3)+'s '+g(Ti,0)+' '+g(Fi,0));});
-   for(var z=1;z<N.length;z++)parts.push(N[z]+' '+g(Du,z)+' '+g(De,z)+' '+g(Ti,z)+' '+g(Fi,z));btn.style.animation=parts.join(', ');}}
+   for(var z=1;z<N.length;z++)parts.push(N[z]+' '+g(Du,z)+' '+g(De,z)+' '+g(Ti,z)+' '+g(Fi,z));btn.style.setProperty('animation',parts.join(', '),'important');}}
   // PV : le chiffre et la barre descendent frappe après frappe (avant : directement au total).
   var mx=+((pl.querySelector('[aria-valuemax]')||{}).getAttribute?pl.querySelector('[aria-valuemax]').getAttribute('aria-valuemax'):0)||0,hd=pl.querySelector('.story-health'),aft=pl.querySelector('.story-hp-after');
   if(mx&&hd&&aft){var after=function(q){return Math.max(0,hits[q].h.oldHp-dmg(hits[q].h));},txt=function(v){return '♥ '+v+' / '+mx+' PV'+(v===0?' · K.O.':'');};
