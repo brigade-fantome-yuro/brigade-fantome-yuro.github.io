@@ -226,6 +226,10 @@ async function ticketClose(i: any) {
   const chs = await DB(tok, `/channels/${i.channel_id}`); // deno-lint-ignore no-explicit-any
   const ch = chs.j as any; const owner = String(ch?.topic || '').replace(/^ticket:/, '');
   const isStaff = uid === TK_CHEF;
+  if (String(ch?.topic || '').startsWith('ticket-ferme:') && isStaff) { // ticket déjà fermé (ex. avant le 27/11 17:08) : le Chef reçoit le bouton de suppression
+    await DB(tok, `/channels/${i.channel_id}/messages`, { method: 'POST', body: JSON.stringify({ content: '🗑️ Supprimer ce ticket fermé ?', allowed_mentions: { parse: [] }, components: [{ type: 1, components: [{ type: 2, style: 4, custom_id: 'tkd', label: 'Supprimer le ticket', emoji: { name: '🗑️' } }] }] }) });
+    return followUp(i.token, 'Ce ticket est déjà fermé : bouton de suppression ajouté.');
+  }
   if (!String(ch?.topic || '').startsWith('ticket:')) return followUp(i.token, 'Ce ticket est déjà fermé.');
   if (uid !== owner && !isStaff) return followUp(i.token, 'Seul l\'auteur du ticket ou le Chef peut le fermer.');
   // Fermé = gardé pour l'historique : le membre ne voit plus le salon, Nicolas garde la conversation.
