@@ -231,8 +231,20 @@ async function ticketClose(i: any) {
   // Fermé = gardé pour l'historique : le membre ne voit plus le salon, Nicolas garde la conversation.
   await DB(tok, `/channels/${i.channel_id}/permissions/${owner}`, { method: 'PUT', body: JSON.stringify({ type: 1, deny: P.VIEW.toString() }) });
   await DB(tok, `/channels/${i.channel_id}`, { method: 'PATCH', body: JSON.stringify({ name: ('ferme-' + String(ch.name || '').replace(/^ticket-/, '')).slice(0, 90), topic: `ticket-ferme:${owner}` }) });
-  await DB(tok, `/channels/${i.channel_id}/messages`, { method: 'POST', body: JSON.stringify({ content: `🔒 Ticket fermé par <@${uid}>.`, allowed_mentions: { parse: [] } }) });
+  await DB(tok, `/channels/${i.channel_id}/messages`, { method: 'POST', body: JSON.stringify({ content: `🔒 Ticket fermé par <@${uid}>.`, allowed_mentions: { parse: [] },
+    components: [{ type: 1, components: [{ type: 2, style: 4, custom_id: 'tkd', label: 'Supprimer le ticket', emoji: { name: '🗑️' } }] }] }) });
   return followUp(i.token, '🔒 Ticket fermé.');
+}
+// Bouton « 🗑️ Supprimer le ticket » (Nicolas 27/11 17:06) : sur un ticket fermé, le Chef seul supprime le salon.
+// deno-lint-ignore no-explicit-any
+async function ticketDelete(i: any) {
+  const tok = await botToken(); const uid = String(i.member?.user?.id);
+  if (uid !== TK_CHEF) return followUp(i.token, 'Seul le Chef peut supprimer un ticket.');
+  const chs = await DB(tok, `/channels/${i.channel_id}`); // deno-lint-ignore no-explicit-any
+  const ch = chs.j as any;
+  if (!String(ch?.topic || '').startsWith('ticket-ferme:')) return followUp(i.token, 'Ferme d\'abord le ticket avant de le supprimer.');
+  const d = await DB(tok, `/channels/${i.channel_id}`, { method: 'DELETE' });
+  if (!d.ok) return followUp(i.token, `❌ Suppression impossible (erreur ${d.status}).`);
 }
 
 Deno.serve(async (req) => {
@@ -241,9 +253,9 @@ Deno.serve(async (req) => {
   if (!sig || !ts || !nacl.sign.detached.verify(new TextEncoder().encode(ts + raw), hex(sig), hex(Deno.env.get('DISCORD_PUBLIC_KEY')!))) return new Response('signature invalide', { status: 401 });
   const i = JSON.parse(raw);
   if (i.type === 1) return Response.json({ type: 1 });
-  if (i.type === 3 && ['tko', 'tkc'].includes(i.data?.custom_id)) {
+  if (i.type === 3 && ['tko', 'tkc', 'tkd'].includes(i.data?.custom_id)) {
     if (String(i.guild_id) !== TK_GUILD) return Response.json({ type: 4, data: { content: 'Réservé à la Brigade Fantôme.', flags: 64 } });
-    const job = i.data.custom_id === 'tko' ? ticketOpen(i) : ticketClose(i);
+    const job = i.data.custom_id === 'tko' ? ticketOpen(i) : i.data.custom_id === 'tkd' ? ticketDelete(i) : ticketClose(i);
     // deno-lint-ignore no-explicit-any
     (globalThis as any).EdgeRuntime?.waitUntil ? (globalThis as any).EdgeRuntime.waitUntil(job) : job;
     return Response.json({ type: 5, data: { flags: 64 } });
