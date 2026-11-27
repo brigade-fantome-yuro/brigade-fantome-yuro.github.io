@@ -582,7 +582,7 @@ body.nav2 .th-spider{display:none}
 @media (max-width:720px){
   .n2bar{height:54px;padding:8px 14px;gap:10px}.n2tabs{display:none}
   .n2subs{padding:0 10px}.n2subs a{padding:9px 11px 11px;font-size:13.5px}
-  .n2main{padding:16px 14px calc(84px + env(safe-area-inset-bottom))}
+  .n2main{padding:16px 14px calc(150px + env(safe-area-inset-bottom))}
   .n2pills{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px 14px;padding:0 14px}.n2pills::-webkit-scrollbar{display:none}
   .n2pills a{white-space:nowrap;flex-shrink:0}
   .n2bot{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;background:rgba(7,6,7,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
