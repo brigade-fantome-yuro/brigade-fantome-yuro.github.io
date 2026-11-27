@@ -2330,10 +2330,10 @@ try{positionStoryEffects=(function(f){return function(){var r=f.apply(this,argum
   if(first)pl.style.setProperty('--counter-moment',mom(first));
   pl.style.setProperty('--player-fall','calc('+mom(last)+' + '+(.43*bt).toFixed(3)+'s)');
   var lab=pl.querySelector('.story-changing-label');if(lab)lab.style.setProperty('--label-impact',mom(last));
-  var hits=L.filter(function(x){return !x.h.blocked&&x.h.damage>0;});if(hits.length<2)return;
+  var dmg=function(h){return Math.max(0,Math.min(h.damage,Number.isFinite(h.oldHp)?h.oldHp:h.damage));},hits=L.filter(function(x){return !x.h.blocked&&dmg(x.h)>0;});if(hits.length<2)return;
   // Un chiffre de dégâts par frappe, chacun au moment de SA frappe (avant : le total d'un coup, à la première).
   var sp=[].slice.call(pl.querySelectorAll('.story-damage.is-counter')).find(function(x){return !x.classList.contains('geass-extra');});
-  if(sp){sp.textContent='−'+hits[0].h.damage;sp.style.animationDelay=mom(hits[0].k);for(var q=1;q<hits.length;q++){var c=sp.cloneNode(true);c.textContent='−'+hits[q].h.damage;c.style.animationDelay=mom(hits[q].k);sp.parentNode.appendChild(c);}}
+  if(sp){sp.textContent='−'+dmg(hits[0].h);sp.style.animationDelay=mom(hits[0].k);for(var q=1;q<hits.length;q++){var c=sp.cloneNode(true);c.textContent='−'+dmg(hits[q].h);c.style.animationDelay=mom(hits[q].k);sp.parentNode.appendChild(c);}}
   var btn=pl.querySelector(':scope>button');if(btn&&pl.classList.contains('counter-hit')){var dur='calc(.4s * '+bt+')';btn.style.animation=hits.map(function(x){return 'storyHeavyImpact '+dur+' '+mom(x.k)+' ease-out both';}).join(', ');}
  });}catch(_){}return r;};})(positionStoryEffects);}catch(_){}
 /*__bfAudioUnlock 27/11 : sur iPhone/iPad, le son ne part que si le contexte audio est créé ou relancé PENDANT un geste (toucher, clic),
