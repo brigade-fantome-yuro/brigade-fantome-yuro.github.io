@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=244';
+import * as CFG from './config.js?v=245';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=244';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=244';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=245';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=245';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=244';
-import * as SCAN from './scan.js?v=244';
+import { duelRate } from './ranked.js?v=245';
+import * as SCAN from './scan.js?v=245';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -828,10 +828,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=244'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=245'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=244'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=245'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -991,7 +991,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=244'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=245'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1097,11 +1097,20 @@ function dupesBlock(list, useful, title, word, qtyOf) {
     <p class="small mute" data-dpv="a" style="display:none">En couleur : ceux qui te manquent.</p></div>`;
 }
 document.addEventListener('click', e => { const b = e.target.closest?.('[data-dpb]'); if (!b) return; const box = b.closest('.dpb'); box.querySelectorAll('[data-dpb]').forEach(x => x.classList.toggle('on', x === b)); box.querySelectorAll('[data-dpv]').forEach(x => { x.style.display = x.dataset.dpv === b.dataset.dpb ? '' : 'none'; }); });
+// UR d'évolution : les UR (Mythiques) qui servent à un éveil (carte de départ ou carte demandée), d'après le guide des éveils (27/11).
+const evoUR = () => S._evoUR || (S._evoUR = new Set((S.kb.evolutions?.list || []).flatMap(e => [e.from, ...(e.cards || [])]).filter(c => c && c.r === 'Mythique').map(c => c.n)));
+const evoUnis = () => S._evoU || (S._evoU = rarUniverses('M').map(u => ({ s: u.s, c: u.c.filter(c => evoUR().has(c[0])) })).filter(u => u.c.length));
 // Section « LR » d'un profil : ses LR en double (en vert : celles qui te manquent) et les LR qui lui manquent (en vert : celles que tu as en double).
 function lrProfileFill(box, id) { if (!box) return; lrLoad().then(() => { if (!box.isConnected) return; const th = lrMemColl(id), me = lrMemColl(S.user.id), U = lrUnis();
   const d = U.flatMap(u => u.c.filter(c => th[u.s]?.dupes.has(c[0])).map(c => [u, c])), mi = U.flatMap(u => u.c.filter(c => !th[u.s]?.owned.has(c[0])).map(c => [u, c]));
   box.innerHTML = `${dupesBlock(d, (u, c) => !me[u.s]?.owned.has(c[0]), 'Ses LR en double', 'LR en double', (u, c) => th[u.s].qty[c[0]] || 2).replace('Tu as déjà tous ses LR en doubles.', 'Tu as déjà toutes ses LR en double.').replace('Aucun LR en double déclaré.', 'Aucune LR en double déclarée.')}
-    <div class="section"><h2>Les LR qui lui manquent</h2><p class="small mute">En vert : celles que tu as en double.</p><div class="tiles">${mi.map(([u, c]) => tile(c, !!me[u.s]?.dupes.has(c[0]), false)).join('') || '<div class="mute">Il a toutes les LR.</div>'}</div></div>`; }); }
+    <div class="section"><h2>Les LR qui lui manquent</h2><p class="small mute">En vert : celles que tu as en double.</p><div class="tiles">${mi.map(([u, c]) => tile(c, !!me[u.s]?.dupes.has(c[0]), false)).join('') || '<div class="mute">Il a toutes les LR.</div>'}</div></div>${evoProfileHTML(id)}`; }); }
+// UR d'évolution d'un profil : TOUS ses doublons (même ceux que tu as : il en faut parfois plusieurs pour les éveils), en couleur ceux qui te manquent ; et celles qui lui manquent.
+function evoProfileHTML(id) { const th = S.coll[id] || {}, me = myColl(), U = evoUnis(); const qOf = (cl, u, n) => cl[u.s]?.qty?.[n] || 2;
+  if (!U.some(u => u.c.some(c => th[u.s]?.owned.has(c[0])))) return `<div class="section"><h2>Ses UR d'évolution</h2><p class="mute small">Il n'a pas encore importé ses UR.</p></div>`;
+  const d = U.flatMap(u => u.c.filter(c => th[u.s]?.dupes.has(c[0])).map(c => [u, c])), mi = U.flatMap(u => u.c.filter(c => !th[u.s]?.owned.has(c[0])).map(c => [u, c]));
+  return `<div class="section"><h2>Ses UR d'évolution en double</h2><p class="small mute">Toutes, même celles que tu as (il en faut parfois plusieurs pour un éveil). En couleur : celles qui te manquent.</p><div class="tiles">${d.map(([u, c]) => tile(c, !me[u.s]?.owned.has(c[0]), qOf(th, u, c[0]))).join('') || '<div class="mute">Aucune UR d\'évolution en double.</div>'}</div></div>
+    <div class="section"><h2>Les UR d'évolution qui lui manquent</h2><p class="small mute">En couleur : celles que tu as en double.</p><div class="tiles">${mi.map(([u, c]) => tile(c, !!me[u.s]?.dupes.has(c[0]), false)).join('') || '<div class="mute">Il les a toutes.</div>'}</div></div>`; }
 const ownN = (coll, u) => { const r = coll[u.s]; return r ? u.c.filter(c => r.owned.has(c[0])).length : 0; };
 
 P.checklist = async (m, tab = 'moi') => {
@@ -1284,11 +1293,11 @@ P.collection = async (m, tab = '') => {
   const PSU = S.kb.prestige_series?.series || [];
   // Communes, Rares et SR : construites depuis le catalogue (comme dans le jeu), remplies par « ✍️ Communes / Rares / SR ».
   const catU = r => { const by = new Map(); for (const c of S.kb.card_catalog?.cards || []) { if (c[3] !== r || c[5]) continue; const s2 = c[2] || '—'; if (!by.has(s2)) by.set(s2, { s: s2, c: [] }); by.get(s2).c.push([c[1], r, c[4] || '', Number(c[0])]); } return [...by.values()].sort((a, b) => a.s.localeCompare(b.s)); };
-  const R0 = { C: { label: 'C', tag: 'Commune', U: catU('C'), low: true }, R: { label: 'R', tag: 'Rare', U: catU('R'), low: true }, E: { label: 'SR', tag: 'Épique', U: catU('E'), low: true }, L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true }, X: { label: 'EX', tag: 'Exclusive', U: catU('X'), low: true }, T: { label: 'TRS', tag: 'Transcendant', U: catU('T'), low: true } };
+  const R0 = { C: { label: 'C', tag: 'Commune', U: catU('C'), low: true }, R: { label: 'R', tag: 'Rare', U: catU('R'), low: true }, E: { label: 'SR', tag: 'Épique', U: catU('E'), low: true }, L: { label: 'SSR', tag: 'SSR (伝)', U: rarUniverses('L') }, M: { label: 'UR', tag: 'UR (神)', U: rarUniverses('M') }, V: { label: 'UR évo', tag: 'UR d\'évolution', U: evoUnis(), sub: true }, S: { label: 'LR', tag: 'LR (秘)', U: rarUniverses('S'), lr: true }, X: { label: 'EX', tag: 'Exclusive', U: catU('X'), low: true }, T: { label: 'TRS', tag: 'Transcendant', U: catU('T'), low: true } };
   // « Toutes » : toutes les raretés réunies, univers par univers (consigne du Chef 26/11).
-  const allU = () => { const by = new Map(); for (const x of Object.values(R0)) for (const u of x.U) { if (!by.has(u.s)) by.set(u.s, { s: u.s, c: [] }); by.get(u.s).c.push(...u.c); } return [...by.values()].sort((a, b) => a.s.localeCompare(b.s)); };
+  const allU = () => { const by = new Map(); for (const x of Object.values(R0)) if (!x.sub) for (const u of x.U) { if (!by.has(u.s)) by.set(u.s, { s: u.s, c: [] }); by.get(u.s).c.push(...u.c); } return [...by.values()].sort((a, b) => a.s.localeCompare(b.s)); };
   const R = { A: { label: 'Toutes', tag: 'Toutes', U: allU(), all: true }, ...R0 };
-  const impFor = k => k === 'S' ? (location.hash = '#meslr') : R[k]?.low ? (location.hash = '#basses/' + k) : rarImport(k);
+  const impFor = k => (k === 'V' && (k = 'M'), k === 'S') ? (location.hash = '#meslr') : R[k]?.low ? (location.hash = '#basses/' + k) : rarImport(k);
   let [rk, view, autoImp] = (tab || 'L/moi').split('/'); if (!R[rk]) rk = 'L'; const memId = view?.startsWith('m:') && FUS() ? view.slice(2) : null; if (memId) view = 'membres'; if (!['moi', 'doublons', 'manquantes', 'echanges', ...(FUS() ? ['completer', 'classement', 'membres'] : [])].includes(view)) view = 'moi';
   const realColl = myColl(); let coll = realColl;
   // Les LR (et leurs étoiles) vivent dans « Mes LR » : on les présente comme une collection pour l'affichage.
@@ -1309,7 +1318,7 @@ P.collection = async (m, tab = '') => {
     history.replaceState(null, '', `#collection/${rk}/${view}`);
     m.innerHTML = `<div class="row" style="align-items:center"><h1 style="margin:0">Ma collection</h1><span class="sp"></span><a class="btn primary" href="#clic" style="min-height:40px">⚡ Mise à jour en 1 clic</a></div><p class="mute">Toute ta collection, rangée comme dans le jeu. Elle se met à jour uniquement par la mise à jour en 1 clic (ordinateur ou téléphone), qui recopie tout depuis le jeu : cartes, doublons et étoiles des LR. Pas de saisie à la main : aucune erreur ni oubli.</p>
       <div id="chist"></div>
-      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = collFor(k); const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ A: '全', C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', S: '秘', X: 'EX', T: '超' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
+      <div class="rtabs" id="cr">${Object.entries(R).map(([k, x]) => { const cl = collFor(k); const t = x.U.reduce((a, u) => a + u.c.length, 0), g = x.U.reduce((a, u) => a + u.c.filter(c => has(cl, u, c[0])).length, 0); return `<button data-k="${k}" class="rt-${k} ${k === rk ? 'on' : ''}"><i>${{ A: '全', C: 'C', R: 'R', E: 'SR', L: '伝', M: '神', V: '進', S: '秘', X: 'EX', T: '超' }[k]}</i><span><b>${x.label}</b><small>${g}/${t}</small></span></button>`; }).join('')}</div>
       <div class="card section" ${got ? 'style="display:none"' : ''}><div class="row"><b>${X.label} : ${got} / ${total} possédées</b><span class="sp"></span><span class="small mute">${nd} doublon${nd > 1 ? 's' : ''} · ${total - got} manquante${total - got > 1 ? 's' : ''}</span></div><div class="bar" style="margin-top:10px"><i style="width:${total ? got / total * 100 : 0}%"></i></div>
         <div class="row" style="margin-top:12px"><a class="btn primary" href="#clic">⚡ Mise à jour en 1 clic</a></div>
         ${S.profile.share ? '' : '<p class="small mute" style="margin:8px 0 0">Ta collection n\'est pas partagée : active le partage dans <a href="#reglages">Réglages</a> pour apparaître dans les échanges.</p>'}</div>
@@ -1454,7 +1463,7 @@ P.collection = async (m, tab = '') => {
       if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
     // Filtre par rareté (onglet « Toutes ») : ne garder que les échanges de LR, UR, SSR… (27/11, choix gardé sur l'appareil).
     let rf = ''; try { rf = X.all ? (localStorage.bf_trR || '') : ''; } catch (e) { /* rien */ }
-    if (rf) { for (const o of out) { o.give = o.give.filter(c => c[1] === rf); o.get = o.get.filter(c => c[1] === rf); o.score = Math.min(o.give.length, o.get.length) * 10 + o.give.length + o.get.length; } const keep = out.filter(o => o.give.length || o.get.length); out.length = 0; out.push(...keep); }
+    if (rf) { for (const o of out) { const ok = rf === 'EVO' ? (c => c[1] === 'M' && evoUR().has(c[0])) : (c => c[1] === rf); o.give = o.give.filter(ok); o.get = o.get.filter(ok); o.score = Math.min(o.give.length, o.get.length) * 10 + o.give.length + o.get.length; } const keep = out.filter(o => o.give.length || o.get.length); out.length = 0; out.push(...keep); }
     out.sort((a, b) => b.score - a.score);
     // Lien direct vers un membre (depuis l'accueil) : seulement ses échanges, déjà ouverts.
     const fo = /^[0-9a-f-]{36}$/.test(autoImp || '') && view === 'echanges' ? out.find(o => o.p.id === autoImp) : null;
@@ -1463,7 +1472,7 @@ P.collection = async (m, tab = '') => {
     let win = false; try { win = localStorage.bf_trwin === '1'; } catch (e) { /* rien */ }
     const nWin = out.filter(o => o.give.length && o.get.length).length, nAll = out.length;
     if (!fo && win) { const keep = out.filter(o => o.give.length && o.get.length); out.length = 0; out.push(...keep); }
-    const trRar = fo || !X.all ? '' : `<div class="row" style="margin:8px 0;gap:6px;flex-wrap:wrap"><span class="small mute" style="align-self:center">Rareté :</span>${[['', 'Toutes'], ['S', 'LR'], ['M', 'UR'], ['L', 'SSR'], ['E', 'SR'], ['R', 'R'], ['C', 'C']].map(([k, l]) => `<button class="btn ${rf === k ? 'primary' : 'ghost'}" data-trr="${k}" style="min-height:32px;padding:0 12px">${l}</button>`).join('')}</div>`;
+    const trRar = fo || !X.all ? '' : `<div class="row" style="margin:8px 0;gap:6px;flex-wrap:wrap"><span class="small mute" style="align-self:center">Rareté :</span>${[['', 'Toutes'], ['S', 'LR'], ['EVO', 'UR évo'], ['M', 'UR'], ['L', 'SSR'], ['E', 'SR'], ['R', 'R'], ['C', 'C']].map(([k, l]) => `<button class="btn ${rf === k ? 'primary' : 'ghost'}" data-trr="${k}" style="min-height:32px;padding:0 12px">${l}</button>`).join('')}</div>`;
     const trFilt = fo ? '' : trRar + `<div class="row" style="margin:8px 0;gap:8px;flex-wrap:wrap"><button class="btn ${win ? 'ghost' : 'primary'}" data-trw="0" style="min-height:34px">Tous (${nAll})</button><button class="btn ${win ? 'primary' : 'ghost'}" data-trw="1" style="min-height:34px">🤝 Gagnant-gagnant (${nWin})</button></div>`;
     el.innerHTML = (fo ? `<div class="row" style="margin-bottom:8px"><button class="btn ghost" id="trBack" style="min-height:34px">← Tous les échanges</button></div>` : '') + (fo ? '' : `<p class="mute">Le site croise tes doublons ${X.label} avec les ${X.label} qui manquent aux autres membres, et inversement.</p>` + trFilt + (out.length ? '<div class="row" style="margin:8px 0"><button class="btn ghost" id="trAll" style="min-height:34px">Tout déplier</button></div>' : '')) + (out.map(o => `<details class="card section trd"><summary class="row" style="cursor:pointer;list-style:none"><span class="trc">▸</span><h3 style="margin:0">${esc(o.p.discord)}</h3><span class="small mute">te donne ${o.get.length} · reçoit ${o.give.length}</span><span class="sp"></span>${o.give.length && o.get.length ? '<span class="chip ok">Échange gagnant-gagnant</span>' : ''}<a class="btn ghost" href="${memHref(o.p.id)}" style="min-height:36px" onclick="event.stopPropagation()">Profil</a></summary>
       <div class="small mute" style="margin-top:10px">Il peut te donner (${o.get.length})</div><div class="tiles">${o.get.map(c => tile(c, true, false)).join('') || '<span class="mute small">—</span>'}</div>
@@ -1893,7 +1902,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=244'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=245'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
