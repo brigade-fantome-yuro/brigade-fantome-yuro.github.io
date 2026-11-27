@@ -3,7 +3,7 @@
 // commence est tiré au hasard. Chaque carte joue au mieux : technique dès qu'elle est utile, et sinon
 // achève une cible tuable, ou frappe la plus basse en évitant les cibles protégées (esquives, UI, Haki).
 // Une part de hasard (1 coup sur 4 vers une autre cible) imite les façons de jouer différentes.
-import { KIND } from './castle.js?v=266';
+import { KIND } from './castle.js?v=267';
 
 const kindOf = id => KIND[id] || { k: 'hit', m: 1.8, cd: 3 };
 function rng(seed) { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
