@@ -214,6 +214,7 @@ function apply(G, who, a) {
       if (a.t !== 'bid' || who === ph.lead || !canUse(G, who, ph.c) || !inR(a.v, ph.high + K, maxBid(G, who))) return false;
       addLog(G, `${P[who].name} surenchérit à ${ki(a.v)}.`);
       ph.high = a.v; ph.lead = who; ph.hist = [[who, a.v], ...(ph.hist || [])].slice(0, 8);
+      if (G.dl && G.dl - Date.now() < 5000) G.dl += 2000;   // mise dans les 5 dernières secondes : +2 s au chrono (Nicolas 27/11)
       if (maxBid(G, other(who)) < a.v + K) { award(G, who, a.v, { why: 'money' }); return true; }
       return true;
     }
@@ -668,8 +669,9 @@ function render() {
   // zone principale
   if (G.over && X.F) { try { X.W?.BFDuel?.stop(); } catch (e) { /* rien */ } X.F = null; }
   const inFight = G.stage === 'fight' && (ph.k === 'fight' || ph.k === 'fres');
-  $('#mxFight').hidden = !inFight;
-  if (inFight) { $('#mxMain').innerHTML = fightSide(G); mountFight(); syncMoves(); }
+  // Écran de combat : visible seulement pendant le combat ; dès la fin (résultat), il se ferme et se rouvre au combat suivant (Nicolas 27/11).
+  $('#mxFight').hidden = !(inFight && ph.k === 'fight');
+  if (inFight) { $('#mxMain').innerHTML = fightSide(G); if (ph.k === 'fight') { mountFight(); syncMoves(); } }
   else if (G.stage === 'compose') $('#mxMain').innerHTML = spec ? teamsHTML(G) : composeHTML(G);
   else if (G.stage === 'over') $('#mxMain').innerHTML = overHTML(G);
   else $('#mxMain').innerHTML = marketHTML(G);
@@ -834,7 +836,8 @@ function actHTML(G) {
       const mn = ph.high + K, mx = maxBid(G, me);
       if (mx < mn) return top + `<p>Tu ne peux pas monter plus haut.</p><button class="btn primary" id="mxPass">Passer</button>`;
       const quick = [[K, '+10 000'], [5 * K, '+50 000'], [10 * K, '+100 000']].filter(([d]) => ph.high + d <= mx);
-      return top + `<div class="mx-snipe"><span class="mx-snipeh"><b>${grp(ph.high)} KI</b> · ${esc(P[ph.lead].name)} mène</span>${quick.map(([d, l]) => `<button class="mx-sbtn" data-bid="${ph.high + d}"><b>${l}</b><small>${ki(ph.high + d)}</small></button>`).join('')}<button class="mx-sbtn pass" data-pass><b>Je passe</b><small>${esc(P[ph.lead].name)} l'emporte</small></button></div>`
+      const maxBtn = mx > ph.high + K && !quick.some(([d]) => ph.high + d === mx) ? `<button class="mx-sbtn max" data-bid="${mx}"><b>Max</b><small>${ki(mx)}</small></button>` : '';
+      return top + `<div class="mx-snipe"><span class="mx-snipeh"><b>${grp(ph.high)} KI</b> · ${esc(P[ph.lead].name)} mène</span>${quick.map(([d, l]) => `<button class="mx-sbtn" data-bid="${ph.high + d}"><b>${l}</b><small>${ki(ph.high + d)}</small></button>`).join('')}${maxBtn}<button class="mx-sbtn pass" data-pass><b>Je passe</b><small>${esc(P[ph.lead].name)} l'emporte</small></button></div>`
         + bidBox(G, mn, mx, 'Miser ce montant', { pass: 'Je passe', noquick: true });
     }
     case 'sealed': {
@@ -1023,7 +1026,7 @@ async function mountFight() {
     F.wait[k] = res;
   });
   SEED = f.seed; W.reducedMotion = F.replay ? () => true : (X.rmOrig || W.reducedMotion);
-  W.BFDuel.mount(null, { frame: true, A: f.A.map(toU), B: f.B.map(toU), names: [G.players[0].name, G.players[1].name], ai: F.ai, aiPick, onChange: info => onDuel(info, F), onQuit: () => {} });
+  W.BFDuel.mount(null, { frame: true, A: f.A.map(toU), B: f.B.map(toU), names: [G.players[0].name, G.players[1].name], bottom: me === 1 ? 1 : 0, ai: F.ai, aiPick, onChange: info => onDuel(info, F), onQuit: () => {} });
   W.BFDuel.start(f.starter);
 }
 function onDuel(info, F) {
@@ -1223,7 +1226,7 @@ function mApply(MG, who, a) {
     case 'open': {
       if (a.t === 'pass') { if (who === ph.lead || ph.out.includes(who)) return false; ph.out.push(who); mOpenEnd(MG); return true; }
       if (a.t !== 'bid' || !mCanBid(MG, who) || !inR(a.v, ph.high + K, mMax(MG, who))) return false;
-      ph.high = a.v; ph.lead = who; ph.hist = [[who, a.v], ...ph.hist].slice(0, 8); mLog(MG, `${MG.members[who].name} surenchérit à ${ki(a.v)}.`); mOpenEnd(MG); return true;
+      ph.high = a.v; ph.lead = who; ph.hist = [[who, a.v], ...ph.hist].slice(0, 8); if (MG.dl && MG.dl - Date.now() < 5000) MG.dl += 2000; mLog(MG, `${MG.members[who].name} surenchérit à ${ki(a.v)}.`); mOpenEnd(MG); return true;
     }
     case 'sealed': {
       const elig = MG.members.map((_, i) => i).filter(i => mCanUse(MG, i, ph.c));
@@ -1485,8 +1488,8 @@ function mActHTML(MG) {
       if (mate) return top + `<p class="small mx-ready">Ton coéquipier ${esc(MG.members[ph.lead].name)} mène : tu ne peux pas enchérir contre lui.</p>`;
       if (ph.out.includes(me)) return top + '<p class="small mute">Tu as passé sur cette carte.</p>';
       if (!can) return top + '<p class="small mute">Tu ne peux pas enchérir sur cette carte (rôle déjà pris ou KI insuffisants).</p>';
-      const mx = mMax(MG, me), quick = [[K, '+10 000'], [5 * K, '+50 000'], [10 * K, '+100 000']].filter(([d]) => ph.high + d <= mx);
-      return top + `<div class="mx-snipe"><span class="mx-snipeh"><b>${grp(ph.high)} KI</b> · ${esc(MG.members[ph.lead].name)} mène</span>${quick.map(([d, l]) => `<button class="mx-sbtn" data-mbid="${ph.high + d}"><b>${l}</b><small>${ki(ph.high + d)}</small></button>`).join('')}<button class="mx-sbtn pass" data-mpass><b>Je passe</b><small>sur cette carte</small></button></div>`;
+      const mx = mMax(MG, me), quick = [[K, '+10 000'], [5 * K, '+50 000'], [10 * K, '+100 000']].filter(([d]) => ph.high + d <= mx); const maxB = mx > ph.high + K && !quick.some(([d]) => ph.high + d === mx) ? `<button class="mx-sbtn max" data-mbid="${mx}"><b>Max</b><small>${ki(mx)}</small></button>` : '';
+      return top + `<div class="mx-snipe"><span class="mx-snipeh"><b>${grp(ph.high)} KI</b> · ${esc(MG.members[ph.lead].name)} mène</span>${quick.map(([d, l]) => `<button class="mx-sbtn" data-mbid="${ph.high + d}"><b>${l}</b><small>${ki(ph.high + d)}</small></button>`).join('')}${maxB}<button class="mx-sbtn pass" data-mpass><b>Je passe</b><small>sur cette carte</small></button></div>`;
     }
     case 'sealed': {
       const elig = me != null && mCanUse(MG, me, ph.c), done = me != null && ph.com[me] != null, n = Object.keys(ph.com).length;

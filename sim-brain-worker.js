@@ -2,7 +2,7 @@
 // à chaque coup, toutes les actions possibles sont essayées puis la suite du match est simulée des centaines de fois
 // contre plusieurs styles d'adversaire, pondérés par ce que le joueur a vraiment joué depuis le début du match.
 // Le cerveau joue le camp 0 : quand l'ordinateur est le camp 1, on retourne la partie (mêmes règles des deux côtés).
-importScripts('castle-engine.js?v=276', 'rk-brain.js?v=276');
+importScripts('castle-engine.js?v=277', 'rk-brain.js?v=277');
 const EN = self.BFDuel.engine;
 const flip = D => ({ b: EN.persp(D.b, 1), s: 1 - D.s, last: 1 - (D.last ?? 0), winner: D.winner == null ? null : D.winner === 'draw' ? 'draw' : 1 - D.winner });
 onmessage = ({ data }) => {

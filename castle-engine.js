@@ -2245,7 +2245,7 @@ renderInfinity=function(){if(__mode!=='duel'){__cRender();__animToggle();return;
   if(!v.anim&&!duelReady(pb.players[infinityPlayback.active])){var k=pb.players.findIndex(duelReady);infinityPlayback.active=k<0?0:k;}
   if(!pb.enemies[infinityPlayback.target]||pb.enemies[infinityPlayback.target].hp<=0){var t=pb.enemies.findIndex(function(u){return u.hp>0;});infinityPlayback.target=t<0?0:t;}
   var title=v.anim?(v.side===0?'Tu passes à l’action':n[v.side]+' passe à l’action'):n[0]+' VS '+n[1];
-  var html=duelSimBattleHTML(pb,v.side===1).replace(/Chambre 1(?!\d)/g,escapeHTML(title)).replace(/CHAMBRE 1(?!\d)/g,'RANKED · SIMULATION').replace(/Château de l’infini/g,'Combat Ranked');
+  var html=duelSimBattleHTML(pb,v.side!==((__opts&&__opts.bottom)|0)).replace(/Chambre 1(?!\d)/g,escapeHTML(title)).replace(/CHAMBRE 1(?!\d)/g,'RANKED · SIMULATION').replace(/Château de l’infini/g,'Combat Ranked');
   __R.getElementById('bfStage').innerHTML='<section class="combat-page infinity-page"><div class="infinity-layout is-fighting">'+html+'</div></section>';
   var ar=__R.querySelector('.story-arena');if(ar){ar.setAttribute('data-ranked-arena','true');ar.style.setProperty('--ranked-arena-bg','url("https://yurocollection.fr/card-art/39bf0ebd97948441.webp")');}
   var pl=__R.querySelector('.story-playback>span');if(pl)pl.textContent=D.winner!=null?'MATCH TERMINÉ':v.anim?(v.side===0?'TON ACTION':'ACTION DE '+n[v.side].toUpperCase()):(D.s===0?'À TOI DE JOUER':'AU TOUR DE '+n[D.s].toUpperCase());
