@@ -582,7 +582,7 @@ body.nav2 .th-spider{display:none}
 @media (max-width:720px){
   .n2bar{height:54px;padding:8px 14px;gap:10px}.n2tabs{display:none}
   .n2subs{padding:0 10px}.n2subs a{padding:9px 11px 11px;font-size:13.5px}
-  .n2main{padding:16px 14px calc(150px + env(safe-area-inset-bottom))}
+  #mainw.n2main{padding:16px 14px calc(110px + env(safe-area-inset-bottom))}
   .n2pills{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -14px 14px;padding:0 14px}.n2pills::-webkit-scrollbar{display:none}
   .n2pills a{white-space:nowrap;flex-shrink:0}
   .n2bot{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;background:rgba(7,6,7,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
@@ -805,3 +805,24 @@ body:has(.modal) #bfvbar{display:none}
 /* Recherche admin */
 .admq{margin:4px 0 12px}.admq input{width:100%;max-width:520px;min-height:44px}
 .admcards.lim .admx{display:none!important}
+.rgl-np svg{width:24px;height:24px}
+/* v270 : entrée de page sobre (plus de pivot 3D qui décale la page puis la recentre), animations permanentes coupées (fluidité) */
+@keyframes bfFade{from{opacity:0}to{opacity:1}}
+body.th-c.nav2 #main.th-in{animation:bfFade .16s ease-out both;transform:none}
+body.th-c.nav2 .mosaic>.mcell>.mcard,body.th-c.nav2 .mosaic>.mcell,body.th-c.nav2 .mosaic>.mcard{animation:none!important}
+body.th-c.nav2 table.webrank tbody tr{animation:none!important}
+body.th-c.nav2 a.card:hover,body.th-c.nav2 .grid>.card:hover{transform:none}
+html,body{overflow-x:clip}
+.n2me{overflow:hidden;padding:0}.n2me img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
+.webrank td.wrc{min-width:110px}
+@media (max-width:600px){
+  .webrank{table-layout:auto;width:100%}
+  .webrank th,.webrank td{padding:8px 4px!important;font-size:13px}
+  body.th-c table.webrank td:first-child{padding-left:20px!important;width:34px}
+  .webrank td.wrc{min-width:0;width:26%}
+  .webrank td.wrc .small{font-size:11px;white-space:nowrap}
+  .webrank td.wrn{max-width:0;width:44%}
+  .webrank td.wrn b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .webrank td.wrn img,.webrank td.wrn .cxb{display:none}
+  .webrank td:last-child{white-space:nowrap}
+}

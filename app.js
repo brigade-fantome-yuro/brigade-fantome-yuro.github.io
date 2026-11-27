@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=269';
+import * as CFG from './config.js?v=270';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=269';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=269';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=270';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=270';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=269';
-import * as SCAN from './scan.js?v=269';
+import { duelRate } from './ranked.js?v=270';
+import * as SCAN from './scan.js?v=270';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -118,7 +118,10 @@ function pricesFrom(sales) {
   S.sales = sales;
   const by = new Map(); for (const x of sales) { let a = by.get(x.card); if (!a) by.set(x.card, a = []); a.push(x); }
   S.prices = [...by.keys()].map(card => { const L = by.get(card), w = priceStats(L, card, 7), p = priceStats(L, card, 7, 7); let last = 0; for (const x of L) if (x.ts > last) last = x.ts;
-    return { card, sales: w.n, median: w.med, good: w.good, max: w.max, prev_median: p.med, updated_at: new Date(last).toISOString() }; })
+    // Pas assez de ventes la semaine d'avant (relevé des ventes commencé le 20/11) : on compare les 3,5 derniers jours aux 3,5 jours d'avant.
+    let prev = p.n >= 2 ? p.med : null, cur = w.med, half = false;
+    if (prev == null) { const a = priceStats(L, card, 3.5, 3.5), b = priceStats(L, card, 3.5); if (a.n && b.n) { prev = a.med; cur = b.med; half = true; } }
+    return { card, sales: w.n, median: w.med, good: w.good, max: w.max, prev_median: prev, trend_cur: cur, half, updated_at: new Date(last).toISOString() }; })
     .filter(p => p.sales > 0).sort((a, b) => b.sales - a.sales);
   if (S.kb) S.kb.prices = S.prices;
 }
@@ -353,7 +356,7 @@ function shell2() {
   app.innerHTML = `<header class="n2top"><div class="n2bar"><a href="#accueil" class="brand n2brand">${SPIDER}<b>Brigade Fantôme</b></a>
     <nav class="n2tabs" id="n2tabs">${T.map((t, i) => `<a href="#${i ? t.g[0].i[0][1] : 'accueil'}" data-t="${i}">${t.t}</a>`).join('')}</nav><span class="sp"></span>
     <div class="n2q" id="n2q"><button class="n2qb" id="n2qb" aria-label="Rechercher">${ico('search')}</button><input id="n2qi" type="search" placeholder="Rechercher une carte, un membre…" autocomplete="off"><div class="n2qr" id="n2qr" hidden></div></div><a class="btn primary n2clic" href="#clic">Mise à jour en 1 clic</a>${onlinePill()}<button class="bfbell" data-bell aria-label="Mises à jour du site">${BELL}<i class="bfdot" hidden></i></button>
-    <a class="n2me" id="n2me" href="#reglages" title="Réglages">${esc((S.profile.discord || '?').replace(/^@/, '').slice(0, 1).toUpperCase())}</a></div>
+    <a class="n2me" id="n2me" href="#reglages" title="Réglages">${(() => { const ini = esc((S.profile.discord || '?').replace(/^@/, '').slice(0, 1).toUpperCase()), av = S.user?.user_metadata?.avatar_url || S.profile.avatar; return av ? `<img src="${esc(av)}" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(document.createTextNode('${ini}'))">` : ini; })()}</a></div>
     <nav class="n2subs" id="n2subs"></nav></header>
     <div class="n2wrap"><main id="mainw" class="n2main"><div id="alertbar"></div><div class="n2pills" id="n2pills"></div><div id="main"></div></main></div>
     <nav class="n2bot" id="n2bot">${T.map((t, i) => `<a href="#${i ? t.g[0].i[0][1] : 'accueil'}" data-t="${i}">${ico(t.ic)}<span>${t.t}</span></a>`).join('')}</nav>`;
@@ -362,6 +365,8 @@ function shell2() {
   cxLoad().then(() => { const a = $('#n2me'), p = cxP(S.user.id); if (a && p >= 90) a.classList.add(p >= 100 ? 'cx-leg' : 'cx-aura'); });
   return $('#main');
 }
+// Retour immédiat au toucher : l'onglet touché s'allume tout de suite, avant même que la page ait fini de se dessiner.
+document.addEventListener('pointerdown', e => { const a = e.target.closest?.('#n2subs a, #n2pills a, #n2bot a, #n2tabs a'); if (!a) return; a.parentElement.querySelectorAll('a.on').forEach(x => x.classList.remove('on')); a.classList.add('on'); }, true);
 function nav2Update(h) {
   const T = NAV2_TREE(), w = nav2Where(h);
   document.querySelectorAll('#n2tabs a, #n2bot a').forEach(a => a.classList.toggle('on', +a.dataset.t === w.ti));
@@ -470,9 +475,9 @@ P.accueil = m => {
 };
 
 function trend(p) {
-  if (!p.prev_median) return '<span class="chip">Nouveau</span>';
-  const d = p.median - p.prev_median, pc = d / p.prev_median * 100;
-  return `<span class="${d >= 0 ? 'up' : 'down'} small">${d >= 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} KI (${pc >= 0 ? '+' : ''}${pc.toFixed(1)} %)</span>`;
+  if (!p.prev_median) return '<span class="chip" title="Pas encore assez de ventes pour une tendance">Nouveau</span>';
+  const c = p.base?.trend_cur ?? p.trend_cur ?? p.median, d = c - p.prev_median, pc = d / p.prev_median * 100;
+  return `<span class="${d >= 0 ? 'up' : 'down'} small" title="${(p.base?.half ?? p.half) ? 'Comparé aux 3,5 jours d’avant (pas assez de ventes la semaine précédente)' : 'Comparé à la semaine d’avant'}">${d >= 0 ? '▲' : '▼'} ${fmt(Math.abs(d))} KI (${pc >= 0 ? '+' : ''}${pc.toFixed(1)} %)</span>`;
 }
 
 // Seuils d'Aya (calculés pour chaque niveau d'étoiles) + % de victoires par fourchette (mesurés 23/11, relatifs aux seuils).
@@ -679,7 +684,7 @@ P.prix = m => {
   const draw = () => {
     const q = $('#q').value.toLowerCase(), d = days[win];
     const BY = new Map(); for (const x of S.sales) { let a = BY.get(x.card); if (!a) BY.set(x.card, a = []); a.push(x); }
-    const rows = S.prices.filter(p => !q || p.card.toLowerCase().includes(q)).map(p => { const w = priceStats(BY.get(p.card) || [], p.card, d); return { ...p, median: w.med, good: w.good, max: w.max, sales: w.n, trend: p.prev_median ? (p.median - p.prev_median) / p.prev_median : 0, base: p }; }).filter(p => p.sales > 0 || win !== '24h');
+    const rows = S.prices.filter(p => !q || p.card.toLowerCase().includes(q)).map(p => { const w = priceStats(BY.get(p.card) || [], p.card, d); return { ...p, median: w.med, good: w.good, max: w.max, sales: w.n, trend: p.prev_median ? ((p.trend_cur ?? p.median) - p.prev_median) / p.prev_median : 0, base: p }; }).filter(p => p.sales > 0 || win !== '24h');
     rows.sort((a, b) => ((a[key] ?? -1) > (b[key] ?? -1) ? 1 : (a[key] ?? -1) < (b[key] ?? -1) ? -1 : 0) * dir);
     $('#tb').innerHTML = rows.map(p => `<tr data-c="${esc(p.card)}" style="cursor:pointer"><td><b>${esc(p.card)}</b></td><td class="n">${fmt(p.median)}</td><td class="n hide-sm">${fmt(p.good)}</td><td class="n hide-sm">${fmt(p.max)}</td><td class="n">${trend(p.base)}</td><td class="hide-sm">${spark(p.card)}</td><td class="n hide-sm">${p.sales}${p.sales && p.sales < 3 ? ' <span class="chip warn">peu</span>' : ''}</td></tr>${open === p.card ? `<tr><td colspan="7" style="background:#0f0c10"><div class="row" style="margin-bottom:8px"><b>${esc(p.card)}</b><span class="sp"></span><span class="small mute">Médiane ${fmt(p.median)} · bon prix ${fmt(p.good)} · max conseillé ${fmt(p.max)} · ${p.sales} ventes (${win})</span></div><div id="bc"></div></td></tr>` : ''}`).join('') || '<tr><td colspan="7" class="mute">Aucune vente sur cette période.</td></tr>';
     $('#tb').querySelectorAll('tr[data-c]').forEach(tr => tr.onclick = () => { open = open === tr.dataset.c ? null : tr.dataset.c; draw(); });
@@ -866,10 +871,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=269'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=270'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=269'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=270'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -1029,7 +1034,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=269'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=270'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1247,7 +1252,7 @@ async function viewRanking(el) {
   if (NAV2()) { S.cxPct = new Map(L.map(r => [r.user_id, +r.pct || 0])); cxUnlock(); }
   el.innerHTML = `<p class="mute">Le pourcentage de toutes les cartes du jeu que chaque membre possède (hors Exclusives et Transcendantes), d'après la collection remplie sur le site : Communes, Rares, SR, SSR, UR et LR. Plus ta collection est à jour, plus ton rang est juste.</p>
     ${me >= 0 ? `<div class="card section"><div class="row"><b>Ton rang : ${me + 1}${me === 0 ? 'er' : 'e'} sur ${L.length}</b><span class="sp"></span><b class="bone">${String(L[me].pct).replace('.', ',')} %</b></div><div class="bar" style="margin-top:10px"><i style="width:${L[me].pct}%"></i></div><div class="small mute" style="margin-top:6px">${fmt(L[me].owned)} / ${fmt(L[me].total)} cartes</div></div>` : '<div class="msg">Tu n\'apparais pas encore : remplis ta collection pour entrer dans le classement.</div>'}
-    <div class="tablewrap"><table class="webrank"><thead><tr><th class="n">#</th><th>Membre</th><th class="hide-sm">Rôle Nen</th><th>Collection</th><th class="n">%</th></tr></thead><tbody>${L.map((r, i) => `<tr ${r.user_id === S.user.id ? 'style="background:#1a1013"' : ''}><td class="n">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</td><td><b>${cxName(r.user_id, esc(r.discord))}</b>${cxBadges(r.user_id)}</td><td class="hide-sm">${r.nen ? `<span class="chip">${esc(r.nen)}</span>${r.level != null ? ` <span class="small mute">niv. ${r.level}</span>` : ''}` : '<span class="mute small">—</span>'}</td><td style="min-width:110px"><div class="bar"><i style="width:${r.pct}%"></i></div><div class="small mute">${fmt(r.owned)} / ${fmt(r.total)}</div></td><td class="n"><b>${String(r.pct).replace('.', ',')}</b></td></tr>`).join('') || '<tr><td colspan="5" class="mute">Personne n\'a encore rempli sa collection.</td></tr>'}</tbody></table></div>`;
+    <div class="tablewrap"><table class="webrank"><thead><tr><th class="n">#</th><th>Membre</th><th class="hide-sm">Rôle Nen</th><th>Collection</th><th class="n">%</th></tr></thead><tbody>${L.map((r, i) => `<tr ${r.user_id === S.user.id ? 'style="background:#1a1013"' : ''}><td class="n">${i < 3 ? ['🥇', '🥈', '🥉'][i] : i + 1}</td><td class="wrn"><b>${cxName(r.user_id, esc(r.discord))}</b>${cxBadges(r.user_id)}</td><td class="hide-sm">${r.nen ? `<span class="chip">${esc(r.nen)}</span>${r.level != null ? ` <span class="small mute">niv. ${r.level}</span>` : ''}` : '<span class="mute small">—</span>'}</td><td class="wrc"><div class="bar"><i style="width:${r.pct}%"></i></div><div class="small mute">${fmt(r.owned)} / ${fmt(r.total)}</div></td><td class="n"><b>${String(r.pct).replace('.', ',')}</b></td></tr>`).join('') || '<tr><td colspan="5" class="mute">Personne n\'a encore rempli sa collection.</td></tr>'}</tbody></table></div>`;
 }
 // Mosaïque des cartes manquantes, comme dans la collection du jeu.
 function viewMissing(el, U) {
@@ -1651,11 +1656,21 @@ async function pushSub(create) {
   return sub;
 }
 
+// Notification d'essai : abonne l'appareil s'il ne l'est pas encore, puis demande au serveur d'envoyer un vrai push.
+async function pushTest(after) {
+  try {
+    if (Notification.permission !== 'granted' && await Notification.requestPermission() !== 'granted') { toast('Autorise les notifications pour recevoir le test'); return after?.(); }
+    const sub = await pushSub(true); if (!sub) { toast('Cet appareil ne peut pas recevoir de notifications'); return after?.(); }
+    const { data, error } = await sb.functions.invoke('market-alert', { body: { test: true } });
+    toast(error ? 'Échec du test : ' + error.message : data?.sent ? 'Notification d’essai envoyée : elle arrive dans quelques secondes' : 'Aucun appareil abonné : réactive les notifications');
+  } catch (e) { toast('Test impossible : ' + e.message); }
+  after?.();
+}
 P.alertes = async m => {
   await Promise.all([loadWatch(), loadAlerts()]);
   const lr = S.kb.cards.filter(c => !c.r).map(c => c.n).sort((a, b) => a.localeCompare(b));
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Marché</span><h1 style="margin-top:12px">Alertes marché</h1><p class="mute">Choisis une LR (ou une UR d'évolution : Pucci, Ichigo, Saitama, Aizen, Sukuna, Vegeta) et ton prix max. Dès qu'elle est mise en vente à ton prix <b>ou moins</b>, tu reçois une notification, même site fermé.</p></section>
-    <div class="notifcard" id="ncard"><div class="nc-ico">${SPIDER}</div><div class="nc-t"><b>Notifications Brigade</b><span id="ans">Vérification…</span></div><div class="nc-act"><button class="btn primary" id="an">${ico('bell')} Activer</button><button class="btn ghost" id="at" style="display:none">Tester</button></div><ol class="nc-ios" id="nios" style="display:none"><li><i>⬆️</i>Touche <b>Partager</b> en bas de Safari</li><li><i>➕</i>Choisis <b>Sur l'écran d'accueil</b></li><li><i>🕷</i>Ouvre le site depuis l'icône, puis reviens ici</li></ol></div>
+    <div class="notifcard" id="ncard"><div class="nc-ico">${SPIDER}</div><div class="nc-t"><b>Notifications Brigade</b><span id="ans">Vérification…</span></div><div class="nc-act"><button class="btn primary" id="an">${ico('bell')} Activer</button><button class="btn ghost" id="at" style="display:none">🔔 Envoyer une notif test</button></div><ol class="nc-ios" id="nios" style="display:none"><li><i>⬆️</i>Touche <b>Partager</b> en bas de Safari</li><li><i>➕</i>Choisis <b>Sur l'écran d'accueil</b></li><li><i>🕷</i>Ouvre le site depuis l'icône, puis reviens ici</li></ol></div>
     <div class="card section"><h2>Nouvelle alerte</h2><div class="row"><div style="flex:2;min-width:200px"><label for="ac">Carte</label><select id="ac"><optgroup label="LR">${lr.map(n => `<option>${esc(n)}</option>`).join('')}</optgroup><optgroup label="UR (pour les évolutions)">${ALERT_UR.map(n => `<option>${esc(n)}</option>`).join('')}</optgroup></select></div><div style="flex:1;min-width:160px"><label for="ap">Ton prix max (KI)</label><input id="ap" type="number" min="1" placeholder="ex. 60000"></div><div style="align-self:flex-end"><button class="btn primary" id="aa">Ajouter</button></div></div><p class="small mute" id="ah"></p></div>
     <div id="al"></div><div class="section"><h2>Dernières alertes reçues</h2><p class="small mute">Les notifications envoyées pour tes alertes, avec le repère du guide des prix : en vert, une vraie bonne affaire (sous le bon prix).</p><div class="tablewrap"><table><thead><tr><th>Quand</th><th>Carte</th><th class="n">Prix</th><th class="n hide-sm">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="ahist"><tr><td colspan="5" class="mute">Chargement…</td></tr></tbody></table></div></div><details class="card section cmpbox"><summary><b>Nos alertes ou celles du jeu ?</b><span class="small mute"> Ce qui change</span></summary><div class="cmp"><div class="cmp-r cmp-h"><div></div><div>Brigade</div><div>Jeu</div></div><div class="cmp-r"><div class="cmp-l">Nombre d\'alertes</div><div class="cmp-a win">Illimité</div><div class="cmp-b ">20 maximum</div></div><div class="cmp-r"><div class="cmp-l">Où tu es prévenu</div><div class="cmp-a win">Notification sur ton téléphone ou ton ordinateur</div><div class="cmp-b ">Seulement dans le jeu</div></div><div class="cmp-r"><div class="cmp-l">Jeu fermé</div><div class="cmp-a win">Tu es prévenu quand même</div><div class="cmp-b ">Rien</div></div><div class="cmp-r"><div class="cmp-l">Inactif sur le jeu</div><div class="cmp-a win">Tu es prévenu quand même</div><div class="cmp-b ">Plus de vérification</div></div><div class="cmp-r"><div class="cmp-l">Plusieurs appareils</div><div class="cmp-a win">Liées à ton compte, partout</div><div class="cmp-b ">À refaire sur chaque appareil</div></div><div class="cmp-r"><div class="cmp-l">Rapidité</div><div class="cmp-a ">≈ 3 min après la mise en vente</div><div class="cmp-b win">Chaque minute, jeu ouvert</div></div></div></details><div class="section"><h2>Moins chères en vente</h2><p class="small mute" id="wat"></p><div class="tablewrap"><table><thead><tr><th>Carte</th><th class="n hide-sm">En vente</th><th class="n">Moins chère</th><th class="n">Bon prix</th><th class="n">Écart</th></tr></thead><tbody id="wt"></tbody></table></div><details class="card section cmpbox"><summary><b>Comment lire ces prix ?</b></summary><div class="small" style="margin-top:8px;line-height:1.6"><p><b>Cote (médiane)</b> : le prix habituel. Sur les vraies ventes des 7 derniers jours, la moitié s’est vendue plus cher, l’autre moitié moins cher.</p><p><b>Bon prix</b> : un prix bas mais réaliste. On classe les ventes des 7 derniers jours du moins cher au plus cher : 25 % des ventes se sont faites à ce prix ou moins (arrondi au millier). Ce n’est pas une moyenne.</p><p><b>Max conseillé</b> : au-dessus, 75 % des ventes se sont faites moins cher : tu paies trop.</p><p><b>Écart</b> : de combien l’annonce la moins chère dépasse le bon prix. 0 % ou moins (en vert) : vraie bonne affaire. Une carte à +15 % peut encore être sous sa cote.</p><p class="mute">Seules les vraies ventes comptent (pas les prix affichés des annonces). Les versions prestige sont relevées depuis le 27/11 (marquées ✦ PRESTIGE, avec leur propre prix moyen). Les prix aberrants (moins de 40 % ou plus de 300 % du prix médian, par exemple un 0 oublié) restent affichés mais ne comptent pas dans les moyennes.</p></div></details></div>`;
   const hint = () => { const p = S.prices.find(x => x.card === $('#ac').value); $('#ah').textContent = p ? `Repère : bon prix ${fmt(p.good)} KI · prix médian ${fmt(p.median)} KI (ventes des 7 derniers jours)` : ALERT_UR.includes($('#ac').value) ? 'UR de base (pas la version éveillée) : l\'alerte ne concerne que la carte normale.' : ''; };
@@ -1671,15 +1686,15 @@ P.alertes = async m => {
   $('#aa').onclick = async () => { const card = $('#ac').value, v = Math.round(+$('#ap').value) || null; if (!v) return toast('Indique ton prix max'); const { error } = await sb.from('alerts').upsert({ user_id: S.user.id, card, max_price: v }); if (error) return toast(error.message); toast('Alerte ajoutée'); $('#ap').value = ''; await loadAlerts(); draw(); };
   const ns = async () => { if (!$('#ans')) return; const t = $('#ans'), on = $('#an'), test = $('#at');
     const nc = $('#ncard'); nc.classList.remove('ok', 'warn');
-    if (isIOS() && !standalone()) { t.textContent = 'Sur iPhone, ajoute d\'abord le site à ton écran d\'accueil (exigé par Apple, iOS 16.4+) :'; on.style.display = 'none'; $('#nios').style.display = ''; nc.classList.add('warn'); return; }
+    if (isIOS() && !standalone()) { t.textContent = 'Sur iPhone, ajoute d\'abord le site à ton écran d\'accueil (exigé par Apple, iOS 16.4+), puis ouvre la Brigade depuis l\'icône : le bouton « Tester » t\'enverra une notification d\'essai.'; on.style.display = 'none'; $('#nios').style.display = ''; nc.classList.add('warn'); return; }
     if (!pushOk()) { t.textContent = 'Ce navigateur ne sait pas recevoir de notifications. Essaie Chrome, Edge, Firefox ou Safari récent.'; on.disabled = true; return; }
     if (Notification.permission === 'denied') { t.textContent = 'Les notifications sont bloquées pour ce site dans les réglages du navigateur : autorise-les puis recharge la page.'; return; }
     let sub = null; if (Notification.permission === 'granted') { try { sub = await pushSub(false); } catch {} }
     if (!$('#ans')) return;
-    on.style.display = sub ? 'none' : ''; test.style.display = sub ? '' : 'none';
+    on.style.display = sub ? 'none' : ''; test.style.display = '';
     nc.classList.toggle('ok', !!sub); t.textContent = sub ? 'Activées sur cet appareil. Fais pareil sur chaque appareil où tu veux être prévenu.' : 'Pas encore activées sur cet appareil.'; };
   $('#an').onclick = async () => { try { if (await Notification.requestPermission() !== 'granted') return ns(); await pushSub(true); toast('Notifications activées'); } catch (e) { toast('Impossible d\'activer : ' + e.message); } ns(); };
-  $('#at').onclick = async () => { const { data, error } = await sb.functions.invoke('market-alert', { body: { test: true } }); toast(error ? 'Échec du test : ' + error.message : data?.sent ? 'Notification envoyée' : 'Aucun appareil abonné : réactive les notifications'); };
+  $('#at').onclick = () => pushTest(ns);
   const hist = async () => { const { data } = await sb.from('alert_sent').select('card,price,sent_at').eq('user_id', S.user.id).order('sent_at', { ascending: false }).limit(30); const el = $('#ahist'); if (!el) return;
     el.innerHTML = (data || []).map(h => { const p = S.prices.find(x => x.card === h.card), gap = p?.good ? (h.price - p.good) / p.good * 100 : null; return `<tr><td class="small">${new Date(h.sent_at).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td><b>${esc(h.card)}</b></td><td class="n">${fmt(h.price)}</td><td class="n hide-sm">${p ? fmt(p.good) : '—'}</td><td class="n ${gap != null && gap <= 0 ? 'up' : ''}">${gap == null ? '—' : (gap > 0 ? '+' : '') + gap.toFixed(0) + ' %'}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Aucune alerte reçue pour l\'instant.</td></tr>'; };
   ns(); draw(); hist();
@@ -1980,7 +1995,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=269'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=270'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2387,7 +2402,7 @@ function npOn(k) { return npGet()[k] !== false; }
 function npSet(k, v) { const o = npGet(); o[k] = v; try { localStorage.bf_np = JSON.stringify(o); } catch (e) { /* rien */ } }
 P.notifs = async m => {
   m.innerHTML = `<div class="n2crumb small mute"><a href="#reglages">← Réglages</a></div><h1>Notifications</h1><p class="mute">Choisis ce que tu reçois sur le site et sur ce téléphone ou cet ordinateur.</p>
-    <div class="notifcard" id="ncard"><div class="nc-ico">${SPIDER}</div><div class="nc-t"><b>Notifications push</b><span id="ans">Vérification…</span></div><div class="nc-act"><button class="btn primary" id="an">${ico('bell')} Activer</button><button class="btn ghost" id="at" style="display:none">Tester</button></div><ol class="nc-ios" id="nios" style="display:none"><li><i>⬆️</i>Touche <b>Partager</b> en bas de Safari</li><li><i>➕</i>Choisis <b>Sur l'écran d'accueil</b></li><li><i>🕷</i>Ouvre le site depuis l'icône, puis reviens ici</li></ol></div>
+    <div class="notifcard" id="ncard"><div class="nc-ico">${SPIDER}</div><div class="nc-t"><b>Notifications push</b><span id="ans">Vérification…</span></div><div class="nc-act"><button class="btn primary" id="an">${ico('bell')} Activer</button><button class="btn ghost" id="at" style="display:none">🔔 Envoyer une notif test</button></div><ol class="nc-ios" id="nios" style="display:none"><li><i>⬆️</i>Touche <b>Partager</b> en bas de Safari</li><li><i>➕</i>Choisis <b>Sur l'écran d'accueil</b></li><li><i>🕷</i>Ouvre le site depuis l'icône, puis reviens ici</li></ol></div>
     <div class="card section npt"><div class="npr nph"><span>Type</span><span>Site</span><span>Push</span></div>${NP_TYPES.map(x => `<div class="npr"><span><b>${x.t}</b><span class="small mute">${x.d}</span></span>
       <span>${x.site ? `<label class="switch"><input type="checkbox" data-np="${x.k}" ${npOn(x.k) ? 'checked' : ''}><span></span></label>` : '<span class="chip npsoon">Bientôt</span>'}</span>
       <span>${x.push ? `<label class="switch"><input type="checkbox" data-npp="${x.k}"><span></span></label>` : x.k === 'news' ? '<span class="small mute">—</span>' : '<span class="chip npsoon">Bientôt</span>'}</span></div>`).join('')}</div>
@@ -2395,19 +2410,19 @@ P.notifs = async m => {
   m.querySelectorAll('[data-np]').forEach(i => i.onchange = () => { npSet(i.dataset.np, i.checked); bellDots(); alertLoop(); mxCall(); toast(i.checked ? 'Activé sur le site' : 'Coupé sur le site'); });
   const pp = m.querySelector('[data-npp="alertes"]');
   const ns = async () => { if (!$('#ans')) return; const t = $('#ans'), on = $('#an'), test = $('#at'), nc = $('#ncard'); nc.classList.remove('ok', 'warn');
-    if (isIOS() && !standalone()) { t.textContent = 'Sur iPhone, ajoute d\'abord le site à ton écran d\'accueil (exigé par Apple, iOS 16.4+) :'; on.style.display = 'none'; $('#nios').style.display = ''; nc.classList.add('warn'); pp.disabled = true; return; }
+    if (isIOS() && !standalone()) { t.textContent = 'Sur iPhone, ajoute d\'abord le site à ton écran d\'accueil (exigé par Apple, iOS 16.4+), puis ouvre la Brigade depuis l\'icône : le bouton « Tester » t\'enverra une notification d\'essai.'; on.style.display = 'none'; $('#nios').style.display = ''; nc.classList.add('warn'); pp.disabled = true; return; }
     if (!pushOk()) { t.textContent = 'Ce navigateur ne sait pas recevoir de notifications. Essaie Chrome, Edge, Firefox ou Safari récent.'; on.disabled = true; pp.disabled = true; return; }
     if (Notification.permission === 'denied') { t.textContent = 'Les notifications sont bloquées pour ce site dans les réglages du navigateur : autorise-les puis recharge la page.'; pp.disabled = true; return; }
     let sub = null; if (Notification.permission === 'granted') { try { sub = await pushSub(false); } catch (e) { /* rien */ } }
     if (!$('#ans')) return;
-    on.style.display = sub ? 'none' : ''; test.style.display = sub ? '' : 'none'; pp.checked = !!sub;
+    on.style.display = sub ? 'none' : ''; test.style.display = ''; pp.checked = !!sub;
     nc.classList.toggle('ok', !!sub); t.textContent = sub ? 'Activées sur cet appareil. Fais pareil sur chaque appareil où tu veux être prévenu.' : 'Pas encore activées sur cet appareil.'; };
   const enable = async () => { try { if (await Notification.requestPermission() !== 'granted') return ns(); await pushSub(true); try { localStorage.bf_npBan = '1'; } catch (e) { /* rien */ } toast('Notifications activées'); } catch (e) { toast('Impossible d\'activer : ' + e.message); } ns(); };
   $('#an').onclick = enable;
   pp.onchange = async () => { if (pp.checked) return enable();
     // Seules les alertes marché passent en push : couper le push = désabonner cet appareil.
     try { const reg = await navigator.serviceWorker.getRegistration('sw.js'); const sub = await reg?.pushManager.getSubscription(); if (sub) { await sb.from('push_subs').delete().eq('endpoint', sub.endpoint); await sub.unsubscribe(); } toast('Push coupé sur cet appareil'); } catch (e) { toast('Impossible : ' + e.message); } ns(); };
-  $('#at').onclick = async () => { const { data, error } = await sb.functions.invoke('market-alert', { body: { test: true } }); toast(error ? 'Échec du test : ' + error.message : data?.sent ? 'Notification envoyée' : 'Aucun appareil abonné : réactive les notifications'); };
+  $('#at').onclick = () => pushTest(ns);
   ns();
 };
 // Première visite sur téléphone (version 1+5) : bandeau « Active les notifications » qui ouvre les réglages.
@@ -2425,7 +2440,7 @@ function npBanner() {
 P.reglages = async m => {
   m.innerHTML = `<h1>Réglages</h1><p class="mute">Ton profil sur le site de la Brigade.</p>
     <div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><div style="flex:1;min-width:0"><b>Partager ma collection avec la Brigade</b><div class="small mute">${SHARE_TXT}</div></div><label class="switch"><input type="checkbox" id="rsh" ${S.profile.share ? 'checked' : ''}><span></span></label></div></div>
-    <a class="card section rgl-np" href="#notifs" style="display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit">${ico('bell')}<div style="flex:1"><b>Notifications</b><div class="small mute">Alertes marché, invitations Mercato, nouveautés : sur le site et en push.</div></div><span class="mute">›</span></a>
+    <a class="card section rgl-np" href="#notifs" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit"><span style="width:26px;height:26px;flex:none;display:grid;place-items:center">${ico('bell')}</span><div style="flex:1;min-width:0"><b>Notifications</b><div class="small mute">Alertes marché, invitations Mercato, nouveautés : sur le site et en push.</div></div><span class="mute">›</span></a>
     <div class="card section"><b>Compte</b><p class="small mute" style="margin:4px 0 10px">Connecté avec Discord : ${esc(S.profile.discord)}</p><button class="btn ghost" id="rlo">Se déconnecter</button></div>`;
   $('#rsh').onchange = async e => { const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; toast(e.target.checked ? 'Collection partagée avec la Brigade' : 'Collection privée'); };
   $('#rlo').onclick = async () => { if (confirmBox('Te déconnecter ?')) { await sb.auth.signOut(); authView(); } };
@@ -2567,7 +2582,7 @@ const T_RULES = [
   ['Fun', 'Équipe « méchants » uniquement.'],
   ['Fun', 'Équipe de personnages féminins uniquement.']
 ];
-const T_FIXED = ['Les compos restent secrètes : chaque joueur envoie son équipe à l\'arbitre en MP avant le duel, sans voir celle de l\'adversaire.', 'Une carte par rôle, comme dans le jeu.'];
+const T_FIXED = ['Les compos restent secrètes : chaque joueur choisit son équipe dans la salle d\'avant-match, sans voir celle de l\'adversaire.', 'Quand les deux joueurs ont cliqué « Je suis prêt » (ou que le temps de choix est écoulé), l\'arbitre voit les deux équipes et clique « Valider les équipes » : le match se lance dans le simulateur.', 'Une carte par rôle, comme dans le jeu.'];
 const T_POINTS = [['LR rang S', 5], ['LR rang A', 4], ['LR rang B', 3], ['LR rang C', 2], ['LR rang D ou non classée', 2], ['Mythique', 1], ['Légendaire et moins', 0]];
 const T_PAY = n => n <= 8 ? [65, 35] : n <= 16 ? [50, 30, 20] : n <= 32 ? [40, 25, 15, 10, 5, 5] : [30, 20, 14, 10, 8, 6, 4, 4, 2, 2];
 const T_BRACKETS = [[8, 'Jusqu\'à 8 joueurs'], [16, 'De 9 à 16 joueurs'], [32, 'De 17 à 32 joueurs'], [999, 'Plus de 32 joueurs']];
@@ -2829,8 +2844,8 @@ async function arTourn(m, t) {
     const { data: t2 } = await sb.from('arena_tourn').select('*').eq('id', t.id).single(); if (t2) t = t2;
     if (!$('#arT')) return;
     const me = S.user.id, ref = arIsAdmin() || t.referees.includes(me), R = t.rounds || 0;
-    const lab = { wait: 'En attente', queue: 'Salle pleine, en attente', ban: 'Ban en cours', pick: 'Choix des équipes', live: 'En direct', dispute: 'Arbitre demandé', done: 'Terminé', mercato: 'Mercato en cours' };
-    const mine = (M || []).find(x => (x.p1 === me || x.p2 === me) && ['ban', 'pick', 'live', 'dispute', 'mercato'].includes(x.status));
+    const lab = { wait: 'En attente', queue: 'Salle pleine, en attente', ban: 'Ban en cours', pick: 'Choix des équipes', check: 'Validation de l’arbitre', live: 'En direct', dispute: 'Arbitre demandé', done: 'Terminé', mercato: 'Mercato en cours' };
+    const mine = (M || []).find(x => (x.p1 === me || x.p2 === me) && ['ban', 'pick', 'check', 'live', 'dispute', 'mercato'].includes(x.status));
     $('#arT').innerHTML = `<div class="row" style="justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap"><div><a class="small mute" href="#arene">← Arène</a><h1 style="margin:4px 0 0">${esc(t.name)}</h1></div>
       ${t.status === 'done' ? `<span class="chip ok">🏆 ${esc(arName(t.winner))}</span>` : t.status === 'live' ? '<span class="chip red">En cours</span>' : '<span class="chip">À lancer</span>'}</div>
       ${mine ? `<a class="btn primary section" href="#arene/${t.id}/${mine.id}" style="width:100%">⚔️ Ton match est prêt : entrer dans la salle</a>` : ''}
@@ -2838,7 +2853,7 @@ async function arTourn(m, t) {
       ${t.status === 'draft' ? `<div class="card section"><b>Joueurs inscrits</b><p class="small">${t.players.map(arName).map(esc).join(', ')}</p>${arIsAdmin() ? '<div class="row"><button class="btn primary" id="arLaunch">🎲 Tirer le tableau et lancer le tournoi</button><button class="btn ghost" id="arDel">Supprimer</button></div>' : '<p class="small mute">Le tournoi n’a pas encore commencé.</p>'}</div>` : ''}
       ${R ? `<div class="ar-br">${Array.from({ length: R }, (_, k) => `<div class="ar-col"><h3>${arRoundName(k, R)}${arIsMx(t, k) ? ' <span class="small mute">Mercato</span>' : k >= R - 2 ? ' <span class="small mute">BO3</span>' : ''}</h3>${arIsMx(t, k) ? '<p class="small ar-rr">🎮 Mercato YURO (règle unique)</p>' : t.rules?.per_round ? `<p class="small ar-rr">${(t.round_rules || {})[k] ? ((t.round_rules[k].length ? '🎲 ' + t.round_rules[k].map(arRuleTxt).map(esc).join(' · ') : 'Pas de règle ce tour')) : '🎲 Règle tirée au début du tour'}</p>` : ''}${(M || []).filter(x => x.round === k).map(x => {
         const w1 = x.winner && x.winner === x.p1, w2 = x.winner && x.winner === x.p2, sc = x.bo === 3 ? ` <i>${x.wins[0]}</i>` : '', sc2 = x.bo === 3 ? ` <i>${x.wins[1]}</i>` : '';
-        const can = ['ban', 'pick', 'live', 'dispute', 'mercato'].includes(x.status);
+        const can = ['ban', 'pick', 'check', 'live', 'dispute', 'mercato'].includes(x.status);
         return `<div class="ar-m ${x.status}"><div class="${w1 ? 'w' : ''}">${esc(x.p1 ? arName(x.p1) : x.note === 'vide' ? '—' : '…')}${sc}</div><div class="${w2 ? 'w' : ''}">${esc(x.p2 ? arName(x.p2) : x.note ? '—' : '…')}${sc2}</div>
           <span class="small mute">${x.note === 'exempt' ? 'Exempt' : lab[x.status]}${x.status === 'pick' || x.status === 'ban' ? ` · manche ${x.game}` : ''}</span>${can ? `<a class="btn ghost" href="#arene/${t.id}/${x.id}" style="min-height:32px;margin-top:6px">${x.p1 === me || x.p2 === me ? 'Entrer' : x.status === 'live' ? '👁 Regarder' : ref ? 'Arbitrer' : 'Voir'}</a>` : ''}</div>`;
       }).join('')}</div>`).join('')}</div>` : ''}`;
@@ -2870,12 +2885,15 @@ async function arCall() {
   if (!S.user || Date.now() - AR_CALL_AT < 20000) return; AR_CALL_AT = Date.now();
   mxCall().catch(() => { });
   try {
-    const me = S.user.id, { data } = await sb.from('arena_match').select('id,tourn_id,status').in('status', ['ban', 'pick', 'live', 'dispute', 'mercato']).or(`p1.eq.${me},p2.eq.${me}`).limit(1);
-    const x = data?.[0], here = x && location.hash.startsWith(`#arene/${x.tourn_id}`);
+    const me = S.user.id, { data } = await sb.from('arena_match').select('id,tourn_id,status').in('status', ['ban', 'pick', 'check', 'live', 'dispute', 'mercato']).or(`p1.eq.${me},p2.eq.${me}`).limit(1);
+    let x = data?.[0], refCall = false;
+    if (!x) { const { data: R } = await sb.from('arena_match').select('id,tourn_id,status,arena_tourn!inner(referees)').eq('status', 'check').limit(20).then(r => r, () => ({ data: [] }));
+      x = (R || []).find(r => arIsAdmin() || (r.arena_tourn?.referees || []).includes(me)); refCall = !!x; }
+    const here = x && location.hash.startsWith(`#arene/${x.tourn_id}`);
     let el = document.getElementById('arCall');
     if (!x || here) { el?.remove(); return; }
     if (!el) { el = document.createElement('a'); el.id = 'arCall'; document.body.appendChild(el); }
-    el.href = `#arene/${x.tourn_id}/${x.id}`; el.textContent = x.status === 'mercato' ? '🎮 Ton match de tournoi (Mercato) est prêt : entrer dans la salle' : x.status === 'live' ? '⚔️ Ton combat de tournoi est en cours : y retourner' : '⚔️ Ton match de tournoi est prêt : entrer dans la salle';
+    el.href = `#arene/${x.tourn_id}/${x.id}`; el.textContent = refCall ? '⚖️ Arbitre : des équipes de tournoi attendent ta validation' : x.status === 'check' ? '⚔️ Équipes enregistrées : l’arbitre va lancer le combat' : x.status === 'mercato' ? '🎮 Ton match de tournoi (Mercato) est prêt : entrer dans la salle' : x.status === 'live' ? '⚔️ Ton combat de tournoi est en cours : y retourner' : '⚔️ Ton match de tournoi est prêt : entrer dans la salle';
   } catch (e) { /* rien */ }
 }
 setInterval(arCall, 20000);
@@ -2952,6 +2970,22 @@ async function arRoom(m, t, mid) {
     const b = $('#arOk'); if (b) b.onclick = () => arRpc('arena_ref_ok', { mid, ok: !M.ref_ok }).catch(() => { });
   }
 
+  // Équipes figées : l'arbitre les voit et lance le combat (« Valider les équipes »).
+  async function drawCheck() {
+    view = 'check'; const B = $('#arBody');
+    const team = s => (s === 0 ? M.team1 : M.team2) || [];
+    const row = (s, lbl) => `<div style="margin-top:10px"><b>${esc(lbl)}</b><div class="ar-team">${[0, 1, 2].map(i => { const c = arCard(+team(s)[i]); return c ? cardTile(c, t.stars, 'on') : '<div class="ar-c empty">—</div>'; }).join('')}</div></div>`;
+    if (ref) {
+      B.innerHTML = `<div class="card section"><b>⚖️ Équipes à valider</b><p class="small mute">Vérifie les deux équipes, puis lance le combat. Les joueurs attendent ta validation.</p>
+        ${row(0, names()[0])}${row(1, names()[1])}
+        <div class="row section" style="flex-wrap:wrap;gap:8px"><button class="btn primary" id="arGo">✅ Valider les équipes et lancer le combat</button><button class="btn ghost" id="arBack">Renvoyer au choix des équipes</button></div></div>`;
+      $('#arGo').onclick = async e => { e.target.disabled = true; try { await arRpc('arena_ref_ok', { mid, ok: true }); } catch (x) { e.target.disabled = false; } };
+      $('#arBack').onclick = async () => { if (!confirm('Renvoyer les deux joueurs au choix des équipes (3 minutes) ?')) return; try { await arRpc('arena_ref_ok', { mid, ok: false }); } catch (x) { /* toast */ } };
+      return;
+    }
+    B.innerHTML = `<div class="card section"><b>✅ Équipes enregistrées</b><p class="small">En attente de la validation de l’arbitre : le combat démarre dès qu’il valide.</p>${side != null ? row(side, 'Ton équipe') : ''}</div>`;
+  }
+
   function drawDispute() {
     view = 'dispute';
     $('#arBody').innerHTML = `<div class="card section"><b>⚠️ Arbitre demandé</b><p class="small">${esc(M.note || '')}</p>${ref ? `<div class="row"><button class="btn" data-w="0">Victoire ${esc(names()[0])}</button><button class="btn" data-w="1">Victoire ${esc(names()[1])}</button><button class="btn ghost" id="arRe">Rejouer la manche</button></div>` : '<p class="small mute">Un arbitre va trancher.</p>'}</div>`;
@@ -2997,6 +3031,7 @@ async function arRoom(m, t, mid) {
     if (M.status === 'ban') { if (view !== 'ban') await loadPick(); drawBan(); }
     else if (M.status === 'pick') { if (view !== 'pick') await loadPick(); drawPick(); }
     else if (M.status === 'live') await drawLive();
+    else if (M.status === 'check') drawCheck();
     else if (M.status === 'mercato') await drawMercato();
     else if (M.status === 'dispute') drawDispute();
     else if (M.status === 'done') drawDone();
@@ -3085,6 +3120,7 @@ P.tournoi = async m => {
   m.innerHTML = `<section class="hero"><div class="moon"></div><span class="chip red">Tournoi</span><h1 style="margin-top:12px">Tournoi de duels entre guildes</h1>
     <p class="mute">Mise de 5 000 à 10 000 KI par joueur, cagnotte redistribuée comme au poker, et des règles tirées au sort pour que tout le monde puisse jouer avec sa collection.</p></section>
     <div id="brk"></div>
+    ${arIsAdmin() ? `<a class="card section" href="#arene" style="display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;border-color:var(--blood)"><span style="font-size:26px">🏟️</span><span style="flex:1"><b>Créer un tournoi dans l’Arène</b><span class="small mute" style="display:block">Tableau, salle d’avant-match, validation des équipes par l’arbitre, combats dans le simulateur. Option « Mercato YURO » : tout le tournoi, ou seulement le 1er tour, les quarts, les demies ou la finale.</span></span><span class="btn primary" style="min-height:36px">Ouvrir</span></a>` : ''}
     <div class="card section"><h2>Calculer la cagnotte</h2>
       <div class="row" style="flex-wrap:wrap;gap:10px">
         <label class="small">Participants<br><input id="tn" type="number" min="2" value="16" style="width:110px"></label>
