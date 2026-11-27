@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=255';
+import * as CFG from './config.js?v=256';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=255';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=255';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=256';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=256';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=255';
-import * as SCAN from './scan.js?v=255';
+import { duelRate } from './ranked.js?v=256';
+import * as SCAN from './scan.js?v=256';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -717,6 +717,8 @@ P.transactions = async m => {
   const avgLine = r => { const a = avgOf(r.card, !!r.prestige), o = avgOf(r.card, !r.prestige); if (!a && !o) return ''; return `<em>${a ? `moy. ${r.prestige ? 'prestige ' : ''}${fmt(a)}` : ''}${a && o ? ' · ' : ''}${o ? `${r.prestige ? 'classique' : 'prestige'} ${fmt(o)}` : ''}</em>`; };
   const txOk = (k, pr) => { const L = (wrows || []).concat(rows).filter(r => low(r.card) === k && !!r.prestige === pr && +r.price > 0); return priceOk(L.map(r => +r.price)); };
   const anom = r => { const k = low(r.card); if (!(+r.price > 0)) return false; const ok = !r.prestige && OK7.has(k) ? OK7.get(k) : txOk(k, !!r.prestige); return !ok(+r.price); };
+  // Prix aberrant (Nicolas 27/11 16:46) : rien de barré ; très bas = braquage (violet), très haut = cher (rouge). Toujours hors des moyennes.
+  const acls = r => { const a = avgOf(r.card, !!r.prestige); return a && +r.price > a ? 'pr' : 'pv'; };
   const pcls = r => { const a = avgOf(r.card, !!r.prestige); if (!a || !r.price) return ''; const e = (r.price - a) / a; return e <= -.25 ? 'pv' : e <= -.10 ? 'pg' : e <= .15 ? 'po' : 'pr'; };
   const draw = () => {
     const q = low(card), w = low(who), al = new Set((S.alerts || []).map(a => low(a.card)));
@@ -733,7 +735,7 @@ P.transactions = async m => {
     }
     const tag = r => !w ? '' : low(r.buyer) === w ? '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#4fb3a0;background:#4fb3a01a;border:1px solid #4fb3a055">ACHAT</span>' : '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#ff9f6b;background:#ff9f6b1a;border:1px solid #ff9f6b55">VENTE</span>';
     $('#txl').innerHTML = !list.length ? `<div class="empty">${w && !wrows ? 'Recherche…' : mode === 'al' && !al.size ? "Tu n'as pas encore d'alerte : crée-en dans « Alertes marché »." : w ? 'Aucun joueur trouvé avec ce pseudo.' : `Aucune vente sur ${win === '24h' ? '24 h' : win === '7j' ? '7 jours' : '30 jours'} pour ce filtre.`}</div>` :
-      `<div class="txlist">${list.map(r => { const d = new Date(r.sold_at); return `<div class="txrow"><div class="txt"><b>${hh(d)}</b><span>${dd(d)}</span></div>${img(r) ? `<img src="${esc(img(r))}" alt="" loading="lazy">` : '<i class="txi"></i>'}<div class="txc"><b>${esc(r.card)}${tag(r)}</b><span>${r.rarity === 'Mythique' ? 'UR évolution' : 'LR'}${r.prestige ? ' · <i class="txpr">✦ PRESTIGE</i>' : ' · classique'}</span></div><div class="txp ${anom(r) ? 'pa' : pcls(r)}">${fmt(r.price)} <small>ki</small>${anom(r) ? '<em class="txan" title="Prix aberrant (moins de 40 % ou plus de 300 % du prix médian) : non compté dans la moyenne">anomalie · hors moyenne</em>' : ''}${avgLine(r)}</div><div class="txw"><span><small>Vendeur</small>${r.seller ? '@' + esc(r.seller) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span><span><small>Acheteur</small>${r.buyer ? '@' + esc(r.buyer) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span></div></div>`; }).join('')}</div>`;
+      `<div class="txlist">${list.map(r => { const d = new Date(r.sold_at); return `<div class="txrow"><div class="txt"><b>${hh(d)}</b><span>${dd(d)}</span></div>${img(r) ? `<img src="${esc(img(r))}" alt="" loading="lazy">` : '<i class="txi"></i>'}<div class="txc"><b>${esc(r.card)}${tag(r)}</b><span>${r.rarity === 'Mythique' ? 'UR évolution' : 'LR'}${r.prestige ? ' · <i class="txpr">✦ PRESTIGE</i>' : ' · classique'}</span></div><div class="txp ${anom(r) ? acls(r) : pcls(r)}">${fmt(r.price)} <small>ki</small>${avgLine(r)}</div><div class="txw"><span><small>Vendeur</small>${r.seller ? '@' + esc(r.seller) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span><span><small>Acheteur</small>${r.buyer ? '@' + esc(r.buyer) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span></div></div>`; }).join('')}</div>`;
   };
   const sel = 'card,rarity,img,price,sold_at,buyer,seller,prestige';
   const loadWho = async () => { const w = who.trim(); if (!w) { wrows = null; return; } const k = low(w); if (wq === k && wrows) return; wq = k; wrows = null; draw();
@@ -863,10 +865,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=255'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=256'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=255'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=256'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -1026,7 +1028,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=255'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=256'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1971,7 +1973,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=255'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=256'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
