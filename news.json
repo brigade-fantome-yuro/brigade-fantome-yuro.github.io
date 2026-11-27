@@ -1,5 +1,33 @@
 [
  {
+  "id": 21,
+  "d": "2026-11-27",
+  "t": "Nouveau site : 1 accueil + 5 rubriques",
+  "x": "Le site change de visage : Accueil, Jouer, Collection, Marché et Guilde en haut de l'écran, une recherche globale (cartes, membres, pages) et un fil d'accueil avec ce qui bouge dans la Brigade.",
+  "h": "#accueil"
+ },
+ {
+  "id": 20,
+  "d": "2026-11-27",
+  "t": "Mercato YURO",
+  "x": "Nouveau mini-jeu dans Jouer : salons à plusieurs, enchères chronométrées et trios à monter entre membres. Invite la guilde depuis le salon.",
+  "h": "#jeux/mercato"
+ },
+ {
+  "id": 19,
+  "d": "2026-11-27",
+  "t": "Cosmétiques de collection",
+  "x": "Plus ta collection est complète, plus ton profil brille : badge Collectionneur à 85 %, cadre Aura de Nen à 90 %, pseudo Prisme à 95 % et titre « Légende de la collection » à 100 %.",
+  "h": "#collection/L/classement"
+ },
+ {
+  "id": 18,
+  "d": "2026-11-27",
+  "t": "Réglages des notifications",
+  "x": "Choisis quelles notifications tu reçois, sur le site et en push. Sur téléphone, un bandeau te propose de les activer.",
+  "h": "#notifs"
+ },
+ {
   "id": 17,
   "d": "2026-11-27",
   "t": "Qui est en ligne ?",
