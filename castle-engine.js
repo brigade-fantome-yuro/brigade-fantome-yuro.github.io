@@ -2324,11 +2324,17 @@ try{infinityAnimate=(function(f){return function(action,previous){var nb=infinit
  if(!extra)return f.apply(this,arguments);var st=window.setTimeout;window.setTimeout=function(fn,ms){if(fn===infinityFinishAnimation)ms=(+ms||0)+extra;return st.apply(window,arguments.length>2?[fn,ms].concat([].slice.call(arguments,2)):[fn,ms]);};
  try{return f.apply(this,arguments);}finally{window.setTimeout=st;}};})(infinityAnimate);}catch(_){}
 try{positionStoryEffects=(function(f){return function(){var r=f.apply(this,arguments);try{var I=storyImpact,root=(typeof __R!=='undefined'&&__R)||document,arena=root.querySelector('.story-battle');if(!I||!arena||!I.counters||I.counters.length<2)return r;
- var base=getComputedStyle(arena).getPropertyValue('--counter-moment').trim()||'1.02s',bt=1/(storySpeed||1),seenE={},seenP={};
- I.counters.forEach(function(h,k){if(!k)return;var off='calc('+base+' + '+(k*__bfSeqGap*bt).toFixed(3)+'s)';
-  var e=root.querySelector('[data-fighter-side="enemy"][data-fighter-id="'+h.enemy+'"]'),pl=root.querySelector('[data-fighter-side="player"][data-fighter-id="'+h.player+'"]');
-  if(e&&!seenE[h.enemy]){seenE[h.enemy]=1;e.style.setProperty('--counter-moment',off);}
-  if(pl&&!seenP[h.player]&&!I.counters.slice(0,k).some(function(x){return x.player===h.player;})){seenP[h.player]=1;pl.style.setProperty('--counter-moment',off);pl.style.setProperty('--player-fall','calc('+off+' + '+(.43*bt).toFixed(3)+'s)');}
+ var base=getComputedStyle(arena).getPropertyValue('--counter-moment').trim()||'1.02s',bt=1/(storySpeed||1),mom=function(k){return k?'calc('+base+' + '+(k*__bfSeqGap*bt).toFixed(3)+'s)':base;},doneE={},byP={};
+ I.counters.forEach(function(h,k){var e=root.querySelector('[data-fighter-side="enemy"][data-fighter-id="'+h.enemy+'"]');if(e&&!doneE[h.enemy]){doneE[h.enemy]=1;if(k)e.style.setProperty('--counter-moment',mom(k));}(byP[h.player]=byP[h.player]||[]).push({k:k,h:h});});
+ Object.keys(byP).forEach(function(pid){var L=byP[pid],pl=root.querySelector('[data-fighter-side="player"][data-fighter-id="'+pid+'"]');if(!pl)return;var first=L[0].k,last=L[L.length-1].k;
+  if(first)pl.style.setProperty('--counter-moment',mom(first));
+  pl.style.setProperty('--player-fall','calc('+mom(last)+' + '+(.43*bt).toFixed(3)+'s)');
+  var lab=pl.querySelector('.story-changing-label');if(lab)lab.style.setProperty('--label-impact',mom(last));
+  var hits=L.filter(function(x){return !x.h.blocked&&x.h.damage>0;});if(hits.length<2)return;
+  // Un chiffre de dégâts par frappe, chacun au moment de SA frappe (avant : le total d'un coup, à la première).
+  var sp=[].slice.call(pl.querySelectorAll('.story-damage.is-counter')).find(function(x){return !x.classList.contains('geass-extra');});
+  if(sp){sp.textContent='−'+hits[0].h.damage;sp.style.animationDelay=mom(hits[0].k);for(var q=1;q<hits.length;q++){var c=sp.cloneNode(true);c.textContent='−'+hits[q].h.damage;c.style.animationDelay=mom(hits[q].k);sp.parentNode.appendChild(c);}}
+  var btn=pl.querySelector(':scope>button');if(btn&&pl.classList.contains('counter-hit')){var dur='calc(.4s * '+bt+')';btn.style.animation=hits.map(function(x){return 'storyHeavyImpact '+dur+' '+mom(x.k)+' ease-out both';}).join(', ');}
  });}catch(_){}return r;};})(positionStoryEffects);}catch(_){}
 /*__bfAudioUnlock 27/11 : sur iPhone/iPad, le son ne part que si le contexte audio est créé ou relancé PENDANT un geste (toucher, clic),
   et la session audio doit être en « playback » pour ne pas être coupée par le bouton silencieux. Avant, le contexte était créé au premier son
