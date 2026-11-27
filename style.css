@@ -795,3 +795,5 @@ details.adsec>summary{cursor:pointer;font-weight:700;list-style-position:inside}
 @media(max-width:900px){.show-sm{display:block}.admtabs.show-sm{display:flex}.adk{grid-template-columns:repeat(3,1fr);gap:8px}.adk>div{padding:9px 10px}.adk b{font-size:21px}.adk .small{font-size:11px}.adtools{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}.adtools .btn{white-space:nowrap;flex:0 0 auto;padding:0 12px}.adtools .sp{display:none}}
 /* Barre du haut PC : les onglets ne rétrécissent plus (texte coupé sous l'onglet actif), c'est la recherche qui se réduit */
 .n2bar .n2brand{flex-shrink:0}.n2bar .n2q{min-width:120px}.n2bar .n2clic{white-space:nowrap;flex-shrink:0}
+@media (max-width:1180px){.n2bar{gap:12px}.n2bar .n2q{min-width:0;flex:1 1 0}}
+@media (max-width:1080px){.n2bar .n2q{display:none}}
