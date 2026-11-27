@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=248';
+import * as CFG from './config.js?v=249';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=248';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=248';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=249';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=249';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=248';
-import * as SCAN from './scan.js?v=248';
+import { duelRate } from './ranked.js?v=249';
+import * as SCAN from './scan.js?v=249';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -112,15 +112,29 @@ async function loadKB() {
   setTwoShot(kb.twoshot);
   await loadPrices();
 }
-async function loadPrices() {
-  const since = new Date(Date.now() - 31 * 864e5).toISOString(); let all = [], from = 0;
-  for (;;) { const { data, error } = await sb.from('sales').select('card,price,sold_at').gte('sold_at', since).order('sold_at').range(from, from + 999); if (error || !data || !data.length) break; all = all.concat(data); if (data.length < 1000) break; from += 1000; }
-  S.sales = all.map(r => ({ card: r.card, price: r.price, ts: new Date(r.sold_at).getTime() }));
-  const names = [...new Set(S.sales.map(x => x.card))];
-  S.prices = names.map(card => { const w = priceStats(S.sales, card, 7), p = priceStats(S.sales, card, 7, 7); const last = Math.max(...S.sales.filter(x => x.card === card).map(x => x.ts));
+// Prix (27/11, lenteur sur téléphone) : les ventes 31 j sont gardées sur l'appareil ; au démarrage on affiche la copie
+// et on ne télécharge que les ventes arrivées depuis (au lieu de tout recharger page par page).
+function pricesFrom(sales) {
+  S.sales = sales;
+  const by = new Map(); for (const x of sales) { let a = by.get(x.card); if (!a) by.set(x.card, a = []); a.push(x); }
+  S.prices = [...by.keys()].map(card => { const L = by.get(card), w = priceStats(L, card, 7), p = priceStats(L, card, 7, 7); let last = 0; for (const x of L) if (x.ts > last) last = x.ts;
     return { card, sales: w.n, median: w.med, good: w.good, max: w.max, prev_median: p.med, updated_at: new Date(last).toISOString() }; })
     .filter(p => p.sales > 0).sort((a, b) => b.sales - a.sales);
-  S.kb.prices = S.prices;
+  if (S.kb) S.kb.prices = S.prices;
+}
+let pricesBusy = null;
+async function fetchSales(sinceTs) {
+  const since = new Date(sinceTs).toISOString(); let all = [], from = 0;
+  for (;;) { const { data, error } = await sb.from('sales').select('card,price,sold_at').gt('sold_at', since).order('sold_at').range(from, from + 999); if (error) throw error; if (!data || !data.length) break; all = all.concat(data); if (data.length < 1000) break; from += 1000; }
+  return all.map(r => ({ card: r.card, price: r.price, ts: new Date(r.sold_at).getTime() }));
+}
+async function loadPrices() {
+  const lim = Date.now() - 31 * 864e5;
+  let cache = null; try { cache = JSON.parse(localStorage.getItem('bf_sales') || 'null'); } catch (e) { /* rien */ }
+  const refresh = async base => { const last = base.length ? base[base.length - 1].ts : lim; const add = await fetchSales(Math.max(lim, last));
+    const all = base.concat(add).filter(x => x.ts >= lim); try { localStorage.setItem('bf_sales', JSON.stringify(all)); } catch (e) { /* plein */ } pricesFrom(all); return add.length; };
+  if (cache && cache.length) { pricesFrom(cache.filter(x => x.ts >= lim)); if (!pricesBusy) pricesBusy = refresh(S.sales).catch(() => 0).finally(() => { pricesBusy = null; }); return; }
+  await refresh([]).catch(() => pricesFrom([]));
 }
 
 // Connexion Discord : on garde l'adresse demandée (ex. ?apercu#bienvenue) pour y revenir après la connexion.
@@ -630,6 +644,7 @@ function series(card, win) {
   return pts;
 }
 function spark(card) {
+  if (innerWidth < 640) return ''; // colonne cachée sur téléphone : on ne la calcule pas
   const h = series(card, '7j').map(p => p.v).filter(v => v != null); if (h.length < 2) return '<span class="small mute">—</span>';
   const min = Math.min(...h), max = Math.max(...h), W = 96, H = 28;
   const pts = h.map((v, i) => `${(i / (h.length - 1) * W).toFixed(1)},${(H - 3 - (max === min ? .5 : (v - min) / (max - min)) * (H - 6)).toFixed(1)}`).join(' ');
@@ -662,7 +677,8 @@ P.prix = m => {
     <p class="small mute" id="upd"></p>`;
   const draw = () => {
     const q = $('#q').value.toLowerCase(), d = days[win];
-    const rows = S.prices.filter(p => !q || p.card.toLowerCase().includes(q)).map(p => { const w = priceStats(S.sales, p.card, d); return { ...p, median: w.med, good: w.good, max: w.max, sales: w.n, trend: p.prev_median ? (p.median - p.prev_median) / p.prev_median : 0, base: p }; }).filter(p => p.sales > 0 || win !== '24h');
+    const BY = new Map(); for (const x of S.sales) { let a = BY.get(x.card); if (!a) BY.set(x.card, a = []); a.push(x); }
+    const rows = S.prices.filter(p => !q || p.card.toLowerCase().includes(q)).map(p => { const w = priceStats(BY.get(p.card) || [], p.card, d); return { ...p, median: w.med, good: w.good, max: w.max, sales: w.n, trend: p.prev_median ? (p.median - p.prev_median) / p.prev_median : 0, base: p }; }).filter(p => p.sales > 0 || win !== '24h');
     rows.sort((a, b) => ((a[key] ?? -1) > (b[key] ?? -1) ? 1 : (a[key] ?? -1) < (b[key] ?? -1) ? -1 : 0) * dir);
     $('#tb').innerHTML = rows.map(p => `<tr data-c="${esc(p.card)}" style="cursor:pointer"><td><b>${esc(p.card)}</b></td><td class="n">${fmt(p.median)}</td><td class="n hide-sm">${fmt(p.good)}</td><td class="n hide-sm">${fmt(p.max)}</td><td class="n">${trend(p.base)}</td><td class="hide-sm">${spark(p.card)}</td><td class="n hide-sm">${p.sales}${p.sales && p.sales < 3 ? ' <span class="chip warn">peu</span>' : ''}</td></tr>${open === p.card ? `<tr><td colspan="7" style="background:#0f0c10"><div class="row" style="margin-bottom:8px"><b>${esc(p.card)}</b><span class="sp"></span><span class="small mute">Médiane ${fmt(p.median)} · bon prix ${fmt(p.good)} · max conseillé ${fmt(p.max)} · ${p.sales} ventes (${win})</span></div><div id="bc"></div></td></tr>` : ''}`).join('') || '<tr><td colspan="7" class="mute">Aucune vente sur cette période.</td></tr>';
     $('#tb').querySelectorAll('tr[data-c]').forEach(tr => tr.onclick = () => { open = open === tr.dataset.c ? null : tr.dataset.c; draw(); });
@@ -678,7 +694,7 @@ P.prix = m => {
 /* ---------- Dernières transactions (comme le comptoir du jeu, LR + UR évo, 24 h) ---------- */
 P.transactions = async m => {
   let mode = 'all', card = '', who = '', rows = [], wrows = null, wq = '';
-  await loadAlerts().catch(() => {});
+  loadAlerts().then(() => { const b = document.querySelector('#txm [data-m="al"]'); if (b && S.alerts?.length) b.textContent = `Mes alertes (${S.alerts.length})`; }).catch(() => {});
   m.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center"><h1 style="margin:0">Dernières transactions</h1><span class="live" title="Mis à jour en direct"><i></i>EN DIRECT</span></div><p class="mute">Toutes les ventes réelles des 24 dernières heures sur les LR et les UR d'évolution, comme le comptoir du jeu : heure, carte, prix, vendeur et acheteur. La plus récente en haut. Tape un pseudo YURO pour voir tous ses achats et toutes ses ventes.</p>
     <div class="row"><div class="tabs" style="margin:0" id="txm"><button data-m="all" class="on">Toutes</button><button data-m="al">Mes alertes${S.alerts?.length ? ` (${S.alerts.length})` : ''}</button></div>
     <input id="txq" list="txcards" placeholder="Une carte en particulier" style="flex:1;min-width:200px"><datalist id="txcards"></datalist>
@@ -690,34 +706,42 @@ P.transactions = async m => {
   const hh = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const dd = d => d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
   const low = x => String(x || '').trim().toLowerCase();
+  // Code couleur du prix (Nicolas 27/11) : écart au prix moyen des 7 derniers jours.
+  // violet = braquage (≤ −25 %), vert = bonne affaire (−25 à −10 %), orange = dans la moyenne (−10 à +15 %), rouge = cher (> +15 %).
+  const AVG = new Map(); { const t0 = Date.now() - 7 * 864e5, acc = new Map(); for (const x of S.sales || []) if (x.ts >= t0) { const a = acc.get(low(x.card)) || [0, 0]; a[0] += +x.price || 0; a[1]++; acc.set(low(x.card), a); } acc.forEach((a, k) => AVG.set(k, Math.round(a[0] / a[1]))); }
+  const avgOf = c => AVG.get(low(c)) || 0;
+  const pcls = r => { const a = avgOf(r.card); if (!a || !r.price) return ''; const e = (r.price - a) / a; return e <= -.25 ? 'pv' : e <= -.10 ? 'pg' : e <= .15 ? 'po' : 'pr'; };
   const draw = () => {
     const q = low(card), w = low(who), al = new Set((S.alerts || []).map(a => low(a.card)));
     const src = w && wrows ? wrows : rows;
     const list = src.filter(r => (!q || low(r.card).includes(q)) && (mode !== 'al' || al.has(low(r.card))) && (!w || low(r.buyer) === w || low(r.seller) === w));
     const sm = $('#txs');
+    const none = w && wrows && !wrows.length;
     if (sm) {
-      if (w) {
+      if (w && !none) {
         const buys = list.filter(r => low(r.buyer) === w), sells = list.filter(r => low(r.seller) === w), sum = a => a.reduce((t, r) => t + (+r.price || 0), 0);
         sm.innerHTML = `<div class="row" style="gap:12px;margin:10px 0 0;flex-wrap:wrap"><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">@${esc(who.trim())} · achats</small><div style="font-size:22px;font-weight:800">${buys.length} <small class="mute" style="font-size:13px">pour ${fmt(sum(buys))} ki</small></div></div><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">@${esc(who.trim())} · ventes</small><div style="font-size:22px;font-weight:800">${sells.length} <small class="mute" style="font-size:13px">pour ${fmt(sum(sells))} ki</small></div></div><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">Solde</small><div style="font-size:22px;font-weight:800;color:${sum(sells) - sum(buys) >= 0 ? '#4fb3a0' : '#ff6b6b'}">${sum(sells) - sum(buys) >= 0 ? '+' : '−'}${fmt(Math.abs(sum(sells) - sum(buys)))} <small class="mute" style="font-size:13px">ki</small></div></div></div><p class="small mute" style="margin:6px 0 0">Tout l'historique relevé pour ce pseudo, pas seulement 24 h.</p>`;
       } else sm.innerHTML = '';
     }
     const tag = r => !w ? '' : low(r.buyer) === w ? '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#4fb3a0;background:#4fb3a01a;border:1px solid #4fb3a055">ACHAT</span>' : '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#ff9f6b;background:#ff9f6b1a;border:1px solid #ff9f6b55">VENTE</span>';
-    $('#txl').innerHTML = !list.length ? `<div class="empty">${w && !wrows ? 'Recherche…' : mode === 'al' && !al.size ? "Tu n'as pas encore d'alerte : crée-en dans « Alertes marché »." : w ? 'Aucune transaction relevée pour ce pseudo.' : 'Aucune vente sur 24 h pour ce filtre.'}</div>` :
-      `<div class="txlist">${list.map(r => { const d = new Date(r.sold_at); return `<div class="txrow"><div class="txt"><b>${hh(d)}</b><span>${dd(d)}</span></div>${img(r) ? `<img src="${esc(img(r))}" alt="" loading="lazy">` : '<i class="txi"></i>'}<div class="txc"><b>${esc(r.card)}${tag(r)}</b><span>${r.rarity === 'Mythique' ? 'UR évolution' : 'LR'}</span></div><div class="txp">${fmt(r.price)} <small>ki</small></div><div class="txw"><span><small>Vendeur</small>${r.seller ? '@' + esc(r.seller) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span><span><small>Acheteur</small>${r.buyer ? '@' + esc(r.buyer) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span></div></div>`; }).join('')}</div>`;
+    $('#txl').innerHTML = !list.length ? `<div class="empty">${w && !wrows ? 'Recherche…' : mode === 'al' && !al.size ? "Tu n'as pas encore d'alerte : crée-en dans « Alertes marché »." : w ? 'Aucun joueur trouvé avec ce pseudo.' : 'Aucune vente sur 24 h pour ce filtre.'}</div>` :
+      `<div class="txlist">${list.map(r => { const d = new Date(r.sold_at); return `<div class="txrow"><div class="txt"><b>${hh(d)}</b><span>${dd(d)}</span></div>${img(r) ? `<img src="${esc(img(r))}" alt="" loading="lazy">` : '<i class="txi"></i>'}<div class="txc"><b>${esc(r.card)}${tag(r)}</b><span>${r.rarity === 'Mythique' ? 'UR évolution' : 'LR'}</span></div><div class="txp ${pcls(r)}">${fmt(r.price)} <small>ki</small>${avgOf(r.card) ? `<em>moy. ${fmt(avgOf(r.card))}</em>` : ''}</div><div class="txw"><span><small>Vendeur</small>${r.seller ? '@' + esc(r.seller) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span><span><small>Acheteur</small>${r.buyer ? '@' + esc(r.buyer) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span></div></div>`; }).join('')}</div>`;
   };
   const sel = 'card,rarity,img,price,sold_at,buyer,seller';
   const loadWho = async () => { const w = who.trim(); if (!w) { wrows = null; return; } const k = low(w); if (wq === k && wrows) return; wq = k; wrows = null; draw();
     const pat = w.replace(/[%_,()]/g, '');
     const { data } = await sb.from('tx').select(sel).or(`buyer.ilike.${pat},seller.ilike.${pat}`).order('sold_at', { ascending: false }).limit(1000);
     if (wq === k) { wrows = data || []; draw(); } };
-  const load = async () => { const since = new Date(Date.now() - 864e5).toISOString(); const { data } = await sb.from('tx').select(sel).gte('sold_at', since).order('sold_at', { ascending: false }).limit(1000); rows = data || [];
+  const load = async () => { const since = new Date(Date.now() - 864e5).toISOString(); const { data, error } = await sb.from('tx').select(sel).gte('sold_at', since).order('sold_at', { ascending: false }).limit(1000); if (error) return; rows = data || []; try { localStorage.setItem('bf_tx', JSON.stringify(rows.slice(0, 300))); } catch (e) { /* plein */ }
     const dl = $('#txcards'); if (dl) dl.innerHTML = [...new Set(rows.map(r => r.card))].sort((a, b) => a.localeCompare(b)).map(c => `<option value="${esc(c)}">`).join('');
     const dw = $('#txwho'); if (dw) dw.innerHTML = [...new Set(rows.flatMap(r => [r.buyer, r.seller]).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map(c => `<option value="${esc(c)}">`).join('');
     if (who.trim()) { wq = ''; await loadWho(); } if ($('#txl')) draw(); };
   $('#txm').querySelectorAll('button').forEach(b => b.onclick = () => { mode = b.dataset.m; $('#txm').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
   $('#txq').oninput = e => { card = e.target.value; draw(); };
   let wt; $('#txw').oninput = e => { who = e.target.value.replace(/^@/, ''); clearTimeout(wt); if (!who.trim()) { wrows = null; wq = ''; draw(); return; } wt = setTimeout(loadWho, 350); };
-  await load(); S.timers.push(setInterval(load, 30000));
+  // Affichage immédiat depuis la dernière copie, puis mise à jour en arrière-plan (27/11).
+  try { const c = JSON.parse(localStorage.getItem('bf_tx') || 'null'); if (c && c.length) { const t0 = Date.now() - 864e5; rows = c.filter(r => Date.parse(r.sold_at) >= t0); draw(); } } catch (e) { /* rien */ }
+  load(); S.timers.push(setInterval(load, 30000));
 };
 
 /* ---------- Jouer un match ranked (simulateur jouable + analyse de chaque coup) ---------- */
@@ -828,10 +852,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=248'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=249'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=248'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=249'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -991,7 +1015,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=248'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=249'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1371,7 +1395,7 @@ P.collection = async (m, tab = '') => {
     const pts = H.filter(h => h.lr_value != null).map(h => ({ day: h.day, v: +h.lr_value }));
     // le point du jour suit la valeur en direct (elle bouge avec les prix et les mises à jour de collection)
     const today = new Date().toISOString().slice(0, 10); if (cv.v > 0) { const t = pts.find(x => x.day === today); if (t) t.v = cv.v; else pts.push({ day: today, v: cv.v }); }
-    const max = Math.max(1, ...pts.map(h => h.v)), min0 = Math.min(...pts.map(h => h.v), max), pad = (max - min0) * .12 || max * .05, lo = Math.max(0, min0 - pad), hi = max + pad;
+    const max = Math.max(1, ...pts.map(h => h.v)), min0 = Math.min(...pts.map(h => h.v), max), pad = (max - min0) * .12 || max * .05, lo = Math.max(0, min0 - pad * 4), hi = max + pad; // marge basse : la courbe ne passe plus sur l'étiquette du bas
     const dd = d => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }), kfmt = v => v >= 1e6 ? (v / 1e6).toFixed(2).replace('.', ',') + ' M' : Math.round(v / 1000) + ' k';
     const W = Math.max(280, Math.round((el.clientWidth || 640) - 34)), H0 = innerWidth < 520 ? 130 : 150, X0 = 6, X1 = W - 6, Y0 = 14, Y1 = H0 - 22, xs = i => X0 + (pts.length > 1 ? i / (pts.length - 1) : .5) * (X1 - X0), ys = v => Y1 - ((v - lo) / Math.max(1, hi - lo)) * (Y1 - Y0);
     // courbe lissée (Catmull-Rom → Bézier)
@@ -1931,7 +1955,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=248'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=249'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2419,11 +2443,14 @@ async function adminDash() {
         <span class="sp"></span><button class="btn" data-acp style="min-height:34px">📋 Copier les @ de la liste</button></div>
       <div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Collection</th><th class="n">%</th><th>Dernière mise à jour</th><th>En ligne</th><th></th></tr></thead><tbody>${list.map(r => { const o = onl.get(r.id); return `<tr><td><b>${esc(r.discord)}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td>${lab(r)}</td><td class="n small">${PCT.has(r.id) ? String(PCT.get(r.id)).replace('.', ',') + ' %' : '—'}</td><td class="small">${when(r)}</td><td class="small">${o ? `<span class="adon"></span>${esc(onlineWhat(o.p))}` : '<span class="mute">—</span>'}</td><td class="n">${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px">Copier un rappel</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Personne.</td></tr>'}</tbody></table></div>
       <h3 style="margin-top:16px">Sur le Discord, pas encore inscrits sur le site ${disc.length ? `(${noAcc.length})` : ''}</h3>
-      ${disc.length ? `<p class="small mute">Liste des membres du serveur relevée le ${new Date(discAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} (bots exclus).</p><div class="adlist">${noAcc.map(u => `<span>@${esc(u)}</span>`).join('') || '<span class="mute">Tout le monde est inscrit 🎉</span>'}</div>${noAcc.length ? '<button class="btn" data-acd style="min-height:34px;margin-top:10px">📋 Copier ces @</button>' : ''}` : '<p class="small mute">Liste du serveur pas encore relevée.</p>'}`;
+      ${disc.length ? `<p class="small mute">Liste des membres du serveur relevée le ${new Date(discAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} (bots exclus).</p><div class="adlist">${noAcc.map(u => `<span>@${esc(u)}</span>`).join('') || '<span class="mute">Tout le monde est inscrit 🎉</span>'}</div>${noAcc.length ? '<button class="btn" data-acd style="min-height:34px;margin-top:10px">📋 Copier ces @</button>' : ''}` : '<p class="small mute">Liste du serveur pas encore relevée.</p>'}
+      <h3 style="margin-top:16px">Inscrits sur le site, collection pas importée (${rows.filter(r => r.st === 'none').length})</h3>
+      <div class="adlist">${rows.filter(r => r.st === 'none').map(r => `<span>@${esc(norm(r.discord))}</span>`).join('') || '<span class="mute">Tout le monde a importé 🎉</span>'}</div>${rows.some(r => r.st === 'none') ? '<button class="btn" data-acn style="min-height:34px;margin-top:10px">📋 Copier ces @</button>' : ''}`;
     el.querySelectorAll('[data-af]').forEach(b => b.onclick = () => { filt = b.dataset.af; draw(); });
     const cp = async t => { try { await navigator.clipboard.writeText(t); toast('Copié : colle-le sur Discord'); } catch (e) { prompt('Copie ce texte :', t); } };
     el.querySelector('[data-acp]').onclick = () => cp(list.map(r => '@' + norm(r.discord)).join(' '));
     el.querySelector('[data-acd]')?.addEventListener('click', () => cp(noAcc.map(u => '@' + u).join(' ')));
+    el.querySelector('[data-acn]')?.addEventListener('click', () => cp(rows.filter(r => r.st === 'none').map(r => '@' + norm(r.discord)).join(' ')));
     el.querySelectorAll('[data-arm]').forEach(b => b.onclick = () => { const r = rows.find(x => x.id === b.dataset.arm);
       cp(r.st === 'none' ? `Salut @${norm(r.discord)} ! Il te reste à importer ta collection sur le site de la Brigade : ça prend 5 minutes et ça règle les meilleures équipes, les échanges et Kakashi sur ton profil 🙏`
         : `Salut @${norm(r.discord)} ! Pense à mettre ta collection à jour sur le site de la Brigade (bouton « Mise à jour en 1 clic »), la dernière date d’il y a ${r.days} jours : ça garde les échanges et les équipes justes 🙏`); });
