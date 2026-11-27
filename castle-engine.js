@@ -2308,5 +2308,23 @@ function duelSimBattleHTML(raw,reverse){var map=function(u,i,enemy){return Objec
   var html=storyBattleHTML(b,{reverseTeams:!!reverse,level:{id:'infinity',worldId:'infinity',act:raw.room,title:'Chambre '+raw.room,series:'Château de l’infini',color:'#b6b0ed'},fighter:function(u,i,enemy,battle){return storyFighterHTML(u,i,enemy,battle,Object.assign({},u,{color:rarityColors[u.rarity]||'#bd9df1'}));},end:infinityResultHTML});
   return html.replace('class="story-battle ','class="story-battle infinity-shared-battle ').replaceAll('data-story-map','data-infinity-lobby').replaceAll('data-story-action','data-infinity-action').replaceAll('data-story-active','data-infinity-active').replaceAll('data-story-target','data-infinity-target').replaceAll('data-story-speed','data-infinity-speed').replaceAll('data-story-autoplay','data-infinity-autoplay').replace(/MONDE [^<·]*· ACTE \d+/,'CHAMBRE '+raw.room);}
 
+/*__bfCounterFix 27/11 : (1) la riposte vient de l'ennemi noté dans lastCounters ; avant, le « premier ennemi vivant » fonçait AUSSI,
+  d'où deux cartes qui bougeaient en même temps sur une attaque simple. (2) Une riposte annulée par le Haki n'avait aucune animation :
+  l'ennemi fonce maintenant sur la carte protégée au moment où « ANNULÉ » s'affiche. */
+try{infinityAnimate=(function(f){return function(action,previous){var r=f.apply(this,arguments);try{var I=storyImpact,next=infinityUI.data.me.battle;if(I&&previous&&next){
+ I.counters=(I.counters||[]).slice();
+ if(I.hakiBlocks&&I.hakiBlocks.length){var L=(next.log||[]).slice((previous.log||[]).length);L.forEach(function(t){var m=/^HAKI ! L’attaque de (.+) sur (.+) est annulée\.$/.exec(t);if(!m)return;var e=next.enemies.findIndex(function(u){return u.name===m[1];}),p=next.players.findIndex(function(u){return u.name===m[2];});if(e>=0&&p>=0)I.counters.push({enemy:-e-1,player:p+1,damage:0,oldHp:next.players[p].hp,blocked:true});});}
+ if(I.counters.length){var own=I.counters.find(function(h){return h.player===I.player&&!h.blocked;})||I.counters[0];I.counterEnemy=own.enemy;}
+}}catch(_){}return r;};})(infinityAnimate);}catch(_){}
+/*__bfAudioUnlock 27/11 : sur iPhone/iPad, le son ne part que si le contexte audio est créé ou relancé PENDANT un geste (toucher, clic),
+  et la session audio doit être en « playback » pour ne pas être coupée par le bouton silencieux. Avant, le contexte était créé au premier son
+  (hors geste) et restait muet. */
+try{(function(){var unl=function(){try{if(!state.sound)return;try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}
+ var A=window.AudioContext||window.webkitAudioContext;if(!A)return;if(!cardAudioContext)cardAudioContext=new A();
+ if(cardAudioContext.state!=='running')cardAudioContext.resume().catch(function(){});
+ var b=cardAudioContext.createBuffer(1,1,22050),src=cardAudioContext.createBufferSource();src.buffer=b;src.connect(cardAudioContext.destination);src.start(0);
+ if(!unl.el){try{unl.el=new Audio('data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQxAADB8AhSmxhIIEVCSiJrDCQBTcu3UrAIwUdkRgQbFAZC1CQEwTJ9mjRvBA4UOLD8nKVOWfh+UlK3z/177OXrfOdKl7pyn3Xf//WreyTRUoAWgBgkOAGbZHBgG1OF6zM82DWbZaUmMBptgQhGjsyYqc9ae9XFz280948NMBWInljyzsNRFLPWdnZGWrddDsjK1unuSrVN9jJsK8KuQtQCtMBjCEtImISdNKJOopIpBFpNSMbIHCSRpRR5iakjTiyzLhchUUBwCgyKiweBv/7UsQbg8isVNoMPMjAAAA0gAAABEVFGmgqK////9bP/6XCykxBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq');unl.el.setAttribute('playsinline','');}catch(_){unl.el=null;}}
+ if(unl.el){try{var pp=unl.el.play();if(pp&&pp.catch)pp.catch(function(){});}catch(_){}}
+ }catch(_){}};['pointerdown','touchend','click','keydown'].forEach(function(ev){document.addEventListener(ev,unl,{capture:true,passive:true});});})();}catch(_){}
 /*__DUEL_END*/
 })();

@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=232';
+import * as CFG from './config.js?v=233';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=232';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=232';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=233';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=233';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=232';
-import * as SCAN from './scan.js?v=232';
+import { duelRate } from './ranked.js?v=233';
+import * as SCAN from './scan.js?v=233';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -180,16 +180,44 @@ const memHref = id => FUS() ? '#collection/L/m:' + id : '#checklist/m:' + id;
    Chaque membre connecté rejoint le canal « bf-online » ; la pastille verte affiche le nombre de membres présents.
    Le tableau de bord admin y lit aussi la page ouverte par chacun. */
 S.online = [];
-const onlinePill = (cls = '') => `<span class="bfonline${cls ? ' ' + cls : ''}" title="Membres de la Brigade connectés au site en ce moment" aria-label="Membres connectés"><i></i>${ico('users')}<b data-onl>${S.online.length || '·'}</b></span>`;
+const onlinePill = (cls = '') => `<span class="bfonline${cls ? ' ' + cls : ''}" role="button" tabindex="0" title="Voir qui est en ligne et ce qu'ils font" aria-label="Membres connectés"><i></i>${ico('users')}<b data-onl>${S.online.length || '·'}</b></span>`;
 function onlinePaint() { const n = S.online.length; document.querySelectorAll('[data-onl]').forEach(b => { b.textContent = n || '·'; }); try { window.dispatchEvent(new Event('bf-online')); } catch (e) { /* rien */ } }
+// Ce que fait un membre, d'après la page ouverte (comme la liste d'amis d'une console).
+function onlineWhat(p) {
+  const [a, b] = String(p || 'accueil').split('/');
+  const M = { accueil: 'Sur l’accueil', kakashi: 'Parle à Kakashi', meslr: 'Regarde ses LR', chateausim: 'En simulation château', simulateur: 'En simulation ranked', calculs: 'Calcule (château)', prix: 'Dans le marché · prix', transactions: 'Dans le marché · transactions', alertes: 'Dans le marché · alertes', tournoi: 'Au tournoi de guildes', arene: 'Dans l’arène de tournoi', guilde: 'Regarde les profils', discord: 'Espace Discord', calendrier: 'Au calendrier', nouveautes: 'Lit les nouveautés', lexique: 'Au lexique', reglages: 'Dans les réglages', notifs: 'Règle ses notifications', admin: 'Administration', clic: 'Met à jour sa collection', checklist: 'Collection Prestige', persos: 'Fiches perso', bienvenue: 'Découvre le site', basses: 'Met à jour sa collection' };
+  if (a === 'jeux') return b === 'mercato' ? 'Joue au Mercato' : 'Dans les mini-jeux';
+  if (a === 'guide') return { chateau: 'Guide du château', ranked: 'Guide ranked', temps: 'Guide salle du temps', prestige: 'Guide prestige', eveil: 'Guide éveil', raids: 'Guide raids' }[b] || 'Lit un guide';
+  if (a === 'equipe') return b === 'ranked' ? 'Cherche sa meilleure équipe ranked' : 'Cherche sa meilleure équipe château';
+  if (a === 'collection') return 'Dans sa collection';
+  return M[a] || 'Sur le site';
+}
+function openOnline() {
+  document.getElementById('bfOnl')?.remove();
+  const d = document.createElement('div'); d.className = 'modal'; d.id = 'bfOnl';
+  const ago = t => { const m = Math.max(0, Math.round((Date.now() - (+t || Date.now())) / 60000)); return m < 1 ? 'à l’instant' : m < 60 ? `depuis ${m} min` : `depuis ${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
+  const draw = () => { const L = [...S.online].sort((x, y) => (y.id === S.user?.id) - (x.id === S.user?.id) || String(x.d).localeCompare(String(y.d)));
+    d.innerHTML = `<div class="modal-card bfonl-card"><div class="row" style="align-items:center;flex-wrap:nowrap"><h2 style="margin:0;flex:1"><i class="bfonl-dot"></i> En ligne · ${L.length}</h2><button class="btn ghost" data-x aria-label="Fermer" style="min-height:36px">✕</button></div>
+      <p class="small mute" style="margin:6px 0 10px">Les membres de la Brigade connectés au site en ce moment, et ce qu’ils font.</p>
+      <div class="bfonl-list">${L.map(o => `<a class="bfonl-row" href="#guilde/${esc(o.id)}" data-x><span class="bav bav0">${esc(String(o.d || '?').replace(/^@+/, '').charAt(0).toUpperCase())}</span><span class="bfonl-txt"><b>${esc(o.d || 'Membre')}${o.id === S.user?.id ? ' <span class="small mute">(toi)</span>' : ''}</b><span class="small">${esc(onlineWhat(o.p))} <span class="mute">· ${ago(o.s || o.t)}</span></span></span></a>`).join('') || '<div class="empty">Personne pour l’instant.</div>'}</div></div>`; };
+  draw(); document.body.appendChild(d);
+  const upd = () => { if (!d.isConnected) { window.removeEventListener('bf-online', upd); clearInterval(iv); return; } draw(); };
+  window.addEventListener('bf-online', upd); const iv = setInterval(upd, 30000);
+  d.onclick = e => { if (e.target === d || e.target.closest('[data-x]')) d.remove(); };
+}
+document.addEventListener('click', e => { const p = e.target.closest?.('.bfonline'); if (p && !e.target.closest('.modal')) { e.preventDefault(); openOnline(); } });
+document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && document.activeElement?.classList?.contains('bfonline')) { e.preventDefault(); openOnline(); } });
 function startPresence() {
   if (S.presCh) return;
-  const me = () => ({ d: S.profile?.discord || '', p: (location.hash.slice(1) || 'accueil').split('/')[0], t: Date.now() });
+  // p = les deux premiers segments du lien (ex. jeux/mercato, guide/chateau) pour savoir ce que fait chacun ; s = depuis quand il est sur cette page.
+  let lastP = '', since = Date.now();
+  const me = () => { const p = (location.hash.slice(1) || 'accueil').split('?')[0].split('/').slice(0, 2).join('/'); if (p !== lastP) { lastP = p; since = Date.now(); } return { d: S.profile?.discord || '', p, s: since, t: Date.now() }; };
   const ch = sb.channel('bf-online', { config: { presence: { key: S.user.id } } });
   ch.on('presence', { event: 'sync' }, () => { const st = ch.presenceState(); S.online = Object.entries(st).map(([id, a]) => ({ id, ...(a[a.length - 1] || {}) })); onlinePaint(); });
   ch.subscribe(st => { if (st === 'SUBSCRIBED') ch.track(me()).catch(() => {}); });
   S.presCh = ch; let last = 0;
-  window.addEventListener('hashchange', () => { const n = Date.now(); if (n - last < 3000) return; last = n; ch.track(me()).catch(() => {}); });
+  let tq = null; const push = () => { last = Date.now(); tq = null; ch.track(me()).catch(() => {}); };
+  window.addEventListener('hashchange', () => { if (Date.now() - last >= 3000) push(); else if (!tq) tq = setTimeout(push, 3000 - (Date.now() - last)); });
 }
 function shell(route) {
   const isAdmin = S.profile.role === 'admin';
@@ -788,10 +816,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=232'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=233'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=232'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=233'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -951,7 +979,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=232'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=233'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1805,7 +1833,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=232'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=233'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2289,7 +2317,7 @@ async function adminDash() {
       <div><span class="small mute">Discord sans compte</span><b>${disc.length ? noAcc.length : '—'}</b></div></div>
       <div class="adtools">${[['all', 'Tous'], ['on', 'En ligne'], ['none', 'Pas de collection'], ['late', 'En retard'], ['ok', 'À jour']].map(([k, t]) => `<button class="btn ghost${filt === k ? ' on' : ''}" data-af="${k}" style="min-height:34px">${t}</button>`).join('')}
         <span class="sp"></span><button class="btn" data-acp style="min-height:34px">📋 Copier les @ de la liste</button></div>
-      <div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Collection</th><th class="n">%</th><th>Dernière mise à jour</th><th>En ligne</th><th></th></tr></thead><tbody>${list.map(r => { const o = onl.get(r.id); return `<tr><td><b>${esc(r.discord)}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td>${lab(r)}</td><td class="n small">${PCT.has(r.id) ? String(PCT.get(r.id)).replace('.', ',') + ' %' : '—'}</td><td class="small">${when(r)}</td><td class="small">${o ? `<span class="adon"></span>${esc(o.p || 'accueil')}` : '<span class="mute">—</span>'}</td><td class="n">${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px">Copier un rappel</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Personne.</td></tr>'}</tbody></table></div>
+      <div class="tablewrap"><table><thead><tr><th>@ Discord</th><th>Collection</th><th class="n">%</th><th>Dernière mise à jour</th><th>En ligne</th><th></th></tr></thead><tbody>${list.map(r => { const o = onl.get(r.id); return `<tr><td><b>${esc(r.discord)}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td>${lab(r)}</td><td class="n small">${PCT.has(r.id) ? String(PCT.get(r.id)).replace('.', ',') + ' %' : '—'}</td><td class="small">${when(r)}</td><td class="small">${o ? `<span class="adon"></span>${esc(onlineWhat(o.p))}` : '<span class="mute">—</span>'}</td><td class="n">${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px">Copier un rappel</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Personne.</td></tr>'}</tbody></table></div>
       <h3 style="margin-top:16px">Sur le Discord, pas encore inscrits sur le site ${disc.length ? `(${noAcc.length})` : ''}</h3>
       ${disc.length ? `<p class="small mute">Liste des membres du serveur relevée le ${new Date(discAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} (bots exclus).</p><div class="adlist">${noAcc.map(u => `<span>@${esc(u)}</span>`).join('') || '<span class="mute">Tout le monde est inscrit 🎉</span>'}</div>${noAcc.length ? '<button class="btn" data-acd style="min-height:34px;margin-top:10px">📋 Copier ces @</button>' : ''}` : '<p class="small mute">Liste du serveur pas encore relevée.</p>'}`;
     el.querySelectorAll('[data-af]').forEach(b => b.onclick = () => { filt = b.dataset.af; draw(); });
