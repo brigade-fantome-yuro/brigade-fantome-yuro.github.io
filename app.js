@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=262';
+import * as CFG from './config.js?v=263';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=262';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=262';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=263';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=263';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=262';
-import * as SCAN from './scan.js?v=262';
+import { duelRate } from './ranked.js?v=263';
+import * as SCAN from './scan.js?v=263';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -235,7 +235,8 @@ function startPresence() {
   ch.on('presence', { event: 'sync' }, () => { const st = ch.presenceState(); S.online = Object.entries(st).map(([id, a]) => ({ id, ...(a[a.length - 1] || {}) })).filter(fresh); onlinePaint(); });
   const active = () => document.visibilityState === 'visible' && Date.now() - act < IDLE;
   let ready = false;
-  const sync = () => { if (!ready) return; if (active()) { on = true; ch.track(me()).catch(() => {}); } else if (on) { on = false; ch.untrack().catch(() => {}); } };
+  let seenAt = 0; const seen = () => { if (Date.now() - seenAt < 120000) return; seenAt = Date.now(); sb.rpc('touch_seen').then(() => {}, () => {}); };
+  const sync = () => { if (!ready) return; if (active()) { seen(); on = true; ch.track(me()).catch(() => {}); } else if (on) { on = false; ch.untrack().catch(() => {}); } };
   ch.subscribe(st => { if (st === 'SUBSCRIBED') { ready = true; sync(); } });
   S.presCh = ch; let last = 0;
   let tq = null; const push = () => { last = Date.now(); tq = null; sync(); };
@@ -865,10 +866,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=262'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=263'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=262'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=263'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -1028,7 +1029,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=262'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=263'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1979,7 +1980,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=262'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=263'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2431,6 +2432,8 @@ P.reglages = async m => {
 };
 
 // Tableau de bord admin (maquette E validée le 26/11) : suivi des collections, membres en ligne, Discord sans compte.
+// « il y a X min / X h / X j » pour la dernière connexion (admin).
+const agoTxt = t => { if (!t) return 'jamais vu'; const m = Math.max(1, Math.round((Date.now() - t) / 60000)); return 'Dernière connexion il y a ' + (m < 60 ? m + ' min' : m < 1440 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' j'); };
 // Recherche d'un membre par pseudo (admin, PC et téléphone) : masque les lignes / cartes / pseudos qui ne correspondent pas.
 function admFilter() {
   const q = String(document.getElementById('admQ')?.value || '').trim().replace(/^@+/, '').toLowerCase();
@@ -2441,12 +2444,14 @@ function admFilter() {
 }
 async function adminDash() {
   const el = $('#adBody'); if (!el) return;
-  const [{ data: pr }, { data: lr }, { data: dm }, { data: rk }] = await Promise.all([
+  const [{ data: pr }, { data: lr }, { data: dm }, { data: rk }, { data: ls }] = await Promise.all([
     sb.from('profiles').select('id,discord,status,role,created_at,revoked').order('created_at', { ascending: true }),
     sb.rpc('admin_collection_status'),
     sb.from('content').select('data').eq('key', 'discord_members').maybeSingle(),
-    sb.rpc('collection_ranking').then(r => r, () => ({ data: [] }))]);
+    sb.rpc('collection_ranking').then(r => r, () => ({ data: [] })),
+    sb.rpc('admin_last_seen').then(r => r, () => ({ data: [] }))]);
   const PCT = new Map((rk || []).map(r => [r.user_id, +r.pct || 0]));
+  const SEEN = new Map((ls || []).map(r => [r.user_id, r.seen ? Date.parse(r.seen) : 0]));
   // Fonction réservée aux admins : voit aussi les membres qui ne partagent pas leur collection.
   const L = {}; for (const r of lr || []) L[r.user_id] = r;
   const norm = d => String(d || '').replace(/^@+/, '').toLowerCase();
@@ -2476,8 +2481,8 @@ async function adminDash() {
       <div><span class="small mute">Discord sans compte</span><b>${disc.length ? noAcc.length : '—'}</b></div></div>
       <div class="adtools">${[['all', 'Tous'], ['on', 'En ligne'], ['none', 'Pas de collection'], ['late', 'En retard'], ['ok', 'À jour']].map(([k, t]) => `<button class="btn ghost${filt === k ? ' on' : ''}" data-af="${k}" style="min-height:34px">${t}</button>`).join('')}
         <span class="sp"></span><button class="btn" data-acp style="min-height:34px">📋 Copier les @ de la liste</button></div>
-      <div class="admcards show-sm${more ? '' : ' lim'}" data-more="${more ? '1' : ''}">${list.map((r, i) => { const o = onl.get(r.id); return `<div class="admc${i >= 12 ? ' admx' : ''}" data-u="${esc(norm(r.discord))}"><div class="admav">${esc(norm(r.discord).slice(0, 1).toUpperCase() || '?')}</div><div class="admci"><b>@${esc(norm(r.discord))}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}<div class="small mute">${o ? `<span class="adon"></span>${esc(onlineWhat(o.p))}` : 'Hors ligne'}</div><div class="admcl">${lab(r)}${PCT.has(r.id) ? `<span class="small">${String(PCT.get(r.id)).replace('.', ',')} %</span>` : ''}</div><div class="small mute">Mise à jour : ${when(r)}</div>${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px;margin-top:6px">Copier un rappel</button>`}</div></div>`; }).join('') || '<p class="small mute">Personne.</p>'}${!more && list.length > 12 ? `<button class="btn ghost admmore" data-amore style="width:100%;min-height:38px">Afficher les ${list.length - 12} autres</button>` : ''}</div>
-      <div class="tablewrap hide-sm"><table><thead><tr><th>@ Discord</th><th>Collection</th><th class="n">%</th><th>Dernière mise à jour</th><th>En ligne</th><th></th></tr></thead><tbody>${list.map(r => { const o = onl.get(r.id); return `<tr data-u="${esc(norm(r.discord))}"><td><b>${esc(r.discord)}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td>${lab(r)}</td><td class="n small">${PCT.has(r.id) ? String(PCT.get(r.id)).replace('.', ',') + ' %' : '—'}</td><td class="small">${when(r)}</td><td class="small">${o ? `<span class="adon"></span>${esc(onlineWhat(o.p))}` : '<span class="mute">—</span>'}</td><td class="n">${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px">Copier un rappel</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Personne.</td></tr>'}</tbody></table></div>
+      <div class="admcards show-sm${more ? '' : ' lim'}" data-more="${more ? '1' : ''}">${list.map((r, i) => { const o = onl.get(r.id); return `<div class="admc${i >= 12 ? ' admx' : ''}" data-u="${esc(norm(r.discord))}"><div class="admav">${esc(norm(r.discord).slice(0, 1).toUpperCase() || '?')}</div><div class="admci"><b>@${esc(norm(r.discord))}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}<div class="small mute">${o ? `<span class="adon"></span>${esc(onlineWhat(o.p))}` : esc(agoTxt(SEEN.get(r.id)))}</div><div class="admcl">${lab(r)}${PCT.has(r.id) ? `<span class="small">${String(PCT.get(r.id)).replace('.', ',')} %</span>` : ''}</div><div class="small mute">Mise à jour : ${when(r)}</div>${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px;margin-top:6px">Copier un rappel</button>`}</div></div>`; }).join('') || '<p class="small mute">Personne.</p>'}${!more && list.length > 12 ? `<button class="btn ghost admmore" data-amore style="width:100%;min-height:38px">Afficher les ${list.length - 12} autres</button>` : ''}</div>
+      <div class="tablewrap hide-sm"><table><thead><tr><th>@ Discord</th><th>Collection</th><th class="n">%</th><th>Dernière mise à jour</th><th>En ligne</th><th></th></tr></thead><tbody>${list.map(r => { const o = onl.get(r.id); return `<tr data-u="${esc(norm(r.discord))}"><td><b>${esc(r.discord)}</b>${r.role === 'admin' ? ' <span class="chip red">admin</span>' : ''}</td><td>${lab(r)}</td><td class="n small">${PCT.has(r.id) ? String(PCT.get(r.id)).replace('.', ',') + ' %' : '—'}</td><td class="small">${when(r)}</td><td class="small">${o ? `<span class="adon"></span>${esc(onlineWhat(o.p))}` : `<span class="mute">${esc(agoTxt(SEEN.get(r.id)))}</span>`}</td><td class="n">${r.st === 'ok' ? '' : `<button class="btn ghost" data-arm="${r.id}" style="min-height:34px">Copier un rappel</button>`}</td></tr>`; }).join('') || '<tr><td colspan="5" class="mute">Personne.</td></tr>'}</tbody></table></div>
       <details class="adsec"${innerWidth > 900 ? ' open' : ''}><summary>Sur le Discord, pas encore inscrits sur le site ${disc.length ? `(${noAcc.length})` : ''}</summary>
       ${disc.length ? `<p class="small mute">Liste des membres du serveur relevée le ${new Date(discAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} (bots exclus).</p><div class="adlist">${noAcc.map(u => `<span data-u="${esc(String(u).toLowerCase())}">@${esc(u)}</span>`).join('') || '<span class="mute">Tout le monde est inscrit 🎉</span>'}</div>${noAcc.length ? '<button class="btn" data-acd style="min-height:34px;margin-top:10px">📋 Copier ces @</button>' : ''}` : '<p class="small mute">Liste du serveur pas encore relevée.</p>'}</details>
       <details class="adsec"${innerWidth > 900 ? ' open' : ''}><summary>Inscrits sur le site, collection pas importée (${rows.filter(r => r.st === 'none').length})</summary>
