@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=245';
+import * as CFG from './config.js?v=246';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=245';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=245';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=246';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=246';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=245';
-import * as SCAN from './scan.js?v=245';
+import { duelRate } from './ranked.js?v=246';
+import * as SCAN from './scan.js?v=246';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -324,7 +324,7 @@ function initSearch2() {
   };
   const close = () => { out.hidden = true; box.classList.remove('open'); inp.blur(); };
   let tm = null;
-  inp.addEventListener('focus', () => { ensureMembers(); if (!S.coll) loadCollections().then(() => { S.collAt = Date.now(); if (!out.hidden) draw(); }).catch(() => {}); });
+  inp.addEventListener('focus', () => { ensureMembers(); ensureColl().then(() => { if (!out.hidden) draw(); }).catch(() => {}); });
   inp.addEventListener('input', () => { clearTimeout(tm); tm = setTimeout(draw, 120); });
   inp.addEventListener('keydown', e => { const L = out.querySelectorAll('[data-i]'); if (e.key === 'Escape') return close();
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, Math.min(L.length - 1, sel + (e.key === 'ArrowDown' ? 1 : -1))); L.forEach((a, i) => a.classList.toggle('on', i === sel)); }
@@ -421,7 +421,7 @@ async function accueil2(m) {
   try { const c = JSON.parse(localStorage.bf_cv || 'null'); if (c && c.u === S.user.id && Date.now() - c.t < 6 * 3600e3) last = { ...(last || {}), lr_value: c.v }; } catch (e) { /* rien */ }
   const v = $('#n2val'); if (v) v.innerHTML = `<span class="small mute">Valeur de ta collection</span><div class="cd">${last ? fmt(last.lr_value) + ' <span class="small mute">KI</span>' : '—'}</div>${last && first && last !== first ? `<span class="small ${last.lr_value >= first.lr_value ? 'up' : 'down'}">${last.lr_value >= first.lr_value ? '▲ +' : '▼ '}${fmt(last.lr_value - first.lr_value)} KI depuis le ${new Date(first.day).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</span>` : ''}<span class="small mute">${me ? String(me.pct).replace('.', ',') + ' % du jeu' : ''}${S.mylr?.cards ? ` · ${Object.keys(S.mylr.cards).length} LR` : ''}</span><a class="btn ghost" href="#collection/A/moi" style="margin-top:8px;min-height:38px">Voir ma collection</a>`;
   // Échanges possibles : chargés en arrière-plan (collections des membres).
-  (async () => { try { if (!S.collAt) { await loadCollections(); S.collAt = Date.now(); } const mine = myColl(); let n = 0, ppl = new Set();
+  (async () => { try { await ensureColl(); const mine = myColl(); let n = 0, ppl = new Set();
       const per = [];
       for (const p of S.members || []) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; let k = 0; for (const [u, r] of Object.entries(th)) for (const c of r.dupes || []) if (!mine[u]?.owned?.has(c)) k++; if (k) { per.push([p, k]); n += k; ppl.add(p.id); } }
       per.sort((x, y) => y[1] - x[1]);
@@ -828,10 +828,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=245'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=246'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=245'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=246'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -991,7 +991,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=245'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=246'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1080,11 +1080,33 @@ async function loadCollections() {
   S.coll = C; S.members = profs || []; return C;
 }
 const myColl = () => (S.coll[S.user.id] = S.coll[S.user.id] || {});
+// Chargement instantané (27/11, « trop long sur Guilde / profils / classements ») : les collections de tous les membres (≈ 15 000 lignes, 15 demandes
+// à la suite) sont gardées sur l'appareil (IndexedDB). La page s'affiche tout de suite avec la dernière copie, puis la copie est rafraîchie en arrière-plan
+// et la page se redessine seule si quelque chose a changé. Une seule lecture à la fois, et pas de relecture avant 3 min.
+const collDB = () => new Promise((res, rej) => { const r = indexedDB.open('bfColl', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const collCacheGet = async () => { try { const db = await collDB(); return await new Promise(res => { const q = db.transaction('kv').objectStore('kv').get('all:' + S.user.id); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }); } catch (e) { return null; } };
+const collCachePut = async v => { try { const db = await collDB(); db.transaction('kv', 'readwrite').objectStore('kv').put(v, 'all:' + S.user.id); } catch (e) { /* rien */ } };
+const collFromRows = (rows, profs) => { const C = {}; for (const r of rows || []) { const u = (C[r[0]] = C[r[0]] || {}); u[r[1]] = { owned: new Set(r[2] || []), dupes: new Set(r[3] || []), qty: r[4] || {} }; } return C; };
+let collInflight = null;
+function collRefresh() { if (collInflight) return collInflight; collInflight = (async () => { const before = S.collSig; await loadCollections(); S.collAt = Date.now();
+    const rows = []; for (const [uid, U] of Object.entries(S.coll)) for (const [uni, r] of Object.entries(U)) rows.push([uid, uni, [...r.owned], [...r.dupes], r.qty || {}]);
+    const sig = rows.length + ':' + rows.reduce((a, r) => a + r[2].length * 3 + r[3].length * 7, 0) + ':' + (S.members || []).length; S.collSig = sig; collCachePut({ t: Date.now(), rows, profs: S.members, sig });
+    return before && before !== sig; })().finally(() => { collInflight = null; }); return collInflight; }
+// À utiliser partout à la place de « await loadCollections() ».
+async function ensureColl() {
+  if (S.coll && S.collAt && Date.now() - S.collAt < 180000) return S.coll;
+  if (!S.coll || !S.collSig) { const c = await collCacheGet(); if (c && c.rows?.length) { S.coll = collFromRows(c.rows); S.members = c.profs || S.members || []; S.collSig = c.sig; S.collAt = Math.min(c.t, Date.now() - 170000);
+      // Copie affichée tout de suite ; mise à jour en arrière-plan, puis on redessine la page si elle a changé (même lien, rien en cours de saisie).
+      const h0 = location.hash; collRefresh().then(changed => { if (!changed || location.hash !== h0 || document.querySelector('.modal') || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '')) return; const y = scrollY; Promise.resolve(render()).then(() => requestAnimationFrame(() => scrollTo(0, y))); }).catch(() => { });
+      return S.coll; } }
+  if (S.coll && S.collSig) { collRefresh().catch(() => { }); return S.coll; }
+  await collRefresh(); return S.coll;
+}
 const uget = (coll, u) => { const r = coll[u] || (coll[u] = { owned: new Set(), dupes: new Set(), qty: {} }); if (!r.qty) r.qty = {}; return r; };
 // LR des membres (table my_lr) vues comme une collection par univers : doublons LR, LR manquantes et échanges LR (27/11).
 const lrUnis = () => S._lrU || (S._lrU = rarUniverses('S'));
 const lrCollFrom = (cards, dupes) => { const o = {}; for (const u of lrUnis()) for (const c of u.c) if (cards?.[c[3]] != null) { const r = uget(o, u.s); r.owned.add(c[0]); const x = +(dupes?.[c[3]] || 0); if (x > 0) { r.dupes.add(c[0]); r.qty[c[0]] = x + 1; } } return o; };
-const lrLoad = () => S.lrP || (S.lrP = sb.from('my_lr').select('user_id,cards,dupes').then(({ data }) => { S.lrRows = data || []; }, () => { S.lrRows = []; }));
+const lrLoad = () => S.lrP || (S.lrP = sb.from('my_lr').select('user_id,cards,dupes,teams').then(({ data }) => { S.lrRows = data || []; }, () => { S.lrRows = []; }));
 const lrMemColl = id => { if (id === S.user?.id && S.mylr) return lrCollFrom(S.mylr.cards, S.mylr.dupes); const r = (S.lrRows || []).find(x => x.user_id === id); return r ? lrCollFrom(r.cards, r.dupes) : {}; };
 // Doublons d'un membre sur son profil : par défaut, seulement ceux qui TE manquent (les seuls utiles pour un échange), triés par rareté (LR d'abord) ; bouton pour tout voir (27/11).
 const RAR_ORD = { S: 0, M: 1, L: 2, E: 3, R: 4, C: 5, X: 6, T: 7 };
@@ -1117,7 +1139,7 @@ P.checklist = async (m, tab = 'moi') => {
   if (FUS()) { location.hash = tab?.startsWith('m:') ? '#collection/L/' + tab : '#collection/L/' + (['completer', 'classement', 'membres'].includes(tab) ? tab : 'completer'); return; }
   const PS = S.kb.prestige_series; const U = PS?.series || [];
   if (!U.length) { m.innerHTML = '<h1>Collection Prestige</h1><div class="empty">La liste des univers arrive bientôt.</div>'; return; }
-  await loadCollections();
+  await ensureColl();
   m.innerHTML = `<h1>Collection Prestige</h1>
     <div class="tabs" id="ct" style="max-width:860px"><button data-t="moi">Ma collection</button><button data-t="completer">À compléter</button><button data-t="manquantes">Manquantes</button><button data-t="classement">Classement</button><button data-t="membres">Membres</button><button data-t="echanges">Échanges</button></div><div id="cv" style="margin-top:16px"></div>`;
   const go = t => { $('#ct').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t)); history.replaceState(null, '', '#checklist/' + t); ({ moi: viewMine, completer: viewComplete, manquantes: viewMissing, classement: viewRanking, membres: viewMembers, echanges: viewTrades })[t]?.($('#cv'), U, PS); };
@@ -1289,7 +1311,7 @@ P.collection = async (m, tab = '') => {
   const mineQ = fresh ? null : sb.from('checklist').select('user_id,universe,owned,dupes,qty').eq('user_id', S.user.id);
   const [mr] = await Promise.all([mineQ, S.feats ? null : loadFeats(), loadMyLR(), S.members?.length ? null : sb.from('profiles').select('id,discord,share,status,nen,level,avatar').eq('status', 'approved').then(r => { S.members = r.data || []; })]);
   if (mr) { const C = (S.coll = S.coll || {}); const u = (C[S.user.id] = {}); for (const r of mr.data || []) u[r.universe] = { owned: new Set(r.owned || []), dupes: new Set(r.dupes || []), qty: r.qty || {} }; }
-  let allReady = fresh; const allP = fresh ? Promise.resolve() : loadCollections().then(() => { S.collAt = Date.now(); allReady = true; }).catch(() => { });
+  let allReady = fresh; const allP = fresh ? Promise.resolve() : ensureColl().then(() => { allReady = true; }).catch(() => { });
   const PSU = S.kb.prestige_series?.series || [];
   // Communes, Rares et SR : construites depuis le catalogue (comme dans le jeu), remplies par « ✍️ Communes / Rares / SR ».
   const catU = r => { const by = new Map(); for (const c of S.kb.card_catalog?.cards || []) { if (c[3] !== r || c[5]) continue; const s2 = c[2] || '—'; if (!by.has(s2)) by.set(s2, { s: s2, c: [] }); by.get(s2).c.push([c[1], r, c[4] || '', Number(c[0])]); } return [...by.values()].sort((a, b) => a.s.localeCompare(b.s)); };
@@ -1707,7 +1729,7 @@ function lrScanDialog(res, own, onDone) {
 
 /* ---------- Mes LR + meilleure équipe (château / ranked) ---------- */
 async function loadMyLR() { if (S.mylr) return S.mylr; const { data } = await sb.from('my_lr').select('*').eq('user_id', S.user.id).maybeSingle(); S.mylr = data || { cards: {}, teams: {} }; if (!S.mylr.dupes) S.mylr.dupes = {}; return S.mylr; }
-const saveMyLR = () => sb.from('my_lr').upsert({ user_id: S.user.id, cards: S.mylr.cards, teams: S.mylr.teams || {}, dupes: S.mylr.dupes || {}, updated_at: new Date().toISOString() });
+const saveMyLR = () => (S.lrP = null, sb.from('my_lr').upsert({ user_id: S.user.id, cards: S.mylr.cards, teams: S.mylr.teams || {}, dupes: S.mylr.dupes || {}, updated_at: new Date().toISOString() }));
 const nsp = x => String(x).replace(/\s+/g, ' ').trim().toLowerCase();
 const lrImg = c => { const B = S.kb.card_images?.byName || {}; const h = B[c.n] ?? B[Object.keys(B).find(k => nsp(k) === nsp(c.n))]; return !h ? '' : /^https?:/.test(h) ? h : `${S.kb.card_images.base}${h}.webp`; };
 const LRS = () => S.kb.cards.filter(c => !c.r);
@@ -1746,7 +1768,7 @@ P.basses = async (m, r = 'C') => {
   if (!LOW[r]) r = 'C'; const X = LOW[r], prev = isPreview();
   const cat = (S.kb.card_catalog?.cards || []).filter(c => c[3] === r && !c[5]);
   if (!cat.length) { m.innerHTML = '<div class="empty">La liste des cartes du jeu n\'est pas encore disponible. Réessaie plus tard.</div>'; return; }
-  await loadCollections(); const coll = myColl(); const total = cat.length;
+  await ensureColl(); const coll = myColl(); const total = cat.length;
   const had = cat.filter(c => coll[c[2]]?.owned.has(c[1])).length;
   const missing = new Set(S.mylr.teams?.[X.k] && !prev ? cat.filter(c => !coll[c[2]]?.owned.has(c[1])).map(c => c[0]) : []);
   const order = [['C', 'Communes'], ['R', 'Rares'], ['E', 'SR']];
@@ -1835,7 +1857,7 @@ P.clic = async m => {
   }
   m.innerHTML = '<div class="empty">Lecture de ta collection…</div>';
   const got = new Map(); for (const t of String(pay.d).split(',')) { const [id, q, st] = t.split('.').map(Number); if (id > 0 && q > 0) got.set(id, { q, s: Math.max(0, Math.min(5, st || 0)) }); }
-  await loadFeats(); await loadCollections(); const coll = myColl(); const catAll = S.kb.card_catalog?.cards || [];
+  await loadFeats(); await ensureColl(); const coll = myColl(); const catAll = S.kb.card_catalog?.cards || [];
   const lowU = r => { const by = new Map(); for (const c of catAll) { if (c[3] !== r || c[5]) continue; const s2 = c[2] || '—'; if (!by.has(s2)) by.set(s2, { s: s2, c: [] }); by.get(s2).c.push([c[1], r, c[4] || '', Number(c[0])]); } return [...by.values()]; };
   const U = { C: lowU('C'), R: lowU('R'), E: lowU('E'), L: rarUniverses('L'), M: rarUniverses('M'), X: lowU('X'), T: lowU('T') };
   const lrIds = new Set(catAll.filter(c => c[3] === 'S').map(c => Number(c[0]))); for (const u of rarUniverses('S')) for (const c of u.c) lrIds.add(c[3]);
@@ -1902,7 +1924,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=245'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=246'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
@@ -2213,7 +2235,7 @@ P.kakashi = m => {
 P.guilde = async (m, id) => {
   await cxLoad();
   const PS = S.kb.prestige_series; const U = PS?.series || [];
-  await loadCollections(); const { data: lrs } = await sb.from('my_lr').select('user_id,cards,teams'); const LRm = {}; for (const r of lrs || []) LRm[r.user_id] = r;
+  await Promise.all([ensureColl(), lrLoad()]); const lrs = S.lrRows || []; const LRm = {}; for (const r of lrs) LRm[r.user_id] = r;
   const byId = x => LRS().find(c => c.id === +x);
   const sharing = S.members.filter(p => p.share);
   if (id) {
@@ -2256,7 +2278,7 @@ P.discord = async m => {
   const loadT0 = async () => { const { data } = await sb.from('trades').select('*').order('at', { ascending: false }).limit(40); $('#tl').innerHTML = (data || []).map(t => `<div style="border-top:1px solid var(--line);padding:10px 0"><div class="row"><b>${esc(who(t.user_id))}</b><span class="sp"></span>${t.user_id === S.user.id ? `<button class="chip" data-del="${t.id}" style="cursor:pointer">Retirer</button>` : ''}</div><div class="small"><span class="mute">A :</span> ${esc(t.has || '—')}</div><div class="small"><span class="mute">Cherche :</span> ${esc(t.wants || '—')}</div></div>`).join('') || '<div class="small mute">Aucun échange.</div>'; $('#tl').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { await sb.from('trades').delete().eq('id', b.dataset.del); loadT(); }); };
   $('#qf').onsubmit = async e => { e.preventDefault(); const b = $('#qb').value.trim(); if (!b) return; await sb.from('questions').insert({ body: b }); $('#qb').value = ''; loadQ(); };
   $('#rf').onsubmit = async e => { e.preventDefault(); await sb.from('records').upsert({ user_id: S.user.id, castle: +$('#rc').value || null, elo: +$('#re').value || null, updated_at: new Date().toISOString() }); loadR(); toast('Record enregistré'); };
-  { await loadCollections(); const U = S.kb.prestige_series?.series || []; const mine = myColl();
+  { await ensureColl(); const U = S.kb.prestige_series?.series || []; const mine = myColl();
     const du = U.flatMap(u => u.c.filter(c => mine[u.s]?.dupes.has(c[0])));
     const near = U.map(u => ({ u, miss: u.c.filter(c => !mine[u.s]?.owned.has(c[0])) })).filter(x => x.miss.length && x.miss.length <= 3).sort((a, b) => a.miss.length - b.miss.length);
     $('#mp').innerHTML = `<div class="small mute" style="margin-top:6px">Mes doublons (${du.length})</div><div class="tiles">${du.map(c => tile(c, true, true)).join('') || '<span class="small mute">Aucun doublon déclaré : marque-les dans Collection Prestige (mode « Doublon à échanger »).</span>'}</div>
