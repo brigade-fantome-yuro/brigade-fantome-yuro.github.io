@@ -98,6 +98,11 @@ tr:hover td{background:#100d11}
   #mainw{padding:18px 14px 40px}
   th,td{padding:9px 7px;font-size:14px}
   .hide-sm{display:none}
+  .show-sm{display:block}
+  .admtabs.show-sm{display:flex}
+  .adm[data-tab="m"] .adt-a,.adm[data-tab="m"] .adt-o,.adm[data-tab="a"] .adt-m,.adm[data-tab="a"] .adt-o,.adm[data-tab="o"] .adt-m,.adm[data-tab="o"] .adt-a{display:none}
+  .adk{grid-template-columns:repeat(3,1fr);gap:8px}.adk>div{padding:9px 10px}.adk b{font-size:21px}
+  .adtools{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}.adtools .btn{white-space:nowrap}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .btn svg,.chip svg{width:18px;height:18px;flex:none}
@@ -774,3 +779,19 @@ body.nav2 a.card:hover{border-color:#5a4650}
 .bfonl-txt .small{opacity:.85}
 
 .txpr{font-style:normal;font-weight:800;color:#f5c542;letter-spacing:.04em}
+
+/* Administration mobile (maquette 27/11) */
+.show-sm{display:none}
+.admtabs{gap:6px;position:sticky;top:60px;z-index:20;background:var(--bg);padding:6px 0 10px}
+.admtabs button{flex:1;min-height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--mute);font-weight:700}
+.admtabs button.on{color:var(--ink);border-color:var(--blood2)}
+.admcards{margin-bottom:6px}
+.admc{display:flex;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--card2)}
+.admav{flex:0 0 36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#2a1a20;color:var(--bone);font-weight:800}
+.admci{min-width:0;flex:1}.admci b{word-break:break-all}
+.admcl{display:flex;gap:8px;align-items:center;margin:5px 0 3px;flex-wrap:wrap}
+details.adsec{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:12px}
+details.adsec>summary{cursor:pointer;font-weight:700;list-style-position:inside}
+.chip.inc{color:#ff9a3c;border-color:#4d2f12;background:#1b1108}
+.inc-t{color:#ff9a3c;margin-top:3px}
+@media(max-width:900px){.show-sm{display:block}.admtabs.show-sm{display:flex}}
