@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=242';
+import * as CFG from './config.js?v=243';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=242';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=242';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=243';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=243';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=242';
-import * as SCAN from './scan.js?v=242';
+import { duelRate } from './ranked.js?v=243';
+import * as SCAN from './scan.js?v=243';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -828,10 +828,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=242'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=243'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=242'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=243'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -991,7 +991,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=242'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=243'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1383,7 +1383,7 @@ P.collection = async (m, tab = '') => {
     }
     const st = u => ({ n: u.c.filter(c => has(coll, u, c[0])).length, t: u.c.length });
     const full = X.U.filter(u => st(u).n === u.c.length), part = X.U.filter(u => st(u).n < u.c.length);
-    el.innerHTML = `<div class="row" style="align-items:center;gap:14px;margin-bottom:6px">${ring(total ? got / total * 100 : 0, X.label, 70)}<div><b>${got} / ${total}</b> ${X.label} possédées<div class="small mute">${total - got} manquante${total - got > 1 ? 's' : ''}</div></div></div><p class="small mute" style="margin-top:0">Comme dans le jeu, rangées par numéro : en couleur tes ${X.label} (×N = exemplaires), en gris celles qui te manquent (touche-la pour voir qui l'a en double). Ta collection a changé dans le jeu ? Lance la <a href="#clic">mise à jour en 1 clic</a>.</p>
+    el.innerHTML = `<div class="row" style="align-items:center;gap:14px;margin-bottom:6px">${ring(total ? got / total * 100 : 0, X.label, 70)}<div><b>${got} / ${total}</b> ${X.label} possédées<div class="small mute">${total - got} manquante${total - got > 1 ? 's' : ''}</div></div></div><p class="small mute" style="margin-top:0">Comme dans le jeu, rangées par numéro : en couleur tes ${X.label} (×N = exemplaires), en gris celles qui te manquent. Touche une carte pour voir qui l'a en double, qui la possède (avec ses étoiles pour une LR) et qui la cherche. Ta collection a changé dans le jeu ? Lance la <a href="#clic">mise à jour en 1 clic</a>.</p>
       <div class="cfilters"><input id="cq" placeholder="Rechercher une carte ou un univers">
         <div class="tabs" id="cs" style="margin:0">${[['all', `Toutes ${total}`], ['own', `Possédées ${got}`], ['miss', `Manquantes ${total - got}`]].map(([k, l]) => `<button data-s="${k}" class="${k === show ? 'on' : ''}">${l}</button>`).join('')}</div>
         <select id="cuf"><option value="">✅ Univers complets (${full.length})</option>${full.map(u => `<option value="${esc(u.s)}">${esc(u.s)} · ${u.c.length}/${u.c.length}</option>`).join('')}</select>
@@ -1416,20 +1416,32 @@ P.collection = async (m, tab = '') => {
     const draw = () => { const M = q ? L.filter(x => x[1][0].toLowerCase().includes(q) || x[0].s.toLowerCase().includes(q)) : L; M.sort((a, b) => (S.serial?.get(a[1][3]) || 9e9) - (S.serial?.get(b[1][3]) || 9e9)); el.querySelector('#cinfo2').textContent = q ? `${M.length} carte${M.length > 1 ? 's' : ''} trouvée${M.length > 1 ? 's' : ''}` : ''; el.querySelector('#cl2').innerHTML = mosaic(M, q ? 'Aucune carte ne correspond.' : empty, true); after && after(el.querySelector('#cl2')); };
     el.querySelector('#cq2').oninput = e => { q = e.target.value.toLowerCase().trim(); draw(); }; draw(); };
   function vDupes(el, X) { const L = X.U.flatMap(u => u.c.filter(c => dup(coll, u, c[0])).map(c => [u, c, coll[u.s]?.qty?.[c[0]] || 2, true])); const extra = L.reduce((a, x) => a + x[2] - 1, 0);
-    searchList(el, `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque).</p>`, L, 'Aucun doublon. Lance la mise à jour en 1 clic : tes cartes à ×2 et plus y sont ajoutées avec leur nombre.'); }
+    searchList(el, `<p class="mute">${L.length} ${X.label} en double, soit ${extra} exemplaire${extra > 1 ? 's' : ''} à échanger (on garde toujours 1 exemplaire de chaque). Touche une carte pour voir qui la cherche.</p>`, L, 'Aucun doublon. Lance la mise à jour en 1 clic : tes cartes à ×2 et plus y sont ajoutées avec leur nombre.'), box => bindWho(box, X)); }
   function vMiss(el, X) { const L = X.U.flatMap(u => u.c.filter(c => !has(coll, u, c[0])).map(c => [u, c, 0, false]));
     searchList(el, `<p class="mute">${L.length} ${X.label} te manquent : elles sont affichées comme recherchées auprès de la Brigade. Touche une carte pour voir qui l’a en double.</p>`, L, 'Rien ne te manque 🎉', box => bindWho(box, X));
   }
   function bindWho(el, X) {
-  // Touche une carte manquante : qui l'a en double dans la Brigade (pour lui proposer un échange sur Discord).
-    el.querySelectorAll('figure.mcard.miss').forEach(f => { f.style.cursor = 'pointer'; f.onclick = async () => { const u = X.U.find(x => x.s === f.dataset.u), cn = f.dataset.c; if (!u) return;
-      if (!allReady) { f.classList.add('wait'); await Promise.all([allP, lrP]); f.classList.remove('wait'); }
-      const who = []; for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const isLr = X.lr || (X.all && u.c.find(x => x[0] === cn)?.[1] === 'S'); const th = isLr ? lrOf(p.id) : (S.coll[p.id] || {}); const q = dup(th, u, cn); if (q) who.push({ p, n: q === true ? 2 : +q }); }
-      who.sort((a, b) => b.n - a.n);
+  // Touche N'IMPORTE QUELLE carte (possédée, en double ou manquante) : qui l'a en double, qui la possède (avec les étoiles pour une LR) et qui la cherche (27/11).
+    el.querySelectorAll('figure.mcard').forEach(f => { f.style.cursor = 'pointer'; f.onclick = async () => { const u = X.U.find(x => x.s === f.dataset.u), cn = f.dataset.c; if (!u) return;
+      if (!allReady || !lrDone) { f.classList.add('wait'); await Promise.all([allP, lrP]); f.classList.remove('wait'); }
+      const card = u.c.find(x => x[0] === cn) || [cn, '', '', 0], isLr = card[1] === 'S' || X.lr, R = card[1] || (X.lr ? 'S' : '');
+      const dbl = [], own = [], want = [];
+      for (const p of S.members) { if (!p.share || p.id === S.user.id) continue;
+        let th, stars = null;
+        if (isLr) { const row = lrRows.find(x => x.user_id === p.id); th = row ? lrCollOf(row.cards, row.dupes) : {}; if (row && row.cards?.[card[3]] != null) stars = +row.cards[card[3]] || 0; if (!row || !Object.keys(row.cards || {}).length) continue; }
+        else { th = S.coll[p.id] || {}; let any = false; for (const v of X.U) { for (const c of v.c) if (c[1] === R && th[v.s]?.owned.has(c[0])) { any = true; break; } if (any) break; } if (!any) continue; }
+        const q = dup(th, u, cn); if (q) dbl.push({ p, n: q === true ? 2 : +q, stars }); else if (has(th, u, cn)) own.push({ p, stars }); else want.push({ p }); }
+      dbl.sort((a, b) => b.n - a.n || (b.stars || 0) - (a.stars || 0)); own.sort((a, b) => (b.stars ?? -1) - (a.stars ?? -1));
+      const mineQ = dup(coll, u, cn), mineHas = has(coll, u, cn), myStars = isLr ? S.mylr.cards?.[card[3]] : null;
+      const star = s => s == null ? '' : ` <span class="small" style="color:#f3c26b">${s}★</span>`;
+      const row = (w, right) => `<div class="row" style="align-items:center;margin:6px 0;flex-wrap:nowrap"><b style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(w.p.discord || '?')}${star(w.stars)}</b>${right ? `<span class="small mute" style="margin-right:8px">${right}</span>` : ''}<a class="btn ghost" href="${memHref(w.p.id)}" style="min-height:32px">Profil</a></div>`;
+      const sec = (title, list, map, empty, open) => `<details class="whosec" ${open ? 'open' : ''} style="margin-top:10px"><summary style="cursor:pointer"><b>${title} (${list.length})</b></summary>${list.map(map).join('') || `<p class="small mute">${empty}</p>`}</details>`;
       const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
-      d.innerHTML = `<div class="mbox"><span class="chip red">${X.label}</span><h2 style="margin-top:10px">${esc(cn)}</h2><p class="small mute" style="margin-top:0">${esc(u.s)} · ${who.length ? `${who.length} membre${who.length > 1 ? 's l\u2019ont' : ' l\u2019a'} en double : contacte-${who.length > 1 ? 'les' : 'le'} sur Discord pour proposer un échange.` : 'Personne ne l\u2019a en double pour l\u2019instant (parmi les membres qui partagent leur collection).'}</p>`
-        + who.map(w => `<div class="row" style="align-items:center;margin:6px 0"><b style="flex:1">${esc(w.p.discord || '?')}</b><span class="small mute">${w.n - 1} en plus</span><a class="btn ghost" href="${memHref(w.p.id)}" style="min-height:34px">Profil</a></div>`).join('')
-        + `<div class="row" style="margin-top:12px"><button class="btn ghost" id="wx">Fermer</button></div></div>`;
+      d.innerHTML = `<div class="mbox"><span class="chip red">${X.lr ? 'LR' : (RN[R] || X.label)}</span><h2 style="margin-top:10px">${esc(cn)}</h2><p class="small mute" style="margin-top:0">${esc(u.s)} · toi : ${mineHas ? (mineQ ? `×${mineQ === true ? 2 : mineQ}` : 'possédée') + (myStars != null ? ` · ${myStars}★` : '') : 'manquante'}</p>`
+        + sec('🔁 En double chez', dbl, w => row(w, `${w.n - 1} en plus`), 'Personne ne l’a en double pour l’instant.', true)
+        + sec(isLr ? '⭐ La possèdent (sans doublon)' : '✅ La possèdent (sans doublon)', own, w => row(w, ''), 'Personne d’autre.', isLr || !dbl.length)
+        + sec('🔎 La cherchent', want, w => row(w, ''), 'Personne ne la cherche.', !!mineQ)
+        + `<p class="small mute" style="margin-top:10px">Parmi les membres qui partagent leur collection${isLr ? ' et ont importé leurs LR' : ' et ont importé cette rareté'}. Contacte-les sur Discord pour proposer un échange.</p><div class="row" style="margin-top:12px"><button class="btn ghost" id="wx">Fermer</button></div></div>`;
       d.querySelector('#wx').onclick = () => d.remove(); d.onclick = e => { if (e.target === d) d.remove(); }; d.querySelectorAll('a').forEach(a => a.addEventListener('click', () => d.remove())); }; });
   }
   function vTrades(el, X) {
@@ -1881,7 +1893,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=242'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=243'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
