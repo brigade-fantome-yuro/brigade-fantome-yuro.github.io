@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=240';
+import * as CFG from './config.js?v=241';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=240';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=240';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats } from './kakashi.js?v=241';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=241';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=240';
-import * as SCAN from './scan.js?v=240';
+import { duelRate } from './ranked.js?v=241';
+import * as SCAN from './scan.js?v=241';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -53,7 +53,8 @@ const ROUTES = [
 // et on retire ces données de l'adresse. Rien n'est envoyé tant que le membre n'a pas validé.
 try { if (location.hash.startsWith('#clic=')) { localStorage.setItem('bf_clic', JSON.stringify({ t: Date.now(), d: decodeURIComponent(location.hash.slice(6)) })); history.replaceState(null, '', location.pathname + location.search + '#clic'); } } catch (e) { /* rien */ }
 // Nouvelle version publiée : on recharge une fois pour ne pas garder l'ancien site en cache.
-const APP_V = '240';
+// Version lue sur l'adresse du script lui-même (index.html charge app.js?v=N) : elle ne peut plus rester en retard sur version.txt (bandeau « Mettre à jour » qui revenait sans fin, 27/11).
+const APP_V = new URL(import.meta.url).searchParams.get('v') || '241';
 // Mise à jour automatique chez tous les membres, même sans recharger (26/11) : le site vérifie la version toutes les 2 min et quand on revient sur l'onglet.
 // Onglet en arrière-plan ou retour sur l'onglet → rechargement immédiat (invisible). Onglet utilisé → bandeau « Nouvelle version » puis rechargement
 // automatique après 30 s, sauf pendant une saisie ou une mise à jour en 1 clic (on attend la fin). La page rouvre au même endroit (même lien #...).
@@ -827,10 +828,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=240'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=241'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=240'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=241'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -990,7 +991,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=240'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=241'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1214,10 +1215,11 @@ function viewMembers(el, U) {
   el.innerHTML = `<p class="mute">Les membres qui partagent leur collection. Touche un profil pour voir ses cartes manquantes et ses doublons.</p>
     <div class="card section"><h2>Qui cherche quoi</h2><input id="wq" placeholder="Tape une carte : qui la cherche, qui l'a en double ?"><div id="wr" style="margin-top:10px"></div></div>
     <div class="grid" id="ml">${sharing.map(p => { const s = memberStats(p.id, U); return `<a class="card" href="${memHref(p.id)}"><h3>${esc(p.discord)}</h3><div class="small mute">${s.done} univers complets · ${fmt(s.got)} cartes · ${s.du} doublon${s.du > 1 ? 's' : ''}</div></a>`; }).join('') || '<div class="empty">Personne ne partage encore sa collection. Active le partage dans ⚙️ Réglages pour lancer le mouvement.</div>'}</div>`;
+  const rM = {}, rarsM = id => rM[id] || (rM[id] = (() => { const o = new Set(), cl = S.coll[id] || {}; for (const u of U) for (const c of u.c) if (cl[u.s]?.owned.has(c[0])) o.add(c[1]); return o; })());
   $('#wq').oninput = () => { const q = $('#wq').value.toLowerCase().trim(); if (q.length < 2) { $('#wr').innerHTML = ''; return; }
     const hits = []; for (const u of U) for (const c of u.c) if (c[0].toLowerCase().includes(q)) hits.push([u, c]);
     $('#wr').innerHTML = hits.slice(0, 12).map(([u, c]) => { const need = [], has = [];
-      for (const p of S.members) { if (!p.share && p.id !== S.user.id) continue; const r = S.coll[p.id]?.[u.s]; if (!r?.owned.has(c[0])) need.push(p.discord); if (r?.dupes.has(c[0])) has.push(p.discord); }
+      for (const p of S.members) { if (!p.share && p.id !== S.user.id) continue; const r = S.coll[p.id]?.[u.s]; if (!r?.owned.has(c[0]) && rarsM(p.id).has(c[1])) need.push(p.discord); if (r?.dupes.has(c[0])) has.push(p.discord); }
       return `<div class="whorow">${c[2] ? `<img src="${img(c[2])}" alt="" loading="lazy">` : ''}<div><b>${esc(c[0])}</b> <span class="small mute">${esc(u.s)} · ${RN[c[1]]}</span><div class="small"><span class="up">En double chez :</span> ${has.map(esc).join(', ') || '<span class="mute">personne</span>'}</div><div class="small"><span class="red">Cherchée par :</span> ${need.map(esc).join(', ') || '<span class="mute">personne</span>'}</div></div></div>`; }).join('') || '<div class="mute small">Aucune carte trouvée.</div>'; };
 }
 function viewProfile(el, U, id) {
@@ -1236,8 +1238,9 @@ function viewProfile(el, U, id) {
 function viewTrades(el, U) {
   if (!S.lrRows) { lrLoad().then(() => { if (el.isConnected) viewTrades(el, U); }); }
   const mine = myColl(), myLr = lrMemColl(S.user.id), LU = S.lrRows ? lrUnis() : []; const out = [];
-  for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; const give = [], get = [];
-    for (const u of U) for (const c of u.c) { if (th[u.s]?.dupes.has(c[0]) && !mine[u.s]?.owned.has(c[0])) get.push(c); if (mine[u.s]?.dupes.has(c[0]) && !th[u.s]?.owned.has(c[0])) give.push(c); }
+  const rarsOf = cl => { const o = new Set(); for (const u of U) for (const c of u.c) if (!o.has(c[1]) && cl[u.s]?.owned.has(c[0])) o.add(c[1]); return o; }, myR = rarsOf(mine);
+  for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = S.coll[p.id] || {}; const give = [], get = [], thR = rarsOf(th);
+    for (const u of U) for (const c of u.c) { if (myR.has(c[1]) && th[u.s]?.dupes.has(c[0]) && !mine[u.s]?.owned.has(c[0])) get.push(c); if (thR.has(c[1]) && mine[u.s]?.dupes.has(c[0]) && !th[u.s]?.owned.has(c[0])) give.push(c); }
     // LR en double / LR manquantes (27/11)
     { const tl = lrMemColl(p.id); for (const u of LU) for (const c of u.c) { if (tl[u.s]?.dupes.has(c[0]) && !myLr[u.s]?.owned.has(c[0])) get.push(c); if (myLr[u.s]?.dupes.has(c[0]) && !tl[u.s]?.owned.has(c[0])) give.push(c); } }
     if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
@@ -1421,8 +1424,10 @@ P.collection = async (m, tab = '') => {
   function vTrades(el, X) {
     if ((X.lr || X.all) && !lrDone) { lrP.then(() => { if (el.isConnected) vTrades(el, X); }); }
     const out = [];
-    for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = X.lr ? lrOf(p.id) : X.all ? mergeColl(S.coll[p.id] || {}, lrOf(p.id)) : (S.coll[p.id] || {}); const give = [], get = [];
-      for (const u of X.U) for (const c of u.c) { if (dup(th, u, c[0]) && !has(coll, u, c[0])) get.push(c); if (dup(coll, u, c[0]) && !has(th, u, c[0])) give.push(c); }
+    // Raretés vraiment importées par chacun : une rareté où un membre n'a AUCUNE carte n'est pas « toute manquante », elle n'est juste pas importée (27/11).
+    const rarsOf = cl => { const o = new Set(); for (const u of X.U) for (const c of u.c) if (!o.has(c[1]) && has(cl, u, c[0])) o.add(c[1]); return o; }, myR = rarsOf(coll);
+    for (const p of S.members) { if (!p.share || p.id === S.user.id) continue; const th = X.lr ? lrOf(p.id) : X.all ? mergeColl(S.coll[p.id] || {}, lrOf(p.id)) : (S.coll[p.id] || {}); const give = [], get = [], thR = rarsOf(th);
+      for (const u of X.U) for (const c of u.c) { if (myR.has(c[1]) && dup(th, u, c[0]) && !has(coll, u, c[0])) get.push(c); if (thR.has(c[1]) && dup(coll, u, c[0]) && !has(th, u, c[0])) give.push(c); }
       if (give.length || get.length) out.push({ p, give, get, score: Math.min(give.length, get.length) * 10 + give.length + get.length }); }
     out.sort((a, b) => b.score - a.score);
     // Lien direct vers un membre (depuis l'accueil) : seulement ses échanges, déjà ouverts.
@@ -1860,7 +1865,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=240'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=241'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
