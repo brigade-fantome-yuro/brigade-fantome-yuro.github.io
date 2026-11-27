@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=259';
+import * as CFG from './config.js?v=260';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=259';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=259';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=260';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=260';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=259';
-import * as SCAN from './scan.js?v=259';
+import { duelRate } from './ranked.js?v=260';
+import * as SCAN from './scan.js?v=260';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -146,7 +146,7 @@ const onbMode = () => !S.mylr?.teams?.done || isPreview();
 // Ré-import obligatoire (Nicolas 26/11) : les membres déjà accueillis doivent refaire l'import en 1 clic (PC ou téléphone) une fois après cette date.
 const REIMPORT_AT = Date.parse('2026-11-26T00:30:00Z');
 const reimpMode = () => !!S.mylr?.teams?.done && !(+S.mylr.teams.clic >= REIMPORT_AT) && !isPreview();
-const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'clic' || base === 'meslr' || base === 'basses' || (base === 'collection' && /^[LM]\/moi\/(import|all)$/.test(arg || '')) || (base === 'collection' && arg === 'L/moi/all');
+const onbAllowed = (base, arg) => base === 'bienvenue' || base === 'clic';
 // Pendant l'accueil : aucun lien vers une autre page n'est affiché ni cliquable, seulement les étapes.
 const onbLinkOk = a => { const h = a.getAttribute('href') || ''; if (!h.startsWith('#')) return !/^https?:/.test(h) || a.target === '_blank'; const [b, ...r] = h.slice(1).split('/'); return !b || onbAllowed(b, r.join('/')); };
 function lockOnb(root) { if (app.dataset.mode !== 'onb') return; root.querySelectorAll('a[href]').forEach(a => { if (!onbLinkOk(a)) a.remove(); }); }
@@ -865,10 +865,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=259'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=260'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=259'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
+    if (mode === 'fort' && !aiWorker) { aiWorker = new Worker('duel-worker.js?v=260'); aiWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.res?.[0]?.m || null); } }; }
     const aiPick = mode === 'fort' ? D => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); aiWorker.postMessage({ id, from: D, chosen: null, n: 10 }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, 15000); }) : null;
     BFDuel.mount(null, { frame: true, A, B, names, ai, aiPick, onChange, onQuit: quit });
     AN = new Map(); BFDuel.start(sv === 'r' ? null : +sv);
@@ -1028,7 +1028,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=259'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=260'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -1187,6 +1187,7 @@ P.checklist = async (m, tab = 'moi') => {
 
 // Assistant d'import : SSR puis UR, avec contrôle du nombre de cartes affiché par le jeu.
 function collectionWizard(U, coll, save, refresh) {
+  location.hash = '#clic'; return;
   const steps = [{ r: 'L', label: 'SSR', tag: 'SSR (伝)' }, { r: 'M', label: 'UR', tag: 'UR (神)' }]; const res = {}; let k = 0;
   const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
   const keyOf = (n, s) => nsp(n) + '|' + nsp(s);
@@ -1558,6 +1559,8 @@ P.collection = async (m, tab = '') => {
   }
   // Import d'une seule rareté (SSR ou UR) : reconnaissance par l'illustration, ×N lu sur la capture, contrôle du nombre affiché par le jeu.
   function rarImport(r) {
+    // Import par captures retiré partout (Nicolas 27/11) : seulement l'import en 1 clic.
+    location.hash = '#clic'; return;
     const X = R[r], keyOf = (n, s2) => nsp(n) + '|' + nsp(s2);
     const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
     d.innerHTML = `<div class="mbox"><span class="chip red">${r === 'L' ? 'Étape 1 / 2 · SSR' : 'Étape 2 / 2 · UR'}</span><h2 style="margin-top:10px">Importer tes ${X.label}</h2>
@@ -1593,6 +1596,7 @@ P.collection = async (m, tab = '') => {
   }
   // Import de toute la collection en une fois (captures ou .zip mélangeant LR, SSR et UR) : chaque carte est rangée selon sa rareté.
   function allImport() {
+    location.hash = '#clic'; return;
     const keyOf = (n, s2) => nsp(n) + '|' + nsp(s2), tot = k => R[k].U.reduce((a, u) => a + u.c.length, 0);
     const d = document.createElement('div'); d.className = 'modal'; document.body.appendChild(d);
     d.innerHTML = `<div class="mbox"><span class="chip red">LR + SSR + UR</span><h2 style="margin-top:10px">Importer toute ta collection</h2>
@@ -1622,7 +1626,7 @@ P.collection = async (m, tab = '') => {
         d2.remove(); toast('Collection enregistrée'); if (!S.mylr.teams.done) { location.hash = '#bienvenue'; return; } draw(); };
     }
   }
-  draw(); if (autoImp === 'import' || autoImp === 'all') rarImport(rk);
+  draw(); if (autoImp === 'import' || autoImp === 'all') { location.hash = '#clic'; return; }
   const needAll = () => ['echanges', 'membres', 'completer', 'classement'].includes(view);
   Promise.all([allP, lrP]).then(() => { if (needAll() && location.hash.startsWith('#collection')) draw(); });
 };
@@ -1803,10 +1807,10 @@ P.bienvenue = async m => {
     $('#tgo').onclick = async () => { if ($('#tgo').disabled) return; if (prev) { window.__bfVidSeen = true; P.bienvenue(m); return; } S.mylr.teams = { ...(S.mylr.teams || {}), video: true }; await saveMyLR(); P.bienvenue(m); };
     return;
   }
-  m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection</h1><p class="mute">Avant d'entrer, envoie les captures de ta collection du jeu. Le site lit tout seul tes cartes, leurs étoiles et tes doublons : meilleures équipes, chambre max, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil. D'abord Communes, Rares et SR en donnant juste ton nombre de cartes, puis SSR, UR et LR par captures.</p></section>
-    ${CLIC_PHONE() ? `<div class="card section" style="border-color:#e3123a"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">⚡ Recommandé : import en 1 clic</b><a class="btn primary" href="#clic" style="min-height:40px;flex-shrink:0;white-space:nowrap">⚡ Importer</a></div><p class="small mute" style="margin:6px 0 0">${isIOSdev() ? 'Sur iPhone : un signet « Import Brigade » (à créer une fois) envoie toute ta collection en un toucher, sans captures. Tuto en images inclus.' : 'Sur Android : un favori « Import Brigade » (à créer une fois) envoie toute ta collection en un toucher, sans captures. Tuto en images inclus.'}</p></div>` : ''}${CLIC() && isDesktop() ? `<div class="card section" style="border-color:#e3123a"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">⚡ Recommandé sur ordinateur : import en 1 clic</b><a class="btn primary" href="#clic" style="min-height:40px;flex-shrink:0;white-space:nowrap">⚡ Importer en 1 clic</a></div><p class="small mute" style="margin:6px 0 0">Un simple copier-coller de ta sauvegarde du jeu remplit les 6 étapes d'un coup : toutes tes cartes, tes doublons et les étoiles de tes LR, sans captures.</p></div>` : ''}
-    ${steps.map(([k, t, how, href], i) =>  `<div class="card section"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">${T[k] ? '✅' : (i + 1) + '.'} ${t}</b>${T[k] ? '<span class="small up">Importé</span>' : ''}<a class="btn ${T[k] ? 'ghost' : 'primary'}" href="${href}" style="min-height:40px;flex-shrink:0;white-space:nowrap">${T[k] ? 'Refaire' : ['c', 'r', 'sr'].includes(k) ? '✍️ Remplir' : '📷 Importer'}</a></div><p class="small mute" style="margin:6px 0 0">Dans le jeu : ${how}${['c', 'r', 'sr'].includes(k) ? ', note le nombre affiché, puis cherche par nom les cartes qui te manquent (pas de captures).' : ', puis des captures en faisant défiler jusqu\'en bas.'}${['ssr', 'ur'].includes(k) ? ' Note aussi le nombre affiché par le jeu (ex. 402 / 414) : l\'import n\'est validé que si le compte est bon.' : ''}</p></div>`).join('')}
-    <div class="row section"><button class="btn primary" id="wgo" ${all ? '' : 'disabled'}>Entrer dans le repaire →</button>${all ? '' : '<span class="small mute">Toutes les étapes sont nécessaires pour entrer.</span>'}</div>`;
+  // Accueil : seulement l'import en 1 clic (plus de captures nulle part, Nicolas 27/11). L'import remplit les 6 rubriques d'un coup.
+  m.innerHTML = `${prev ? '<div class="card section" style="border-color:#f3c26b"><b>👁 Aperçu admin</b> : c\'est ce que voit un nouveau membre juste après sa connexion. Ton compte n\'est pas modifié.</div>' : ''}<section class="hero"><div class="moon"></div><span class="chip red">Bienvenue · étape obligatoire</span><h1 style="margin-top:12px">Importe ta collection en 1 clic</h1><p class="mute">Avant d'entrer, importe ta collection du jeu. Pas de captures : ${isDesktop() ? 'un simple copier-coller de ta sauvegarde du jeu' : isIOSdev() ? 'un signet « Import Brigade » (à créer une fois, tuto en images inclus)' : 'un favori « Import Brigade » (à créer une fois, tuto en images inclus)'} envoie toutes tes cartes, tes doublons et les étoiles de tes LR d'un coup. Meilleures équipes, échanges avec la Brigade et Kakashi sont alors réglés sur ton profil.</p></section>
+    <div class="card section" style="border-color:#e3123a"><div class="row" style="flex-wrap:nowrap;align-items:center"><b style="flex:1;min-width:0">${all ? '✅ Collection importée' : '⚡ Import en 1 clic'}</b><a class="btn ${all ? 'ghost' : 'primary'}" href="#clic" style="min-height:44px;flex-shrink:0;white-space:nowrap">${all ? 'Refaire' : '⚡ Importer ma collection'}</a></div><p class="small mute" style="margin:6px 0 0">Environ 2 minutes, à faire une seule fois. Un souci ? Ouvre un ticket sur le Discord.</p></div>
+    <div class="row section"><button class="btn primary" id="wgo" ${all ? '' : 'disabled'}>Entrer dans le repaire →</button>${all ? '' : '<span class="small mute">L\'import est nécessaire pour entrer.</span>'}</div>`;
   const ws = $('#wsh'); if (ws) ws.onchange = async e => { if (prev) return; const { error } = await sb.rpc('set_share', { v: e.target.checked }); if (error) { toast(error.message); e.target.checked = !e.target.checked; return; } S.profile.share = e.target.checked; };
   const g = $('#wgo'); if (g && prev) g.onclick = () => toast('Aperçu : rien n\'est enregistré.'); else if (g) g.onclick = async () => { S.mylr.teams = { ...(S.mylr.teams || {}), done: true }; await saveMyLR(); location.hash = '#accueil'; };
 };
@@ -1973,7 +1977,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=259'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=260'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
