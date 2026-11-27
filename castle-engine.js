@@ -2334,7 +2334,16 @@ try{positionStoryEffects=(function(f){return function(){var r=f.apply(this,argum
   // Un chiffre de dégâts par frappe, chacun au moment de SA frappe (avant : le total d'un coup, à la première).
   var sp=[].slice.call(pl.querySelectorAll('.story-damage.is-counter')).find(function(x){return !x.classList.contains('geass-extra');});
   if(sp){sp.textContent='−'+dmg(hits[0].h);sp.style.animationDelay=mom(hits[0].k);for(var q=1;q<hits.length;q++){var c=sp.cloneNode(true);c.textContent='−'+dmg(hits[q].h);c.style.animationDelay=mom(hits[q].k);sp.parentNode.appendChild(c);}}
-  var btn=pl.querySelector(':scope>button');if(btn&&pl.classList.contains('counter-hit')){var dur='calc(.4s * '+bt+')';btn.style.animation=hits.map(function(x){return 'storyHeavyImpact '+dur+' '+mom(x.k)+' ease-out both';}).join(', ');}
+  // Secousse à CHAQUE frappe, y compris quand la dernière met la carte K.O. (la chute vient après la dernière frappe).
+  var sec=function(v){var pr=document.createElement('i');pr.style.animationDelay=v;pl.appendChild(pr);var t=parseFloat(getComputedStyle(pr).animationDelay)||0;pr.remove();return t;};
+  var btn=pl.querySelector(':scope>button');if(btn){var cs=getComputedStyle(btn),N=cs.animationName.split(', ');if(N[0]&&N[0]!=='none'){var Du=cs.animationDuration.split(', '),De=cs.animationDelay.split(', '),Ti=cs.animationTimingFunction.split(', '),Fi=cs.animationFillMode.split(', '),g=function(A,i){return A[i]||A[A.length-1];},parts=[];
+   hits.forEach(function(x){parts.push(N[0]+' '+g(Du,0)+' '+sec(mom(x.k)).toFixed(3)+'s '+g(Ti,0)+' '+g(Fi,0));});
+   for(var z=1;z<N.length;z++)parts.push(N[z]+' '+g(Du,z)+' '+g(De,z)+' '+g(Ti,z)+' '+g(Fi,z));btn.style.animation=parts.join(', ');}}
+  // PV : le chiffre et la barre descendent frappe après frappe (avant : directement au total).
+  var mx=+((pl.querySelector('[aria-valuemax]')||{}).getAttribute?pl.querySelector('[aria-valuemax]').getAttribute('aria-valuemax'):0)||0,hd=pl.querySelector('.story-health'),aft=pl.querySelector('.story-hp-after');
+  if(mx&&hd&&aft){var after=function(q){return Math.max(0,hits[q].h.oldHp-dmg(hits[q].h));},txt=function(v){return '♥ '+v+' / '+mx+' PV'+(v===0?' · K.O.':'');};
+   if(lab)lab.style.setProperty('--label-impact',mom(hits[0].k));aft.textContent=txt(after(0));hd.style.setProperty('--hp-after',(after(0)/mx*100)+'%');var bi=hd.querySelector('i');if(bi)bi.style.width=(after(0)/mx*100)+'%';
+   var t0=performance.now();hits.slice(1).forEach(function(x,q){var at=sec(mom(x.k))*1000;setTimeout(function(){if(!pl.isConnected)return;var prev=after(q),now=after(q+1);aft.textContent=txt(now);hd.style.setProperty('--hp-before',(prev/mx*100)+'%');hd.style.setProperty('--hp-after',(now/mx*100)+'%');if(bi){bi.style.width=(now/mx*100)+'%';bi.style.animation='none';void bi.offsetWidth;bi.style.animation='combatHp '+(.45*bt).toFixed(3)+'s 0s ease both';}},Math.max(0,at-(performance.now()-t0)));});}
  });}catch(_){}return r;};})(positionStoryEffects);}catch(_){}
 /*__bfAudioUnlock 27/11 : sur iPhone/iPad, le son ne part que si le contexte audio est créé ou relancé PENDANT un geste (toucher, clic),
   et la session audio doit être en « playback » pour ne pas être coupée par le bouton silencieux. Avant, le contexte était créé au premier son
