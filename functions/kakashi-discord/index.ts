@@ -187,12 +187,69 @@ async function tournoiInteraction(i: any) {
   return eph('Action inconnue.');
 }
 
+// ---------- Tickets « comme YURO » (Nicolas 27/11) ----------
+// Bouton « 🎫 Ouvrir un ticket » posté dans #ticket-site : le bot crée un salon privé ticket-<pseudo>
+// visible seulement par le membre, le staff (Fondateur, Chef, Modérateur) et le bot, avec un bouton « 🔒 Fermer le ticket ».
+const TK_GUILD = '1572049244339183616', TK_PANEL = '1575274736265601204';
+const P = { VIEW: 1n << 10n, SEND: 1n << 11n, EMBED: 1n << 14n, ATTACH: 1n << 15n, HISTORY: 1n << 16n, MANAGE_CH: 1n << 4n, ADMIN: 1n << 3n, MANAGE_MSG: 1n << 13n };
+const STAFF_RE = /fondateur|chef|mod[ée]rat/i;
+async function botToken() { const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!); const { data } = await admin.from('secrets').select('value').eq('key', 'discord_bot_token').maybeSingle(); return data?.value as string; }
+async function DB(tok: string, path: string, init: RequestInit = {}) { const r = await fetch('https://discord.com/api/v10' + path, { ...init, headers: { Authorization: 'Bot ' + tok, 'Content-Type': 'application/json', ...(init.headers || {}) } }); const t = await r.text(); let j: unknown = t; try { j = JSON.parse(t); } catch (_) { /* texte */ } return { ok: r.ok, status: r.status, j }; }
+const followUp = (tok: string, content: string) => fetch(`https://discord.com/api/v10/webhooks/${APP_ID}/${tok}/messages/@original`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content, allowed_mentions: { parse: [] } }) });
+// deno-lint-ignore no-explicit-any
+async function ticketOpen(i: any) {
+  const user = i.member?.user || {}; const uid = String(user.id); const tok = await botToken();
+  if (!tok) return followUp(i.token, '❌ Le bot n\'est pas configuré, préviens le Chef.');
+  const chs = await DB(tok, `/guilds/${TK_GUILD}/channels`); if (!chs.ok) return followUp(i.token, '❌ Impossible d\'ouvrir le ticket pour l\'instant, réessaie dans une minute.');
+  // deno-lint-ignore no-explicit-any
+  const L = chs.j as any[]; const mine = L.find((c) => c.topic === `ticket:${uid}`);
+  if (mine) return followUp(i.token, `Tu as déjà un ticket ouvert : <#${mine.id}>`);
+  const panel = L.find((c) => c.id === TK_PANEL);
+  const roles = await DB(tok, `/guilds/${TK_GUILD}/roles`);
+  // deno-lint-ignore no-explicit-any
+  const staff = ((roles.j as any[]) || []).filter((r) => STAFF_RE.test(r.name) && !r.managed).map((r) => r.id as string);
+  const see = (P.VIEW | P.SEND | P.HISTORY | P.ATTACH | P.EMBED).toString();
+  const slug = String(user.username || 'membre').toLowerCase().replace(/[^a-z0-9_-]+/g, '').slice(0, 80) || 'membre';
+  const ow = [{ id: TK_GUILD, type: 0, deny: P.VIEW.toString() }, { id: uid, type: 1, allow: see }, { id: APP_ID, type: 1, allow: (BigInt(see) | P.MANAGE_CH | P.MANAGE_MSG).toString() }, ...staff.map((id: string) => ({ id, type: 0, allow: see }))];
+  const c = await DB(tok, `/guilds/${TK_GUILD}/channels`, { method: 'POST', body: JSON.stringify({ name: `ticket-${slug}`, type: 0, parent_id: panel?.parent_id || null, topic: `ticket:${uid}`, permission_overwrites: ow }) });
+  if (!c.ok) return followUp(i.token, `❌ Le bot n'a pas pu créer ton salon (erreur ${c.status}). Préviens le Chef.`);
+  // deno-lint-ignore no-explicit-any
+  const ch = (c.j as any).id;
+  await DB(tok, `/channels/${ch}/messages`, { method: 'POST', body: JSON.stringify({
+    content: `<@${uid}> ${staff.map((r: string) => `<@&${r}>`).join(' ')}`,
+    embeds: [{ color: 0xe3123a, title: '🎫 Ticket ouvert', description: `Bonjour <@${uid}>, explique ton problème avec le site de la Brigade (téléphone ou PC, ce que tu faisais, une capture d'écran si possible). Le staff te répondra dès que possible.`, footer: { text: 'Brigade Fantôme · ticket site' } }],
+    components: [{ type: 1, components: [{ type: 2, style: 4, custom_id: 'tkc', label: 'Fermer le ticket', emoji: { name: '🔒' } }] }],
+    allowed_mentions: { users: [uid], roles: staff } }) });
+  return followUp(i.token, `✅ Ton ticket est ouvert : <#${ch}>`);
+}
+// deno-lint-ignore no-explicit-any
+async function ticketClose(i: any) {
+  const tok = await botToken(); const user = i.member?.user || {}; const uid = String(user.id);
+  const chs = await DB(tok, `/channels/${i.channel_id}`); // deno-lint-ignore no-explicit-any
+  const ch = chs.j as any; const owner = String(ch?.topic || '').replace(/^ticket:/, '');
+  const perms = BigInt(i.member?.permissions || '0'); const isStaff = (perms & (P.ADMIN | P.MANAGE_CH)) !== 0n;
+  if (!String(ch?.topic || '').startsWith('ticket:')) return followUp(i.token, 'Ce ticket est déjà fermé.');
+  if (uid !== owner && !isStaff) return followUp(i.token, 'Seul l\'auteur du ticket ou le staff peut le fermer.');
+  // Fermé = gardé pour l'historique : le membre ne voit plus le salon, le staff garde la conversation.
+  await DB(tok, `/channels/${i.channel_id}/permissions/${owner}`, { method: 'PUT', body: JSON.stringify({ type: 1, deny: P.VIEW.toString() }) });
+  await DB(tok, `/channels/${i.channel_id}`, { method: 'PATCH', body: JSON.stringify({ name: ('ferme-' + String(ch.name || '').replace(/^ticket-/, '')).slice(0, 90), topic: `ticket-ferme:${owner}` }) });
+  await DB(tok, `/channels/${i.channel_id}/messages`, { method: 'POST', body: JSON.stringify({ content: `🔒 Ticket fermé par <@${uid}>.`, allowed_mentions: { parse: [] } }) });
+  return followUp(i.token, '🔒 Ticket fermé.');
+}
+
 Deno.serve(async (req) => {
   const sig = req.headers.get('X-Signature-Ed25519'), ts = req.headers.get('X-Signature-Timestamp');
   const raw = await req.text();
   if (!sig || !ts || !nacl.sign.detached.verify(new TextEncoder().encode(ts + raw), hex(sig), hex(Deno.env.get('DISCORD_PUBLIC_KEY')!))) return new Response('signature invalide', { status: 401 });
   const i = JSON.parse(raw);
   if (i.type === 1) return Response.json({ type: 1 });
+  if (i.type === 3 && ['tko', 'tkc'].includes(i.data?.custom_id)) {
+    if (String(i.guild_id) !== TK_GUILD) return Response.json({ type: 4, data: { content: 'Réservé à la Brigade Fantôme.', flags: 64 } });
+    const job = i.data.custom_id === 'tko' ? ticketOpen(i) : ticketClose(i);
+    // deno-lint-ignore no-explicit-any
+    (globalThis as any).EdgeRuntime?.waitUntil ? (globalThis as any).EdgeRuntime.waitUntil(job) : job;
+    return Response.json({ type: 5, data: { flags: 64 } });
+  }
   if ((i.type === 2 && i.data?.name === 'tournoi') || (i.type === 3 && ['tj', 'tp'].includes(i.data?.custom_id))) return await tournoiInteraction(i);
   if (i.type === 2 && i.data?.name === 'kakashi') {
     const eph = (content: string) => Response.json({ type: 4, data: { content, flags: 64 } });
