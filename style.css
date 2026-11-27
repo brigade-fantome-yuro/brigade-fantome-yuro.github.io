@@ -797,3 +797,7 @@ details.adsec>summary{cursor:pointer;font-weight:700;list-style-position:inside}
 .n2bar .n2brand{flex-shrink:0}.n2bar .n2q{min-width:120px}.n2bar .n2clic{white-space:nowrap;flex-shrink:0}
 @media (max-width:1180px){.n2bar{gap:12px}.n2bar .n2q{display:none}}
 @media (max-width:1100px){.n2tabs a{padding:8px 10px}}
+
+/* Bandeau « Nouvelle version » : bouton × pour le masquer, et caché pendant une fenêtre (import, etc.) pour ne rien recouvrir (27/11) */
+#bfvbar .bfv-x{background:none;border:0;color:var(--mute);font-size:22px;line-height:1;padding:4px 6px;cursor:pointer;flex-shrink:0}
+body:has(.modal) #bfvbar{display:none}
