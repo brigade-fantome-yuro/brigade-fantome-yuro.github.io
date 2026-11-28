@@ -834,3 +834,6 @@ html,body{overflow-x:clip}
   .card table.tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .adtools{max-width:100%}.adtools>*{max-width:100%}
 }
+
+/* Transactions sur téléphone (28/11) : carte et pseudo chacun sur toute la largeur */
+@media (max-width:720px){.txin{flex:1 1 100%!important;min-width:0!important}}

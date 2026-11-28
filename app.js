@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=282';
+import * as CFG from './config.js?v=283';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=282';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=282';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=283';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=283';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=282';
-import * as SCAN from './scan.js?v=282';
+import { duelRate } from './ranked.js?v=283';
+import * as SCAN from './scan.js?v=283';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -716,12 +716,12 @@ P.prix = m => {
 
 /* ---------- Dernières transactions (comme le comptoir du jeu, LR + UR évo, 24 h) ---------- */
 P.transactions = async m => {
-  let mode = 'all', card = '', who = '', rows = [], wrows = null, wq = '', win = '24h'; const WD = { '24h': 1, '7j': 7, '30j': 30 };
+  let mode = 'all', card = '', who = '', rows = [], wrows = null, wq = '', win = '24h', winUser = '24h', all30 = null, all30At = 0; const WD = { '24h': 1, '7j': 7, '30j': 30 };
   loadAlerts().then(() => { const b = document.querySelector('#txm [data-m="al"]'); if (b && S.alerts?.length) b.textContent = `Mes alertes (${S.alerts.length})`; }).catch(() => {});
   m.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center"><h1 style="margin:0">Dernières transactions</h1><span class="live" title="Mis à jour en direct"><i></i>EN DIRECT</span></div><p class="mute">Toutes les ventes réelles (24 h, 7 jours ou 30 jours au choix) sur les LR et les UR d'évolution, comme le comptoir du jeu : heure, carte, prix, vendeur et acheteur. La plus récente en haut. Tape un pseudo YURO pour voir tous ses achats et toutes ses ventes.</p>
     <div class="row"><div class="tabs" style="margin:0" id="txm"><button data-m="all" class="on">Toutes</button><button data-m="al">Mes alertes${S.alerts?.length ? ` (${S.alerts.length})` : ''}</button></div>
-    <div class="tabs" style="margin:0" id="txwin">${['24h', '7j', '30j'].map(w => `<button data-w="${w}" class="${w === '24h' ? 'on' : ''}">${w}</button>`).join('')}</div><input id="txq" list="txcards" placeholder="Une carte en particulier" style="flex:1;min-width:200px"><datalist id="txcards"></datalist>
-    <input id="txw" list="txwho" placeholder="Un pseudo YURO (achats et ventes)" style="flex:1;min-width:200px" autocomplete="off"><datalist id="txwho"></datalist></div>
+    <div class="tabs" style="margin:0" id="txwin">${['24h', '7j', '30j'].map(w => `<button data-w="${w}" class="${w === '24h' ? 'on' : ''}">${w}</button>`).join('')}</div><input id="txq" class="txin" list="txcards" placeholder="Une carte" style="flex:1;min-width:200px"><datalist id="txcards"></datalist>
+    <input id="txw" class="txin" list="txwho" placeholder="Un pseudo YURO" style="flex:1;min-width:200px" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search"><datalist id="txwho"></datalist></div>
     <div id="txs"></div>
     <div id="txl" class="section"><div class="empty">Chargement…</div></div>
     <p class="small mute">Les pseudos viennent du comptoir du marché, relevé toutes les 15 secondes depuis le 25/11 au soir. Les ventes plus anciennes peuvent rester « non relevé ». Les versions prestige sont relevées depuis le 27/11 (marquées ✦ PRESTIGE, avec leur propre prix moyen). Les prix aberrants (moins de 40 % ou plus de 300 % du prix médian, par exemple un 0 oublié) restent affichés mais ne comptent pas dans les moyennes.</p>`;
@@ -729,6 +729,10 @@ P.transactions = async m => {
   const hh = d => d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
   const dd = d => d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
   const low = x => String(x || '').trim().toLowerCase();
+  // Pseudos (28/11) : lettres « fantaisie » (𝒯𝓇𝒾𝓍), accents, emojis et symboles ignorés pour comparer : « trix » trouve @𝒯𝓇𝒾𝓍, « egoiste » trouve @•Egoi§Tε.
+  const nk = x => String(x || '').normalize('NFKC').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+  const hasW = (r, w) => { const k = nk(w); if (!k) return false; return nk(r.buyer).includes(k) || nk(r.seller).includes(k); };
+  const isBuy = (r, w) => nk(r.buyer).includes(nk(w));
   // Code couleur du prix (Nicolas 27/11) : écart au prix moyen des 7 derniers jours.
   // violet = braquage (≤ −25 %), vert = bonne affaire (−25 à −10 %), orange = dans la moyenne (−10 à +15 %), rouge = cher (> +15 %).
   // Moyennes sans les prix aberrants (Nicolas 27/11) : sous 40 % ou au-dessus de 300 % de la médiane, la vente reste affichée mais hors moyenne.
@@ -747,38 +751,49 @@ P.transactions = async m => {
     const q = low(card), w = low(who), al = new Set((S.alerts || []).map(a => low(a.card)));
     const src = w && wrows ? wrows : rows;
     const tmin = Date.now() - WD[win] * 864e5;
-    const list = src.filter(r => Date.parse(r.sold_at) >= tmin && (!q || low(r.card).includes(q)) && (mode !== 'al' || al.has(low(r.card))) && (!w || low(r.buyer).includes(w) || low(r.seller).includes(w)));
+    const list = src.filter(r => Date.parse(r.sold_at) >= tmin && (!q || low(r.card).includes(q)) && (mode !== 'al' || al.has(low(r.card))) && (!w || hasW(r, w)));
     const sm = $('#txs');
     const none = w && wrows && !wrows.length;
     if (sm) {
       if (w && !none) {
-        const buys = list.filter(r => low(r.buyer).includes(w)), sells = list.filter(r => low(r.seller).includes(w)), sum = a => a.reduce((t, r) => t + (+r.price || 0), 0);
+        const buys = list.filter(r => isBuy(r, w)), sells = list.filter(r => !isBuy(r, w)), sum = a => a.reduce((t, r) => t + (+r.price || 0), 0);
         sm.innerHTML = `<div class="row" style="gap:12px;margin:10px 0 0;flex-wrap:wrap"><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">@${esc(who.trim())} · achats</small><div style="font-size:22px;font-weight:800">${buys.length} <small class="mute" style="font-size:13px">pour ${fmt(sum(buys))} ki</small></div></div><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">@${esc(who.trim())} · ventes</small><div style="font-size:22px;font-weight:800">${sells.length} <small class="mute" style="font-size:13px">pour ${fmt(sum(sells))} ki</small></div></div><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">Solde</small><div style="font-size:22px;font-weight:800;color:${sum(sells) - sum(buys) >= 0 ? '#4fb3a0' : '#ff6b6b'}">${sum(sells) - sum(buys) >= 0 ? '+' : '−'}${fmt(Math.abs(sum(sells) - sum(buys)))} <small class="mute" style="font-size:13px">ki</small></div></div></div><p class="small mute" style="margin:6px 0 0">Achats et ventes de ce pseudo sur ${win === '24h' ? 'les dernières 24 h' : win === '7j' ? 'les 7 derniers jours' : 'les 30 derniers jours'}.</p>`;
       } else sm.innerHTML = '';
     }
-    const tag = r => !w ? '' : low(r.buyer).includes(w) ? '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#4fb3a0;background:#4fb3a01a;border:1px solid #4fb3a055">ACHAT</span>' : '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#ff9f6b;background:#ff9f6b1a;border:1px solid #ff9f6b55">VENTE</span>';
+    const tag = r => !w ? '' : isBuy(r, w) ? '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#4fb3a0;background:#4fb3a01a;border:1px solid #4fb3a055">ACHAT</span>' : '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#ff9f6b;background:#ff9f6b1a;border:1px solid #ff9f6b55">VENTE</span>';
     $('#txl').innerHTML = !list.length ? `<div class="empty">${w && !wrows ? 'Recherche…' : mode === 'al' && !al.size ? "Tu n'as pas encore d'alerte : crée-en dans « Alertes marché »." : w ? 'Aucun joueur trouvé avec ce pseudo.' : `Aucune vente sur ${win === '24h' ? '24 h' : win === '7j' ? '7 jours' : '30 jours'} pour ce filtre.`}</div>` :
       `<div class="txlist">${list.map(r => { const d = new Date(r.sold_at); return `<div class="txrow"><div class="txt"><b>${hh(d)}</b><span>${dd(d)}</span></div>${img(r) ? `<img src="${esc(img(r))}" alt="" loading="lazy">` : '<i class="txi"></i>'}<div class="txc"><b>${esc(r.card)}${tag(r)}</b><span>${r.rarity === 'Mythique' ? 'UR évolution' : 'LR'}${r.prestige ? ' · <i class="txpr">✦ PRESTIGE</i>' : ' · classique'}</span></div><div class="txp ${anom(r) ? acls(r) : pcls(r)}">${fmt(r.price)} <small>ki</small>${avgLine(r)}</div><div class="txw"><span><small>Vendeur</small>${r.seller ? '@' + esc(r.seller) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span><span><small>Acheteur</small>${r.buyer ? '@' + esc(r.buyer) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span></div></div>`; }).join('')}</div>`;
   };
   const sel = 'card,rarity,img,price,sold_at,buyer,seller,prestige';
   // Recherche par pseudo (corrigée 28/11) : morceau de pseudo accepté (« santaa » trouve SantaaSama), pseudos avec espaces, tirets, emojis ou symboles
   // (valeur entre guillemets dans le filtre), et si le joueur n'a rien sur la période choisie, la période s'élargit seule (7 j puis 30 j).
-  const loadWho = async () => { const w = who.trim(); if (!w) { wrows = null; return; } const k = low(w); if (wq === k && wrows) return; wq = k; wrows = null; draw();
-    const pat = w.replace(/["\\%*,()]/g, '').trim(); if (!pat) { wrows = []; draw(); return; }
-    const { data, error } = await sb.from('tx').select(sel).or(`buyer.ilike."*${pat}*",seller.ilike."*${pat}*"`).order('sold_at', { ascending: false }).limit(1000);
-    if (wq !== k) return; wrows = error ? [] : (data || []);
-    if (wrows.length) { const inWin = d => wrows.some(r => Date.parse(r.sold_at) >= Date.now() - WD[d] * 864e5); if (!inWin(win)) { const nw = ['24h', '7j', '30j'].find(inWin) || '30j'; if (nw !== win) { win = nw; $('#txwin')?.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.w === win)); load(); } } }
+  // Recherche par pseudo (corrigée 28/11, 2e passe) : la base cherche le morceau tel quel, et on compare aussi en local les 30 derniers jours
+  // avec les pseudos « nettoyés » (lettres fantaisie, emojis, symboles), sinon « trix » ne trouvait pas @𝒯𝓇𝒾𝓍.
+  const get30 = async () => { if (all30 && Date.now() - all30At < 120000) return all30; const since = new Date(Date.now() - 30 * 864e5).toISOString(); let a = [];
+    for (let from = 0; from < 20000; from += 1000) { const { data, error } = await sb.from('tx').select(sel).gte('sold_at', since).order('sold_at', { ascending: false }).range(from, from + 999); if (error) break; a = a.concat(data || []); if (!data || data.length < 1000) break; }
+    all30 = a; all30At = Date.now(); return a; };
+  const loadWho = async () => { const w = who.trim(); if (!w) { wrows = null; return; } const k = nk(w); if (wq === k && wrows) return; wq = k; wrows = null; draw();
+    if (!k) { wrows = []; draw(); return; }
+    const pat = w.replace(/["\\%*,()]/g, '').trim();
+    const [srv, loc] = await Promise.all([pat ? sb.from('tx').select(sel).or(`buyer.ilike."*${pat}*",seller.ilike."*${pat}*"`).order('sold_at', { ascending: false }).limit(1000).then(r => r.data || [], () => []) : Promise.resolve([]), get30().catch(() => [])]);
+    if (wq !== k) return;
+    const seen = new Set(), out = [];
+    for (const r of srv.concat(loc)) { if (!hasW(r, w)) continue; const id = r.sold_at + '|' + r.card + '|' + r.price; if (seen.has(id)) continue; seen.add(id); out.push(r); }
+    wrows = out.sort((a, b) => Date.parse(b.sold_at) - Date.parse(a.sold_at));
+    if (wrows.length) { const inWin = d => wrows.some(r => Date.parse(r.sold_at) >= Date.now() - WD[d] * 864e5); if (!inWin(win)) { const nw = ['24h', '7j', '30j'].find(inWin) || '30j'; if (nw !== win) setWin(nw, false); } }
     draw(); };
+  // Période : celle choisie par le membre (winUser) revient quand on efface le pseudo ; l'élargissement automatique n'est que temporaire.
+  const setWin = (w, byUser) => { win = w; if (byUser) winUser = w; $('#txwin')?.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.w === win)); draw(); load(); };
   const load = async () => { const w0 = win, since = new Date(Date.now() - WD[w0] * 864e5).toISOString(); let all = [];
     for (let from = 0; from < 10000; from += 1000) { const { data, error } = await sb.from('tx').select(sel).gte('sold_at', since).order('sold_at', { ascending: false }).range(from, from + 999); if (error) return; all = all.concat(data || []); if (!data || data.length < 1000) break; }
     if (w0 !== win) return; rows = all; if (w0 === '24h') try { localStorage.setItem('bf_tx', JSON.stringify(rows.slice(0, 300))); } catch (e) { /* plein */ }
     const dl = $('#txcards'); if (dl) dl.innerHTML = [...new Set(rows.map(r => r.card))].sort((a, b) => a.localeCompare(b)).map(c => `<option value="${esc(c)}">`).join('');
     const dw = $('#txwho'); if (dw) dw.innerHTML = [...new Set(rows.flatMap(r => [r.buyer, r.seller]).filter(Boolean))].sort((a, b) => a.localeCompare(b)).map(c => `<option value="${esc(c)}">`).join('');
     if (who.trim()) { wq = ''; await loadWho(); } if ($('#txl')) draw(); };
-  $('#txwin').querySelectorAll('button').forEach(b => b.onclick = () => { win = b.dataset.w; $('#txwin').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); draw(); load(); });
+  $('#txwin').querySelectorAll('button').forEach(b => b.onclick = () => setWin(b.dataset.w, true));
   $('#txm').querySelectorAll('button').forEach(b => b.onclick = () => { mode = b.dataset.m; $('#txm').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
   $('#txq').oninput = e => { card = e.target.value; draw(); };
-  let wt; $('#txw').oninput = e => { who = e.target.value.replace(/^@/, ''); clearTimeout(wt); if (!who.trim()) { wrows = null; wq = ''; draw(); return; } wt = setTimeout(loadWho, 350); };
+  let wt; $('#txw').oninput = e => { who = e.target.value.replace(/^@/, ''); clearTimeout(wt); if (!who.trim()) { wrows = null; wq = ''; if (win !== winUser) setWin(winUser, false); else draw(); return; } wt = setTimeout(loadWho, 350); };
   // Affichage immédiat depuis la dernière copie, puis mise à jour en arrière-plan (27/11).
   try { const c = JSON.parse(localStorage.getItem('bf_tx') || 'null'); if (c && c.length) { const t0 = Date.now() - 864e5; rows = c.filter(r => Date.parse(r.sold_at) >= t0); draw(); } } catch (e) { /* rien */ }
   load(); S.timers.push(setInterval(load, 30000));
@@ -892,10 +907,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=282'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=283'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'strat' && !stWorker) { stWorker = new Worker('sim-brain-worker.js?v=282'); stWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.m || null); } }; }
+    if (mode === 'strat' && !stWorker) { stWorker = new Worker('sim-brain-worker.js?v=283'); stWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.m || null); } }; }
     const obsOf = () => BFDuel.info().hist.slice(1).filter(h => h.from && !ai[h.side]).map(h => ({ S: h.from, m: h.mv })).slice(-30);
     // Seul ordinateur : le Stratège. S'il ne répond pas (rare), on lui redemande le coup avec moins de temps de réflexion.
     const ask = (D, ms) => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); stWorker.postMessage({ id, from: D, side: D.s, obs: obsOf(), ms }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, ms + 12000); });
@@ -1058,7 +1073,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=282'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=283'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -2019,7 +2034,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=282'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=283'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
