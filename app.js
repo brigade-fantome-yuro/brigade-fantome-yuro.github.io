@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=280';
+import * as CFG from './config.js?v=281';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=280';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=280';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=281';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=281';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=280';
-import * as SCAN from './scan.js?v=280';
+import { duelRate } from './ranked.js?v=281';
+import * as SCAN from './scan.js?v=281';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -135,9 +135,10 @@ async function fetchSales(sinceTs) {
 }
 async function loadPrices() {
   const lim = Date.now() - 31 * 864e5;
-  let cache = null; try { cache = JSON.parse(localStorage.getItem('bf_sales') || 'null'); } catch (e) { /* rien */ }
+  // 28/11 : les ventes des UR d'évolution (Sukuna, Pucci, Vegeta, Aizen, Ichigo, Saitama) sont ajoutées sur 31 j → nouvelle copie locale (bf_sales2) pour tout recharger une fois.
+  let cache = null; try { localStorage.removeItem('bf_sales'); cache = JSON.parse(localStorage.getItem('bf_sales2') || 'null'); } catch (e) { /* rien */ }
   const refresh = async base => { const last = base.length ? base[base.length - 1].ts : lim; const add = await fetchSales(Math.max(lim, last));
-    const all = base.concat(add).filter(x => x.ts >= lim); try { localStorage.setItem('bf_sales', JSON.stringify(all)); } catch (e) { /* plein */ } pricesFrom(all); return add.length; };
+    const all = base.concat(add).filter(x => x.ts >= lim); try { localStorage.setItem('bf_sales2', JSON.stringify(all)); } catch (e) { /* plein */ } pricesFrom(all); return add.length; };
   if (cache && cache.length) { pricesFrom(cache.filter(x => x.ts >= lim)); if (!pricesBusy) pricesBusy = refresh(S.sales).catch(() => 0).finally(() => { pricesBusy = null; }); return; }
   await refresh([]).catch(() => pricesFrom([]));
 }
@@ -723,7 +724,7 @@ P.transactions = async m => {
   // violet = braquage (≤ −25 %), vert = bonne affaire (−25 à −10 %), orange = dans la moyenne (−10 à +15 %), rouge = cher (> +15 %).
   // Moyennes sans les prix aberrants (Nicolas 27/11) : sous 40 % ou au-dessus de 300 % de la médiane, la vente reste affichée mais hors moyenne.
   const AVG = new Map(), OK7 = new Map(); { const t0 = Date.now() - 7 * 864e5, acc = new Map(); for (const x of S.sales || []) if (x.ts >= t0 && +x.price > 0) { const k = low(x.card); if (!acc.has(k)) acc.set(k, []); acc.get(k).push(+x.price); } acc.forEach((ps, k) => { const ok = priceOk(ps), v = ps.filter(ok); OK7.set(k, ok); if (v.length) AVG.set(k, Math.round(v.reduce((t, p) => t + p, 0) / v.length)); }); }
-  // UR d'évolution : pas dans les ventes 31 j → moyenne des ventes relevées au comptoir (24 h) pour la même carte.
+  // UR d'évolution : dans les ventes 31 j depuis le 28/11 (moyennes 7 j / 30 j comme les LR) ; repli sur le comptoir (24 h) si une carte n'a aucune vente.
   // Prestige (27/11) : moyenne à part, calculée sur les ventes prestige relevées au comptoir ; la carte classique garde sa moyenne 7 j.
   const txAvg = (k, pr) => { const L = (wrows || []).concat(rows).filter(r => low(r.card) === k && !!r.prestige === pr && +r.price > 0); const seen = new Set(), U = L.filter(r => { const id = r.sold_at + r.price; if (seen.has(id)) return false; seen.add(id); return true; }); const ok = priceOk(U.map(r => +r.price)), V = U.filter(r => ok(+r.price)); return V.length >= 2 ? Math.round(V.reduce((t, r) => t + +r.price, 0) / V.length) : 0; };
   const avgOf = (c, pr) => { const k = low(c); if (pr) return txAvg(k, true); if (AVG.has(k)) return AVG.get(k); return txAvg(k, false); };
@@ -882,10 +883,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=280'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=281'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'strat' && !stWorker) { stWorker = new Worker('sim-brain-worker.js?v=280'); stWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.m || null); } }; }
+    if (mode === 'strat' && !stWorker) { stWorker = new Worker('sim-brain-worker.js?v=281'); stWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.m || null); } }; }
     const obsOf = () => BFDuel.info().hist.slice(1).filter(h => h.from && !ai[h.side]).map(h => ({ S: h.from, m: h.mv })).slice(-30);
     // Seul ordinateur : le Stratège. S'il ne répond pas (rare), on lui redemande le coup avec moins de temps de réflexion.
     const ask = (D, ms) => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); stWorker.postMessage({ id, from: D, side: D.s, obs: obsOf(), ms }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, ms + 12000); });
@@ -1048,7 +1049,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=280'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=281'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -2009,7 +2010,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=280'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=281'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
