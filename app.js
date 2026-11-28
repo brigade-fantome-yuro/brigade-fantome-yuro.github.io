@@ -1,11 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
-import * as CFG from './config.js?v=279';
+import * as CFG from './config.js?v=280';
 const { SUPABASE_URL, SUPABASE_ANON_KEY, DISCORD_INVITE, EMAIL_DOMAIN } = CFG;
-import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=279';
-import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=279';
+import { answer, statsAt, towerAt, twoShotRoom, ROLE, setTwoShot, priceStats, priceOk } from './kakashi.js?v=280';
+import { castleReport, APPROX, KIND, farmRate } from './castle.js?v=280';
 const KIND_OF = id => (KIND[id] || {}).k;
-import { duelRate } from './ranked.js?v=279';
-import * as SCAN from './scan.js?v=279';
+import { duelRate } from './ranked.js?v=280';
+import * as SCAN from './scan.js?v=280';
 
 // Session gardée dans le navigateur et renouvelée automatiquement : on reste connecté.
 const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'brigade-auth' } });
@@ -737,24 +737,28 @@ P.transactions = async m => {
     const q = low(card), w = low(who), al = new Set((S.alerts || []).map(a => low(a.card)));
     const src = w && wrows ? wrows : rows;
     const tmin = Date.now() - WD[win] * 864e5;
-    const list = src.filter(r => Date.parse(r.sold_at) >= tmin && (!q || low(r.card).includes(q)) && (mode !== 'al' || al.has(low(r.card))) && (!w || low(r.buyer) === w || low(r.seller) === w));
+    const list = src.filter(r => Date.parse(r.sold_at) >= tmin && (!q || low(r.card).includes(q)) && (mode !== 'al' || al.has(low(r.card))) && (!w || low(r.buyer).includes(w) || low(r.seller).includes(w)));
     const sm = $('#txs');
     const none = w && wrows && !wrows.length;
     if (sm) {
       if (w && !none) {
-        const buys = list.filter(r => low(r.buyer) === w), sells = list.filter(r => low(r.seller) === w), sum = a => a.reduce((t, r) => t + (+r.price || 0), 0);
+        const buys = list.filter(r => low(r.buyer).includes(w)), sells = list.filter(r => low(r.seller).includes(w)), sum = a => a.reduce((t, r) => t + (+r.price || 0), 0);
         sm.innerHTML = `<div class="row" style="gap:12px;margin:10px 0 0;flex-wrap:wrap"><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">@${esc(who.trim())} · achats</small><div style="font-size:22px;font-weight:800">${buys.length} <small class="mute" style="font-size:13px">pour ${fmt(sum(buys))} ki</small></div></div><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">@${esc(who.trim())} · ventes</small><div style="font-size:22px;font-weight:800">${sells.length} <small class="mute" style="font-size:13px">pour ${fmt(sum(sells))} ki</small></div></div><div class="card" style="flex:1;min-width:180px;padding:14px 16px"><small class="mute">Solde</small><div style="font-size:22px;font-weight:800;color:${sum(sells) - sum(buys) >= 0 ? '#4fb3a0' : '#ff6b6b'}">${sum(sells) - sum(buys) >= 0 ? '+' : '−'}${fmt(Math.abs(sum(sells) - sum(buys)))} <small class="mute" style="font-size:13px">ki</small></div></div></div><p class="small mute" style="margin:6px 0 0">Achats et ventes de ce pseudo sur ${win === '24h' ? 'les dernières 24 h' : win === '7j' ? 'les 7 derniers jours' : 'les 30 derniers jours'}.</p>`;
       } else sm.innerHTML = '';
     }
-    const tag = r => !w ? '' : low(r.buyer) === w ? '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#4fb3a0;background:#4fb3a01a;border:1px solid #4fb3a055">ACHAT</span>' : '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#ff9f6b;background:#ff9f6b1a;border:1px solid #ff9f6b55">VENTE</span>';
+    const tag = r => !w ? '' : low(r.buyer).includes(w) ? '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#4fb3a0;background:#4fb3a01a;border:1px solid #4fb3a055">ACHAT</span>' : '<span style="display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:800;color:#ff9f6b;background:#ff9f6b1a;border:1px solid #ff9f6b55">VENTE</span>';
     $('#txl').innerHTML = !list.length ? `<div class="empty">${w && !wrows ? 'Recherche…' : mode === 'al' && !al.size ? "Tu n'as pas encore d'alerte : crée-en dans « Alertes marché »." : w ? 'Aucun joueur trouvé avec ce pseudo.' : `Aucune vente sur ${win === '24h' ? '24 h' : win === '7j' ? '7 jours' : '30 jours'} pour ce filtre.`}</div>` :
       `<div class="txlist">${list.map(r => { const d = new Date(r.sold_at); return `<div class="txrow"><div class="txt"><b>${hh(d)}</b><span>${dd(d)}</span></div>${img(r) ? `<img src="${esc(img(r))}" alt="" loading="lazy">` : '<i class="txi"></i>'}<div class="txc"><b>${esc(r.card)}${tag(r)}</b><span>${r.rarity === 'Mythique' ? 'UR évolution' : 'LR'}${r.prestige ? ' · <i class="txpr">✦ PRESTIGE</i>' : ' · classique'}</span></div><div class="txp ${anom(r) ? acls(r) : pcls(r)}">${fmt(r.price)} <small>ki</small>${avgLine(r)}</div><div class="txw"><span><small>Vendeur</small>${r.seller ? '@' + esc(r.seller) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span><span><small>Acheteur</small>${r.buyer ? '@' + esc(r.buyer) : '<i class="mute" title="Pseudo non relevé sur le comptoir du marché">non relevé</i>'}</span></div></div>`; }).join('')}</div>`;
   };
   const sel = 'card,rarity,img,price,sold_at,buyer,seller,prestige';
+  // Recherche par pseudo (corrigée 28/11) : morceau de pseudo accepté (« santaa » trouve SantaaSama), pseudos avec espaces, tirets, emojis ou symboles
+  // (valeur entre guillemets dans le filtre), et si le joueur n'a rien sur la période choisie, la période s'élargit seule (7 j puis 30 j).
   const loadWho = async () => { const w = who.trim(); if (!w) { wrows = null; return; } const k = low(w); if (wq === k && wrows) return; wq = k; wrows = null; draw();
-    const pat = w.replace(/[%_,()]/g, '');
-    const { data } = await sb.from('tx').select(sel).or(`buyer.ilike.${pat},seller.ilike.${pat}`).order('sold_at', { ascending: false }).limit(1000);
-    if (wq === k) { wrows = data || []; draw(); } };
+    const pat = w.replace(/["\\%*,()]/g, '').trim(); if (!pat) { wrows = []; draw(); return; }
+    const { data, error } = await sb.from('tx').select(sel).or(`buyer.ilike."*${pat}*",seller.ilike."*${pat}*"`).order('sold_at', { ascending: false }).limit(1000);
+    if (wq !== k) return; wrows = error ? [] : (data || []);
+    if (wrows.length) { const inWin = d => wrows.some(r => Date.parse(r.sold_at) >= Date.now() - WD[d] * 864e5); if (!inWin(win)) { const nw = ['24h', '7j', '30j'].find(inWin) || '30j'; if (nw !== win) { win = nw; $('#txwin')?.querySelectorAll('button').forEach(x => x.classList.toggle('on', x.dataset.w === win)); load(); } } }
+    draw(); };
   const load = async () => { const w0 = win, since = new Date(Date.now() - WD[w0] * 864e5).toISOString(); let all = [];
     for (let from = 0; from < 10000; from += 1000) { const { data, error } = await sb.from('tx').select(sel).gte('sold_at', since).order('sold_at', { ascending: false }).range(from, from + 999); if (error) return; all = all.concat(data || []); if (!data || data.length < 1000) break; }
     if (w0 !== win) return; rows = all; if (w0 === '24h') try { localStorage.setItem('bf_tx', JSON.stringify(rows.slice(0, 300))); } catch (e) { /* plein */ }
@@ -878,10 +882,10 @@ P.simulateur = m => {
     $('#plErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#plErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#plErr').textContent = '';
-    if (!worker) { worker = new Worker('duel-worker.js?v=279'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
+    if (!worker) { worker = new Worker('duel-worker.js?v=280'); worker.onmessage = ({ data }) => { const info = BFDuel.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res }); side(BFDuel.info()); } }; }
     $('#plSetup').style.display = 'none'; $('#plGame').style.display = '';
     const sv = $('#plStart').value;
-    if (mode === 'strat' && !stWorker) { stWorker = new Worker('sim-brain-worker.js?v=279'); stWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.m || null); } }; }
+    if (mode === 'strat' && !stWorker) { stWorker = new Worker('sim-brain-worker.js?v=280'); stWorker.onmessage = ({ data }) => { const f = aiWait.get(data.id); if (f) { aiWait.delete(data.id); f(data.m || null); } }; }
     const obsOf = () => BFDuel.info().hist.slice(1).filter(h => h.from && !ai[h.side]).map(h => ({ S: h.from, m: h.mv })).slice(-30);
     // Seul ordinateur : le Stratège. S'il ne répond pas (rare), on lui redemande le coup avec moins de temps de réflexion.
     const ask = (D, ms) => new Promise(ok => { const id = ++aiSeq; aiWait.set(id, ok); stWorker.postMessage({ id, from: D, side: D.s, obs: obsOf(), ms }); setTimeout(() => { if (aiWait.has(id)) { aiWait.delete(id); ok(null); } }, ms + 12000); });
@@ -1044,7 +1048,7 @@ P.chateausim = m => {
     $('#csErr').textContent = 'Chargement du combat…';
     try { await loadEngine(); } catch { $('#csErr').textContent = 'Impossible de charger le moteur du jeu.'; return; }
     $('#csErr').textContent = '';
-    if (!worker) { worker = new Worker('castle-worker.js?v=279'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
+    if (!worker) { worker = new Worker('castle-worker.js?v=280'); worker.onmessage = ({ data }) => { const info = BFCastle.info(); const h = info.hist.find(x => x.sent === data.id); if (h) { AN.set(h, { res: data.res.sort((a, b) => b.p - a.p) }); side(BFCastle.info()); } }; }
     const catalog = (S.kb.cards || []).filter(c => !c.r).map(c => ({ name: c.n, rarity: 'Secret', image: lrImg(c) })).filter(c => c.image);
     $('#csSetup').style.display = 'none'; $('#csGoal').style.display = 'none'; $('#csGame').style.display = '';
     BFCastle.mount(null, { frame: true, team, catalog, room, onChange, onQuit: () => { BFCastle.stop(); $('#csGame').style.display = 'none'; $('#csSetup').style.display = ''; $('#csGoal').style.display = ''; } });
@@ -2005,7 +2009,7 @@ function castleEval(team, own) {
 }
 // Calculs d'équipe avec le moteur de combat du jeu (le même que les simulateurs), dans un worker.
 let TW = null, twSeq = 0; const twWait = new Map();
-function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=279'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
+function twCall(msg) { if (!TW) { TW = new Worker('team-worker.js?v=280'); TW.onmessage = ({ data }) => { const f = twWait.get(data.id); if (f) { twWait.delete(data.id); f(data.r); } }; } return new Promise(ok => { const id = ++twSeq; twWait.set(id, ok); TW.postMessage({ ...msg, id }); }); }
 const engUnit = (c, st) => { const s = c.ex ? { hp: c.st[st][0], atk: c.st[st][1] } : statsAt(c, st); return { name: c.n, rarity: c.ex ? 'Exclusive' : c.r === 'Transcendant' ? 'Transcendant' : 'Secret', image: c.ex ? c.img : lrImg(c), hp: s.hp, atk: s.atk }; };
 // Gardiens du château tirés dans TOUT le catalogue du jeu (comme le vrai jeu) : leur nom compte (ex. SKILL HUNTER de Chrollo ne vole une technique que si le gardien en a une, sinon il vole 25 % de son attaque).
 const CAT_RAR = { C: 'Commun', R: 'Rare', E: 'Épique', L: 'Légendaire', M: 'Mythique', S: 'Secret' };
